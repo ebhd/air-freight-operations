@@ -11,11 +11,9 @@ Flight schedules and cargo bookings arrive from existing data feeds. The system 
 | Flight Planning | Supporting | It keeps flight times and delays reliable so operations can respond. |
 | Freight Loading | Core | Planning, checking and finalising the cargo load is central to this air-freight system. |
 | Partner Messaging | Supporting | It creates the required flight and load messages for external parties when relevant events occur. |
-| Identity and Access Management | Generic | Signing users in is a common problem handled by Keycloak; each operational context still enforces its own action rules. |
+| Identity and Access Management (IAM)          | Generic | Signing users in is a common problem handled by Keycloak; each operational context still enforces its own action rules. |
 
 ## 2. Bounded contexts
-
-Proposed boundaries; the project case specifies the behavior, but leaves context and service ownership to the team.
 
 ```mermaid
 flowchart LR
@@ -26,25 +24,23 @@ flowchart LR
         C["ULD booking, Load<br/>Position, Floor Plan, Load Check"]
     end
     subgraph PC["Partner Communication"]
-        M["FLM, MVT, CPM<br/>message identity and version"]
+        M["FLM, MVT, CPM<br/>partner delivery"]
     end
-    IAM["Identity and Access Management<br/>(Keycloak, external)"]
+    IAM["Identity and Access Management<br/>(external)"]
 
     F -->|flight identity, state and times| C
     F -->|flight changes| M
-    C -->|finalized load| M
-    M -->|processed CPM required for departure| F
+    C -->|CPM| F
+    C -->|CPM copy| M
     IAM -.->|identity and roles| F
     IAM -.->|identity and roles| C
 ```
-
-Flight Operations and Cargo Loading enforce their own action rules. The diagram shows logical boundaries; communication and deployment still need to be designed.
 
 ## 3. Ubiquitous language
 
 The same term can have a different role in each context. A dash means the term is not part of that context's model.
 
-| Term | Flight Operations | Cargo Loading | Partner Communication | IAM (Keycloak) |
+| Term | Flight Operations | Cargo Loading | Partner Communication | Identity and Access Management  |
 | --- | --- | --- | --- | --- |
 | Flight | One dated flight with number, airports, registration and times | Reference for bookings and loads | Identified in flight and load messages | — |
 | STD / STA | Immutable scheduled departure / arrival | STD helps define the loading period | Included in FLM | — |
@@ -61,53 +57,116 @@ The same term can have a different role in each context. A dash means the term i
 | Floor plan | — | Positions for an aircraft type and cargo-door location | — | — |
 | Loading period | — | Window when the load may change | — | — |
 | Load check | — | Whole-load rule; hard failure blocks finalization, soft failure warns | — | — |
-| Finalized load | CPM must be processed before departure | Checked, frozen load | Source of the CPM | — |
+| Finalized load | CPM must be processed before departure | Checked, frozen load | Described by its CPM copy | — |
 | ULD message | — | Incoming announcement of one booking | — | — |
 | Telegram (MVT) | Reports estimated or actual flight movement | — | IATA text message | — |
 | FLM | Created for a new flight | — | Outgoing Flight Message for partners | — |
-| CPM | Receipt and processing unlocks departure | Produced after finalization | Outgoing Containers / Pallets Message for partners | — |
+| CPM | Receipt and processing unlocks departure | Created after finalization | Outgoing copy for partners | — |
 | Operations user | Can view flight information | Can view cargo information | — | User with one of the two planner roles |
 | Flight planner | May change delays and record ATD/ATA, never STD/STA | Read-only | — | Role assigned to a user |
 | Load planner | Read-only | May position, check and finalize within the permitted state and period | — | Role assigned to a user |
 
-Keycloak supplies identity and roles. Each operational context enforces its own action rules on every access path.
-
 ## 4. Context map
 
-Describe how the contexts relate, which is upstream or downstream, and how they communicate.
+Arrows show dependencies: downstream → upstream.
+```mermaid
+flowchart LR
 
-| Pattern | Where and why |
-|---------|---------------|
-| To define | To define |
+    subgraph CL_CTX["Cargo Loading (downstream)"]
+        CL["Cargo Loading"]
+        FlightPort["FlightInformation<br/>«port»"]
+        FlightACL["RestFlightRepository<br/>«anti-corruption layer»"]
+
+        CL --> FlightPort
+        FlightPort --> FlightACL
+    end
+
+    subgraph FO_CTX["Flight Operations (upstream)"]
+        FlightAPI["Flight API<br/>«open host service»"]
+        FO["Flight Operations"]
+        CPMOut["CPM Integration<br/>«published language»"]
+
+        FO --> CPMOut
+    end
+
+    subgraph PC_CTX["Partner Communication"]
+        PC["Partner Communication"]
+        PartnerACL["Partner Message Translator<br/>«anti-corruption layer»"]
+
+        PC --> PartnerACL
+    end
+
+    IAM["Identity and Access Management <br/>external"]
+
+    FlightACL -->|"REST"| FlightAPI
+
+    CPMOut -->|"CPM - RabbitMQ"| CL
+
+    PartnerACL -->|"Flight facts - RabbitMQ"| FO
+    PartnerACL -->|"CPM - RabbitMQ"| CL
+    FO -.->|"Identity and roles - OIDC"| IAM
+    CL -.->|"Identity and roles - OIDC"| IAM
+```
+
+| Relationship |Pattern | Why |
+| --- | --- | --- |
+| Flight Operations → Cargo Loading | Open Host Service, Published Language; Cargo anti-corruption layer | Flight Operations exposes a flight-information contract; Cargo Loading translates it into its own model. |
+| Cargo Loading → Flight Operations | Published Language; Flight anti-corruption layer | Cargo Loading publishes CPM; Flight Operations translates it into its departure prerequisite. |
+| Flight Operations → Partner Communication | Published Language | Partner Communication uses flight facts to create FLM/MVT notifications. |
+| Cargo Loading → Partner Communication | Published Language | Partner Communication receives its own CPM copy for partner delivery. |
 
 ## 5. Deployment
 
-Describe the deployable services, their data stores, and communication paths. Add a deployment diagram when known.
+```mermaid
+flowchart TB
+    Client["Web client"] -->|HTTP| F
+    Client -->|HTTP| C
+    Client -->|OIDC sign-in| IAM["Keycloak<br/>host :8180"]
+
+    subgraph FS["flight-service :8080"]
+        F["Flight Operations"]
+    end
+    subgraph CS["cargo-service :8081"]
+        C["Cargo Loading"]
+    end
+    subgraph PS["partner-communication-service"]
+        P["Partner Communication"]
+    end
+    subgraph PG["One PostgreSQL instance<br/>host :5443 / container :5432"]
+        FDB[("Flight database")]
+        CDB[("Cargo database")]
+        PDB[("Partner messaging database")]
+    end
+
+    F --> FDB
+    C --> CDB
+    P --> PDB
+    C -->|Flight API - HTTP :8080| F
+
+    Sources["Schedule and cargo feeds"] -->|SSM and ULD messages| MQ["RabbitMQ<br/>AMQP :5672 / UI :15672"]
+    Sim["Simulator<br/>(non-production)"] -->|SSM and ULD messages| MQ
+    MQ -->|SSM| F
+    MQ -->|ULD message| C
+    F -->|flight changes| MQ
+    C -->|CPM| MQ
+    MQ -->|flight facts and CPM copy| P
+    MQ -->|CPM for departure check| F
+```
+
+One PostgreSQL instance contains three separate databases, one owned by each service. Services exchange business data through contracts rather than reading another service's database.
 
 ## 6. Tactical design: first bounded context
 
-Replace this heading with the context name. Add a class diagram and identify the tactical building blocks.
-
-| Building block | Elements |
-|----------------|----------|
-| Aggregate root | To define |
-| Entity | To define |
-| Value object | To define |
-| Domain event | To define |
-| Repository | To define |
-
-### Invariants, lifecycle and events
-
-Document the rules that must always hold, the state transitions, and emitted events.
+_TODO_
 
 ## 7. Tactical design: second bounded context
 
-Replace this heading with the context name. Add its class diagram, building blocks, rules, lifecycle and events. Add or remove context sections as needed.
+_TODO_
 
 ## 8. Layering
 
-Describe the layers, dependency direction, ports, adapters, and how the architecture is checked.
+_TODO_
 
 ## 9. Running it
 
-Add build, test and run commands when available. Record sample requests and error responses here.
+_TODO_
