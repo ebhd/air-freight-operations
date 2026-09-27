@@ -155,18 +155,213 @@ flowchart TB
 
 One PostgreSQL instance contains three separate databases, one owned by each service. Services exchange business data through contracts rather than reading another service's database.
 
-## 6. Tactical design: first bounded context
+## 6. Tactical design: Cargo Loading
+
+`CargoPlan` owns the bookings and placements for one flight and controls finalization.
+```mermaid
+classDiagram
+    class CargoPlan {
+        <<AggregateRoot>>
+        bookUld(code, weight, destination)
+        assignPosition(code, position)
+        checkLoad(context)
+        finalizeLoad(context)
+    }
+    class UldBooking {
+        <<Entity>>
+        code
+        weight
+        destination
+        optionalPosition
+    }
+    class FlightKey {
+        <<ValueObject>>
+        flightNumber
+        scheduledDepartureDateUTC
+        departureAirport
+    }
+    class UldCode {
+        <<ValueObject>>
+    }
+    class Weight {
+        <<ValueObject>>
+        value
+        unit
+    }
+    class AirportCode {
+        <<ValueObject>>
+    }
+    class Position {
+        <<ValueObject>>
+    }
+    class CargoPlanState {
+        <<enumeration>>
+        DRAFT
+        FINALIZED
+    }
+    class FloorPlan {
+        positions
+        sidesAndRoutes
+        cargoDoor
+    }
+    class LoadCheck {
+        <<interface>>
+        evaluate(bookings, context)
+    }
+    class LateralBalanceCheck
+    class OffloadingCheck
+    class AllCargoLoadedCheck
+    class LoadCheckResult {
+        <<ValueObject>>
+        checkName
+        outcome
+        failureReason
+        hardOrSoft
+    }
+    class LoadCheckReport {
+        <<ValueObject>>
+        results
+        unpositionedCargo
+    }
+    CargoPlan --> FlightKey : identity
+    CargoPlan --> CargoPlanState : state
+    CargoPlan "1" *-- "0..*" UldBooking : bookings
+    UldBooking --> UldCode : identity within plan
+    UldBooking --> Weight
+    UldBooking --> AirportCode : destination
+    UldBooking --> Position : optional placement
+    CargoPlan ..> FloorPlan : validates placements
+    CargoPlan ..> LoadCheck : runs all checks
+    LoadCheck <|.. LateralBalanceCheck
+    LoadCheck <|.. OffloadingCheck
+    LoadCheck <|.. AllCargoLoadedCheck
+    CargoPlan ..> LoadCheckReport : returns
+    LoadCheck ..> LoadCheckResult : returns
+    LoadCheckReport "1" *-- "1..*" LoadCheckResult : results
+```
+
+| Building block | Elements |
+| --- | --- |
+| Aggregate root | `CargoPlan` (owns bookings) |
+| Entity | `UldBooking` |
+| Value objects | `FlightKey`, `UldCode`, `Weight`, `AirportCode`, `Position`, `LoadCheckResult`, `LoadCheckReport` |
+| Reference model | `FloorPlan` |
+| Domain checks | `LateralBalanceCheck`, `OffloadingCheck`, `AllCargoLoadedCheck` |
+| Domain event | `LoadFinalized` |
+| Repository | `CargoPlanRepository` |
+| External port | `FlightInformation` |
+| Actors | Cargo source, load planner |
+
+Invariants on `CargoPlan`:
+
+1. Unique ULD code per flight; one ULD per valid position, one position per ULD.
+2. Booking only while planned. Placement, checking and finalization require a load planner, a planned flight, an open loading period and an unfinalized plan.
+3. Finalization reruns all checks; hard failures block it, soft failures warn.
+4. Finalized load cannot change.
+
+Loading period: **STD - 12 hours → current ETD - 20 minutes**
+
+### Load checks
+
+| Check | Type | Rule |
+| --- | --- | --- |
+| Lateral balance | Hard | Heavier side ≤ 110% of lighter side, using a common weight unit; exclude A1, A2, B1 and X. Tolerance is configurable. |
+| Offloading | Hard | Destination cargo must reach the door at RL without moving other-destination cargo, following the floor plan's routes and maneuvering rules. |
+| Not all cargo loaded | Soft | Warn about bookings without a position. |
+
+- All checks run.
+- hard checks inspect positioned cargo only.
+
+### Lifecycle and finalization handoff
+
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT: create cargo plan
+    DRAFT --> DRAFT: book ULD / assign position / check load
+    DRAFT --> FINALIZED: finalize / LoadFinalized
+```
+
+- `LoadFinalized` carries the flight key and frozen positioned cargo, used to publish CPM reliably.
+- CPM goes via RabbitMQ to Flight Operations and Partner Communication. Departure requires Flight Operations to have received and processed it.
+
+## 7. Tactical design: Flight Operations
 
 _TODO_
 
-## 7. Tactical design: second bounded context
+## 8. Tactical design: Partner Communication 
+
+`PartnerMessage` holds an outgoing notification and tracks its publication. Flight facts produce FLM/MVT; Cargo's CPM is forwarded to partners.
+
+```mermaid
+classDiagram
+    class PartnerMessage {
+        <<AggregateRoot>>
+        markPublished()
+    }
+    class MessageId {
+        <<ValueObject>>
+    }
+    class MessageContent {
+        <<ValueObject>>
+        type
+        payload
+        formatVersion
+    }
+    class PublicationState {
+        <<enumeration>>
+        PENDING
+        PUBLISHED
+    }
+    class MessageFormatter {
+        <<interface>>
+        format(flightFact)
+    }
+    class FlmFormatter
+    class MvtFormatter
+    PartnerMessage --> MessageId : identity
+    PartnerMessage --> MessageContent : immutable content
+    PartnerMessage --> PublicationState : state
+    PartnerMessage : sourceMessageId
+    PartnerMessage : createdAtUTC
+    MessageFormatter <|.. FlmFormatter
+    MessageFormatter <|.. MvtFormatter
+```
+
+| Building block | Elements |
+| --- | --- |
+| Aggregate root | `PartnerMessage` |
+| Value objects | `MessageId`, `MessageContent` |
+| Domain services | `FlmFormatter`, `MvtFormatter` |
+| Repository | `PartnerMessageRepository` |
+| External port | `PartnerPublisher` |
+| Actors | Flight Operations, Cargo Loading, partner systems |
+
+
+### Message triggers
+
+| Source fact | Outgoing message |
+| --- | --- |
+| Flight created | FLM (JSON) |
+| ETD changed | MVT-ED + MVT-EA (IATA text) |
+| ETA only changed | MVT-EA (IATA text) |
+| ATD / ATA registered | MVT-AD / MVT-AA (IATA text) |
+| CPM received from Cargo | CPM copy (JSON) |
+
+### Publication lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING: create notification
+    PENDING --> PENDING: publication fails / retry
+    PENDING --> PUBLISHED: transport confirms publication
+```
+
+- `PUBLISHED` means transport confirmation.
+
+## 9. Layering 
 
 _TODO_
 
-## 8. Layering
-
-_TODO_
-
-## 9. Running it
+## 10. Running it 
 
 _TODO_
