@@ -157,7 +157,6 @@ One PostgreSQL instance contains three separate databases, one owned by each ser
 
 ## 6. Tactical design: Cargo Loading
 
-`CargoPlan` owns the bookings and placements for one flight and controls finalization.
 ```mermaid
 classDiagram
     class CargoPlan {
@@ -177,8 +176,8 @@ classDiagram
     class FlightKey {
         <<ValueObject>>
         flightNumber
-        scheduledDepartureDateUTC
-        departureAirport
+        scheduledDepartureDate
+        departureAirportCode
     }
     class UldCode {
         <<ValueObject>>
@@ -286,11 +285,129 @@ stateDiagram-v2
 
 ## 7. Tactical design: Flight Operations
 
-_TODO_
+```mermaid
+classDiagram
+    direction TB
 
-## 8. Tactical design: Partner Communication 
+    class Flight {
+        <<AggregateRoot>>
+        arrivalAirportCode
+        aircraftRegistration
+        scheduledDeparture
+        scheduledArrival
+        actualDeparture
+        actualArrival
+        finalizedLoadProcessed
+        create(flightKey, arrivalAirportCode, aircraftRegistration, scheduledDeparture, scheduledArrival)
+        addDelay(type, minutes, reasonCode, description)
+        editDelay(delayId, minutes, description)
+        removeDelay(delayId)
+        estimatedDeparture()
+        estimatedArrival()
+        recordFinalizedLoad()
+        recordDeparture(actualDeparture)
+        recordArrival(actualArrival)
+    }
 
-`PartnerMessage` holds an outgoing notification and tracks its publication. Flight facts produce FLM/MVT; Cargo's CPM is forwarded to partners.
+    class FlightKey {
+        <<ValueObject>>
+        flightNumber
+        scheduledDepartureDate
+        departureAirportCode
+    }
+
+    class FlightStatus {
+        <<enumeration>>
+        PLANNED
+        DEPARTED
+        LANDED
+    }
+
+    class Delay {
+        <<Entity>>
+        minutes
+        description
+    }
+
+    class DelayId {
+        <<ValueObject>>
+        value
+    }
+
+    class DelayType {
+        <<enumeration>>
+        DEPARTURE
+        ARRIVAL
+    }
+
+    class DelayReason {
+        <<ReferenceEntity>>
+        code
+        label
+    }
+
+    class Airport {
+        <<ReferenceEntity>>
+        code
+        name
+    }
+
+    Flight "1" *-- "0..*" Delay : delays
+    Flight "1" --> "1" FlightKey : key
+    Flight --> "1" FlightStatus : status
+    Delay --> "1" DelayId : id
+    Delay --> "1" DelayType : type
+    Delay "0..*" --> "1" DelayReason : reason
+    FlightKey ..> Airport : departure lookup by code
+    Flight ..> Airport : arrival lookup by code
+```
+
+
+
+| Building block | Elements |
+| --- | --- |
+| Aggregate root | `Flight` (owns delays and controls the lifecycle) |
+| Entity | `Delay` |
+| Value objects | `FlightKey`, `DelayId` |
+| Enumerations | `FlightStatus`, `DelayType` |
+| Reference data | `DelayReason`, `Airport` |
+| Domain events | `FlightCreated`, `FlightEstimatesChanged`, `FlightDeparted`, `FlightArrived` |
+| Repository | `FlightRepository` |
+| Actors | Flight planner, load planner, schedule source, Cargo Loading |
+
+Invariants on `Flight`:
+
+1. `FlightKey`, scheduled departure and scheduled arrival cannot change. The key's `scheduledDepartureDate` is the UTC date of the original scheduled departure.
+2. A flight moves only from `PLANNED` to `DEPARTED` to `LANDED`.
+3. Departure delays can change only while planned, arrival delays can change while planned or departed. All delays freeze after landing.
+4. Each delay is 1–720 minutes. ETD and ETA are calculated from the current delays, never entered manually.
+
+### Flight creation from SSM
+
+- An existing `FlightKey` is logged and skipped without changing that flight, other dates continue.
+- A new Flight starts planned, without actual times or delays, and with `finalizedLoadProcessed = false`.
+
+### Flight operations
+
+- Flight planners add, edit and remove delays and record ATD/ATA. Cargo planner can ONLY read flight information.
+- Delay edits change minutes and description while keeping the delay ID.
+- `recordFinalizedLoad()` records that Flight Operations received and processed the CPM.
+- System and message times use UTC; users enter and view Brussels-local times.
+- Flights and associated data are retained until the required seven-day period after the scheduled departure date.
+
+### Flight lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> PLANNED: create flight from SSM
+    PLANNED --> PLANNED: add / edit / remove departure or arrival delay
+    PLANNED --> PLANNED: process finalized-load CPM
+    PLANNED --> DEPARTED: recordDeparture(ATD)
+    DEPARTED --> DEPARTED: add / edit / remove arrival delay
+    DEPARTED --> LANDED: recordArrival(ATA)
+```
+
+## 8. Tactical design: Partner Communication
 
 ```mermaid
 classDiagram
