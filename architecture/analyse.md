@@ -110,10 +110,10 @@ flowchart LR
 
 | Relationship |Pattern | Why |
 | --- | --- | --- |
-| Flight Operations → Cargo Loading | Open Host Service, Published Language; Cargo anti-corruption layer | Flight Operations exposes a flight-information contract; Cargo Loading translates it into its own model. |
-| Cargo Loading → Flight Operations | Published Language; Flight anti-corruption layer | Cargo Loading publishes CPM; Flight Operations translates it into its departure prerequisite. |
-| Flight Operations → Partner Communication | Published Language | Partner Communication uses flight facts to create FLM/MVT notifications. |
-| Cargo Loading → Partner Communication | Published Language | Partner Communication receives its own CPM copy for partner delivery. |
+| Flight Operations -> Cargo Loading | Open Host Service, Published Language; Cargo anti-corruption layer | Flight Operations exposes a flight-information contract; Cargo Loading translates it into its own model. |
+| Cargo Loading -> Flight Operations | Published Language; Flight anti-corruption layer | Cargo Loading publishes CPM; Flight Operations translates it into its departure prerequisite. |
+| Flight Operations -> Partner Communication | Published Language | Partner Communication uses flight facts to create FLM/MVT notifications. |
+| Cargo Loading -> Partner Communication | Published Language | Partner Communication receives its own CPM copy for partner delivery. |
 
 ## 5. Deployment
 
