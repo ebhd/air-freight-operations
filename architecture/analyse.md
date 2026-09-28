@@ -38,33 +38,19 @@ flowchart LR
 
 ## 3. Ubiquitous language
 
-The same term can have a different role in each context. A dash means the term is not part of that context's model.
-
-| Term | Flight Operations | Cargo Loading | Partner Communication | Identity and Access Management  |
-| --- | --- | --- | --- | --- |
-| Flight | One dated flight with number, airports, registration and times | Reference for bookings and loads | Identified in flight and load messages | — |
-| STD / STA | Immutable scheduled departure / arrival | STD helps define the loading period | Included in FLM | — |
-| ETD / ETA | Estimates derived from delays | ETD helps end the loading period | Changes trigger MVT-ED / MVT-EA | — |
-| ATD / ATA | Actual takeoff / landing times | — | Registration triggers MVT-AD / MVT-AA | — |
-| Delay | Minutes, IATA reason and description | — | Estimate changes trigger MVT messages | — |
-| Departed | Flight has an ATD | Loading can no longer change | — | — |
-| Landed | Flight has an ATA | — | — | — |
-| SSM | Schedule message that announces flights | — | — | — |
-| ULD | — | Container or pallet with code, weight and destination | Described in a CPM when positioned | — |
-| Booked | — | Announced for a flight; not necessarily loaded | — | — |
-| Loading position | — | Place on the aircraft deck | Included in a CPM | — |
-| Load | — | ULDs assigned to positions | Described in a CPM | — |
-| Floor plan | — | Positions for an aircraft type and cargo-door location | — | — |
-| Loading period | — | Window when the load may change | — | — |
-| Load check | — | Whole-load rule; hard failure blocks finalization, soft failure warns | — | — |
-| Finalized load | CPM must be processed before departure | Checked, frozen load | Described by its CPM copy | — |
-| ULD message | — | Incoming announcement of one booking | — | — |
-| Telegram (MVT) | Reports estimated or actual flight movement | — | IATA text message | — |
-| FLM | Created for a new flight | — | Outgoing Flight Message for partners | — |
-| CPM | Receipt and processing unlocks departure | Created after finalization | Outgoing copy for partners | — |
-| Operations user | Can view flight information | Can view cargo information | — | User with one of the two planner roles |
-| Flight planner | May change delays and record ATD/ATA, never STD/STA | Read-only | — | Role assigned to a user |
-| Load planner | Read-only | May position, check and finalize within the permitted state and period | — | Role assigned to a user |
+| Term | Flight Operations | Cargo Loading | Partner Communication |
+| --- | --- | --- | --- |
+| Flight | Aggregate owning times, status and delays for one dated flight | Flight information used for bookings and load planning | Flight identity and facts used to prepare messages |
+| FlightKey | Flight number, UTC scheduled departure date and departure airport code | Identifies the flight of a CargoPlan | Identifies the flight described by a message |
+| Airport | Reference with IATA code and display name | Flight arrival and ULD destination codes used to check offloading | Airport code included in messages |
+| STD / STA | Immutable scheduled departure / arrival times | STD anchors the loading-period start | Scheduled times included in FLM |
+| ETD / ETA | Estimated departure / arrival times calculated from delays | ETD determines the loading-period end | Estimated times included in MVT-ED / MVT-EA |
+| ATD / ATA | Recorded actual departure / arrival times | — | Actual times included in MVT-AD / MVT-AA |
+| ULD | — | Unit Load Device (container or pallet) booked on a flight, with code, weight and destination; placement is optional | Positioned ULD details included in CPM |
+| Weight | — | Value and unit used for cargo calculations | ULD weight and unit included in CPM |
+| Loading position | — | Named place on the aircraft deck | ULD position included in CPM |
+| Finalized load | Processed CPM confirms the cargo prerequisite for departure | Checked, frozen load | Load snapshot carried in CPM |
+| CPM | Received load message whose processing satisfies the cargo prerequisite for departure | Containers / Pallets Message describing the finalized load | Copy forwarded to partners |
 
 ## 4. Context map
 
