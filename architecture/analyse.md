@@ -6,7 +6,7 @@ Flight schedules and cargo bookings arrive from existing data feeds. The system 
 
 ## 1. Subdomains
 
-| Subdomain | Type | Why |
+| Subdomain | Type | Rationale |
 | --- | --- | --- |
 | Flight Planning | Supporting | It keeps flight times and delays reliable so operations can respond. |
 | Freight Loading | Core | Planning, checking and finalising the cargo load is central to this air-freight system. |
