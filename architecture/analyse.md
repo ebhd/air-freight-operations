@@ -230,6 +230,7 @@ classDiagram
 | Domain checks | `LateralBalanceCheck`, `OffloadingCheck`, `AllCargoLoadedCheck` |
 | Domain event | `LoadFinalized` |
 | Repository | `CargoPlanRepository` |
+| Actors | Load planner |
 
 Invariants on `CargoPlan`:
 
@@ -320,18 +321,14 @@ classDiagram
         ARRIVAL
     }
 
-    class DelayReason {
-        <<ReferenceEntity>>
-        code
-        label
-    }
+
 
     Flight "1" *-- "0..*" Delay : delays
     Flight "1" --> "1" FlightKey : key
     Flight --> "1" FlightStatus : status
     Delay --> "1" DelayId : id
     Delay --> "1" DelayType : type
-    Delay "0..*" --> "1" DelayReason : reason
+
 ```
 
 
@@ -342,9 +339,9 @@ classDiagram
 | Entity | `Delay` |
 | Value objects | `FlightKey`, `DelayId` |
 | Enumerations | `FlightStatus`, `DelayType` |
-| Reference data | `DelayReason` |
 | Domain events | `FlightCreated`, `FlightEstimatesChanged`, `FlightDeparted`, `FlightArrived` |
 | Repository | `FlightRepository` |
+| Actors | Flight planner, Load planner |
 
 Invariants on `Flight`:
 
@@ -413,7 +410,7 @@ classDiagram
 | Value objects | `MessageId`, `MessageContent` |
 | Domain services | `FlmFormatter`, `MvtFormatter` |
 | Repository | `PartnerMessageRepository` |
-
+| Actors | Partners |
 
 
 
