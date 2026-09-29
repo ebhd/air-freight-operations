@@ -54,42 +54,39 @@ flowchart LR
 
 ## 4. Context map
 
-Arrows show dependencies: downstream → upstream.
 ```mermaid
 flowchart LR
 
     subgraph CL_CTX["Cargo Loading (downstream)"]
         CL["Cargo Loading"]
-        FlightPort["FlightInformation<br/>«port»"]
         FlightACL["RestFlightRepository<br/>«anti-corruption layer»"]
 
-        CL --> FlightPort
-        FlightPort --> FlightACL
+        CL --> FlightACL
     end
 
     subgraph FO_CTX["Flight Operations (upstream)"]
         FlightAPI["Flight API<br/>«open host service»"]
         FO["Flight Operations"]
-        CPMOut["CPM Integration<br/>«published language»"]
+        CPMReceiver["CPM Receiver<br/>«anti-corruption layer»"]
 
-        FO --> CPMOut
+        FO --> CPMReceiver
     end
 
-    subgraph PC_CTX["Partner Communication"]
+    subgraph PC_CTX["Partner Communication (downstream)"]
         PC["Partner Communication"]
-        PartnerACL["Partner Message Translator<br/>«anti-corruption layer»"]
+        FlightFormatter["Flight Message Formatter"]
 
-        PC --> PartnerACL
+        PC --> FlightFormatter
     end
 
     IAM["Identity and Access Management <br/>external"]
 
     FlightACL -->|"REST"| FlightAPI
 
-    CPMOut -->|"CPM - RabbitMQ"| CL
+    CPMReceiver -->|"CPM - RabbitMQ<br/>«published language»"| CL
 
-    PartnerACL -->|"Flight facts - RabbitMQ"| FO
-    PartnerACL -->|"CPM - RabbitMQ"| CL
+    FlightFormatter -->|"Flight facts - RabbitMQ"| FO
+    PC -->|"CPM - RabbitMQ"| CL
     FO -.->|"Identity and roles - OIDC"| IAM
     CL -.->|"Identity and roles - OIDC"| IAM
 ```
@@ -98,7 +95,7 @@ flowchart LR
 | --- | --- | --- |
 | Flight Operations -> Cargo Loading | Open Host Service, Published Language; Cargo anti-corruption layer | Flight Operations exposes a flight-information contract; Cargo Loading translates it into its own model. |
 | Cargo Loading -> Flight Operations | Published Language; Flight anti-corruption layer | Cargo Loading publishes CPM; Flight Operations translates it into its departure prerequisite. |
-| Flight Operations -> Partner Communication | Published Language | Partner Communication uses flight facts to create FLM/MVT notifications. |
+| Flight Operations -> Partner Communication | Published Language | Partner Communication formats flight facts into FLM/MVT messages. |
 | Cargo Loading -> Partner Communication | Published Language | Partner Communication receives its own CPM copy for partner delivery. |
 
 ## 5. Deployment
@@ -129,8 +126,7 @@ flowchart TB
     P --> PDB
     C -->|Flight API - HTTP :8080| F
 
-    Sources["Schedule and cargo feeds"] -->|SSM and ULD messages| MQ["RabbitMQ<br/>AMQP :5672 / UI :15672"]
-    Sim["Simulator<br/>(non-production)"] -->|SSM and ULD messages| MQ
+    Sim["Simulator<br/>(non-production)"] -->|SSM and ULD messages| MQ["RabbitMQ<br/>AMQP :5672 / UI :15672"]
     MQ -->|SSM| F
     MQ -->|ULD message| C
     F -->|flight changes| MQ
@@ -139,7 +135,8 @@ flowchart TB
     MQ -->|CPM for departure check| F
 ```
 
-One PostgreSQL instance contains three separate databases, one owned by each service. Services exchange business data through contracts rather than reading another service's database.
+- One PostgreSQL instance hosts three databases: one for Flight Operations, one for Cargo Loading and one for Partner Communication.
+- Each service accesses only its own database. Services share information through APIs or RabbitMQ messages.
 
 ## 6. Tactical design: Cargo Loading
 
@@ -214,7 +211,7 @@ classDiagram
     UldBooking --> UldCode : identity within plan
     UldBooking --> Weight
     UldBooking --> AirportCode : destination
-    UldBooking --> Position : optional placement
+    UldBooking --> "0..1" Position : optional placement
     CargoPlan ..> FloorPlan : validates placements
     CargoPlan ..> LoadCheck : runs all checks
     LoadCheck <|.. LateralBalanceCheck
@@ -230,12 +227,9 @@ classDiagram
 | Aggregate root | `CargoPlan` (owns bookings) |
 | Entity | `UldBooking` |
 | Value objects | `FlightKey`, `UldCode`, `Weight`, `AirportCode`, `Position`, `LoadCheckResult`, `LoadCheckReport` |
-| Reference model | `FloorPlan` |
 | Domain checks | `LateralBalanceCheck`, `OffloadingCheck`, `AllCargoLoadedCheck` |
 | Domain event | `LoadFinalized` |
 | Repository | `CargoPlanRepository` |
-| External port | `FlightInformation` |
-| Actors | Cargo source, load planner |
 
 Invariants on `CargoPlan`:
 
@@ -266,7 +260,7 @@ stateDiagram-v2
     DRAFT --> FINALIZED: finalize / LoadFinalized
 ```
 
-- `LoadFinalized` carries the flight key and frozen positioned cargo, used to publish CPM reliably.
+- `LoadFinalized` carries the flight key and frozen positioned cargo, used to publish CPM.
 - CPM goes via RabbitMQ to Flight Operations and Partner Communication. Departure requires Flight Operations to have received and processed it.
 
 ## 7. Tactical design: Flight Operations
@@ -332,20 +326,12 @@ classDiagram
         label
     }
 
-    class Airport {
-        <<ReferenceEntity>>
-        code
-        name
-    }
-
     Flight "1" *-- "0..*" Delay : delays
     Flight "1" --> "1" FlightKey : key
     Flight --> "1" FlightStatus : status
     Delay --> "1" DelayId : id
     Delay --> "1" DelayType : type
     Delay "0..*" --> "1" DelayReason : reason
-    FlightKey ..> Airport : departure lookup by code
-    Flight ..> Airport : arrival lookup by code
 ```
 
 
@@ -356,10 +342,9 @@ classDiagram
 | Entity | `Delay` |
 | Value objects | `FlightKey`, `DelayId` |
 | Enumerations | `FlightStatus`, `DelayType` |
-| Reference data | `DelayReason`, `Airport` |
+| Reference data | `DelayReason` |
 | Domain events | `FlightCreated`, `FlightEstimatesChanged`, `FlightDeparted`, `FlightArrived` |
 | Repository | `FlightRepository` |
-| Actors | Flight planner, load planner, schedule source, Cargo Loading |
 
 Invariants on `Flight`:
 
@@ -368,18 +353,10 @@ Invariants on `Flight`:
 3. Departure delays can change only while planned, arrival delays can change while planned or departed. All delays freeze after landing.
 4. Each delay is 1–720 minutes. ETD and ETA are calculated from the current delays, never entered manually.
 
-### Flight creation from SSM
+### Flight workflow
 
-- An existing `FlightKey` is logged and skipped without changing that flight, other dates continue.
-- A new Flight starts planned, without actual times or delays, and with `finalizedLoadProcessed = false`.
-
-### Flight operations
-
-- Flight planners add, edit and remove delays and record ATD/ATA. Cargo planner can ONLY read flight information.
-- Delay edits change minutes and description while keeping the delay ID.
-- `recordFinalizedLoad()` records that Flight Operations received and processed the CPM.
-- System and message times use UTC; users enter and view Brussels-local times.
-- Flights and associated data are retained until the required seven-day period after the scheduled departure date.
+- SSM creates `PLANNED` flights without delays or actual times; `finalizedLoadProcessed` starts false. Duplicate keys are logged and skipped unchanged; remaining dates continue.
+- `recordFinalizedLoad()` marks the CPM as received and processed by Flight Operations.
 
 ### Flight lifecycle
 
@@ -436,8 +413,8 @@ classDiagram
 | Value objects | `MessageId`, `MessageContent` |
 | Domain services | `FlmFormatter`, `MvtFormatter` |
 | Repository | `PartnerMessageRepository` |
-| External port | `PartnerPublisher` |
-| Actors | Flight Operations, Cargo Loading, partner systems |
+
+
 
 
 ### Message triggers
