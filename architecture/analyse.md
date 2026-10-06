@@ -360,8 +360,8 @@ stateDiagram-v2
 
 ## 9. Layering 
 
-_TODO_
+Each service uses `domain` for business rules and repository interfaces, `application` for use cases, `infrastructure` for persistence and external adapters, and `api` for REST controllers, DTOs and mappers. The initial setup contains these packages; business workflows are still to be implemented.
 
 ## 10. Running it 
 
-_TODO_
+Run `docker compose up -d --build` from the repository root. See [README](../README.md) for ports, development credentials, IntelliJ setup and the current implementation limits. Health endpoints verify PostgreSQL and RabbitMQ; Cargo also checks its HTTP connection to Flight. Keycloak token validation is configured for Flight and Cargo. Domain message flows and action-specific authorization are still to be implemented.
