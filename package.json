@@ -1,0 +1,14 @@
+{
+  "name": "air-freight-development-tools",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "format": "./gradlew spotlessApply",
+    "format:check": "./gradlew spotlessCheck",
+    "lint": "./gradlew checkstyleMain checkstyleTest",
+    "check": "./gradlew check assemble"
+  },
+  "devDependencies": {
+    "husky": "9.1.7"
+  }
+}
