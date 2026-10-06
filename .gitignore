@@ -6,3 +6,17 @@
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Gradle output
+.gradle/
+**/build/
+**/bin/
+node_modules/
+http-client.private.env.json
+http-requests/
+
+# Local environment and logs
+.env
+.env.*
+!.env.example
+*.log

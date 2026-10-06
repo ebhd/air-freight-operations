@@ -1,0 +1,5 @@
+rootProject.name = 'air-freight-operations'
+
+include('flight-service')
+include('cargo-service')
+include('partner-communication-service')
