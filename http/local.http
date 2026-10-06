@@ -1,0 +1,50 @@
+### Flight health: database and RabbitMQ
+GET http://localhost:8080/actuator/health
+
+### Cargo health: database, RabbitMQ and Flight HTTP
+GET http://localhost:8081/actuator/health
+
+### Partner health: database and RabbitMQ
+GET http://localhost:8082/actuator/health
+
+### Get a development Flight planner token (run before authenticated requests)
+POST http://localhost:8180/realms/air-freight/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+client_id=air-freight-dev&grant_type=password&username=flight-planner&password=password
+
+> {%
+    client.test("Token issued", function () {
+        client.assert(response.status === 200, "Expected HTTP 200");
+        client.assert(!!response.body.access_token, "Expected an access token");
+    });
+    client.global.set("access_token", response.body.access_token);
+%}
+
+### Authenticated Flight request (200)
+GET http://localhost:8080/api/status
+Authorization: Bearer {{access_token}}
+
+### Authenticated Cargo request (200)
+GET http://localhost:8081/api/status
+Authorization: Bearer {{access_token}}
+
+### Anonymous Flight request (401)
+GET http://localhost:8080/api/status
+
+### Anonymous Cargo request (401)
+GET http://localhost:8081/api/status
+
+### Get a development Load planner token
+POST http://localhost:8180/realms/air-freight/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+client_id=air-freight-dev&grant_type=password&username=load-planner&password=password
+
+> {%
+    client.test("Token issued", function () {
+        client.assert(response.status === 200, "Expected HTTP 200");
+        client.assert(!!response.body.access_token, "Expected an access token");
+    });
+    client.global.set("access_token", response.body.access_token);
+%}

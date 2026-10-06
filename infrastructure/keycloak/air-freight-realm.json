@@ -1,0 +1,60 @@
+{
+  "realm": "air-freight",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "flight-planner"
+      },
+      {
+        "name": "load-planner"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "air-freight-dev",
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": false
+    }
+  ],
+  "users": [
+    {
+      "username": "flight-planner",
+      "enabled": true,
+      "firstName": "Flight",
+      "lastName": "Planner",
+      "email": "flight@example.test",
+      "emailVerified": true,
+      "realmRoles": [
+        "flight-planner"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "load-planner",
+      "enabled": true,
+      "firstName": "Load",
+      "lastName": "Planner",
+      "email": "load@example.test",
+      "emailVerified": true,
+      "realmRoles": [
+        "load-planner"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
