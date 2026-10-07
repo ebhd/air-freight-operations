@@ -36,3 +36,12 @@ De feedback was dat we goed bezig zijn. Verder nemen we dit mee:
 - Partner Messages is geen apart subdomein of bounded context. We passen dit aan in de analyse.
 - We bekijken of Open Host Service tussen Flight Operations en Cargo Loading weg kan en alleen RabbitMQ volstaat.
 - We mogen AI gebruiken voor het uitwerken van user stories.
+
+### Tweede feedbackmoment
+
+- Partner Communication is een aparte module, geen eigen subdomein of bounded context. We passen de context mapping hierop aan. Het nut van die module: partnercommunicatie op één plek kunnen aanpassen.
+- De HTTP-requests zorgen voor te veel onderlinge afhankelijkheid. We kunnen daarvoor events via RabbitMQ gebruiken.
+- Mogelijke examenvraag: als RabbitMQ als fallback kan dienen, waarom gebruiken we het dan niet meteen?
+- Beginnen met development: eerst een vlucht kunnen aanmaken en de basis werkend krijgen.
+- Regelmatig en op tijd committen en pushen.
+- Eigen GitLab-labels aanmaken?
