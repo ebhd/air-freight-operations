@@ -7,8 +7,9 @@ Java 22 · Spring Boot 4.1.1 · Gradle 9.7.1 multi-project build.
 | `flight-service` | 8080 | `flight` |
 | `cargo-service` | 8081 | `cargo` |
 | `partner-communication-service` | 8082 | `partner_communication` |
+| `simulator`  | 8083 | None |
 
-Each service uses `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks and bearer-token authentication. Business workflows and the web UI are not implemented.
+The three business services use `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks, bearer-token authentication, [Flight's US-3 SSM ingestion](flight-service/README.md) and a local [SSM simulator](simulator/README.md). Flight uses a plain domain model with separate JPA entities and a database adapter. Other business workflows and the web UI are not implemented.
 
 ## Run
 
@@ -43,6 +44,8 @@ docker compose up -d --wait app-postgres app-rabbitmq keycloak
 Development only: demo credentials and Keycloak `start-dev` with persistent file storage.
 
 Configuration lives in each service's `application.properties`; standard Spring environment variables override it. Compose sets container hostnames and Cargo's `FLIGHT_API_URL`.
+
+For manual SSM submission, start Flight Service and run `./gradlew :simulator:bootRun`. Then send the request in [simulator/http/ssm.http](simulator/http/ssm.http). The simulator runs locally on port 8083; it is not part of the default Compose deployment.
 
 ## Authentication
 

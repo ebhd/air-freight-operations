@@ -8,6 +8,15 @@ workflow:
 
 stages: [format, lint, build, test]
 
+simulator-build:
+  stage: build
+  script:
+    - ./gradlew :simulator:spotlessCheck :simulator:checkstyleMain :simulator:bootJar --console=plain
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - simulator/build/libs/*.jar
+
 default:
   image: eclipse-temurin:22-jdk
   interruptible: true
