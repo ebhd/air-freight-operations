@@ -1,4 +1,5 @@
 ### Start Flight Service first and dan start the simulator and then send rq
+### send twice to controll the ignore
 ### docker compose up -d app-postgres app-rabbitmq keycloak
 ### .\gradlew.bat :flight-service:bootRun
 ### .\gradlew.bat :simulator:bootRun
@@ -19,3 +20,4 @@ Content-Type: application/json
     "aircraftRegistration": "SXBAA"
   }
 ]
+

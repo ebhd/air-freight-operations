@@ -10,11 +10,3 @@ CREATE TABLE IF NOT EXISTS flights (
     PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code)
 );
 
-CREATE TABLE IF NOT EXISTS rejected_messages (
-    id BIGSERIAL PRIMARY KEY,
-    message_id VARCHAR(128) NOT NULL,
-    content TEXT NOT NULL,
-    reason TEXT NOT NULL,
-    processing_stage VARCHAR(64) NOT NULL,
-    received_at TIMESTAMP WITH TIME ZONE NOT NULL
-);

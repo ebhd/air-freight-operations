@@ -45,7 +45,6 @@ public record FlightSchedule(
 
         while (!departureDate.isAfter(endDate)) {
             if (operatingDays.contains(departureDate.getDayOfWeek())) {
-                // Arrival is the next day when its time is earlier than or equal to departure.
                 LocalDate arrivalDate =
                         arrivalTime.isAfter(departureTime)
                                 ? departureDate
