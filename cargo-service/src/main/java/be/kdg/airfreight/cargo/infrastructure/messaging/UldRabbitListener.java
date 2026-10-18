@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.TransactionException;
 import tools.jackson.core.JacksonException;
@@ -81,7 +82,7 @@ class UldRabbitListener {
         Instant firstReceivedAt = messageReceipts.firstReceivedAt(messageId, Instant.now());
 
         try {
-            bookUldService.bookUld(toCommand(messageId, uldMessage, firstReceivedAt));
+            bookOnce(toCommand(messageId, uldMessage, firstReceivedAt));
         } catch (FlightLookupUnavailableException
                 | DataAccessException
                 | TransactionException outage) {
@@ -94,6 +95,22 @@ class UldRabbitListener {
             LOGGER.error("Unexpected error processing ULD message {}", messageId, unexpected);
             rejectedMessageStore.store(
                     messageId, payload, "Unexpected processing error: " + unexpected);
+        }
+    }
+
+    /**
+     * Two deliveries for the same ULD code or message ID can be processed at the same time; the
+     * database then refuses the second insert. Running the booking again finds the committed one
+     * and records the repeat as a duplicate instead of treating it as an outage.
+     */
+    private void bookOnce(BookUldCommand command) {
+        try {
+            bookUldService.bookUld(command);
+        } catch (DataIntegrityViolationException concurrentBooking) {
+            LOGGER.info(
+                    "ULD message {} overlapped with a concurrent booking; checking again",
+                    command.messageId());
+            bookUldService.bookUld(command);
         }
     }
 

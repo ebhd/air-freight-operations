@@ -14,4 +14,9 @@ public record Weight(BigDecimal value, WeightUnit unit) {
         // Equal decimal values should stay equal regardless of trailing zeroes.
         value = value.stripTrailingZeros();
     }
+
+    @Override
+    public String toString() {
+        return value.toPlainString() + " " + unit;
+    }
 }
