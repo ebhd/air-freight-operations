@@ -17,6 +17,14 @@
       "publicClient": true,
       "directAccessGrantsEnabled": true,
       "standardFlowEnabled": false
+    },
+    {
+      "clientId": "cargo-service",
+      "publicClient": false,
+      "secret": "cargo-service-secret",
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false
     }
   ],
   "users": [

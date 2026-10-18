@@ -9,7 +9,7 @@ Java 22 · Spring Boot 4.1.1 · Gradle 9.7.1 multi-project build.
 | `partner-communication-service` | 8082 | `partner_communication` |
 | `simulator`  | 8083 | None |
 
-The three business services use `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks, bearer-token authentication, Flight's US-3 SSM ingestion and a local SSM simulator (see [Local development](#local-development)). Flight uses a plain domain model with separate JPA entities and a database adapter. Other business workflows and the web UI are not implemented.
+The three business services use `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks, bearer-token authentication, Flight's US-3 SSM ingestion and a local SSM simulator (see [Local development](#local-development)). Flight exposes a flight lookup by key, which Cargo calls with a service token. Flight uses a plain domain model with separate JPA entities and a database adapter. Other business workflows and the web UI are not implemented.
 
 ## Run
 
@@ -52,6 +52,8 @@ For manual SSM submission, start Flight Service and run `./gradlew :simulator:bo
 - Realm: `air-freight`; public client: `air-freight-dev` (password grant).
 - Users and corresponding realm roles: `flight-planner`, `load-planner`; password: `password`.
 - Flight/Cargo `/api/status` requires a bearer token; health endpoints are public.
+- Confidential client `cargo-service` (client-credentials grant, development secret `cargo-service-secret`): Cargo uses its service token to call `GET /api/flights/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}` on Flight. Compose sets Cargo's token URL to `http://keycloak:8080/...`.
+- Keycloak imports the realm only when it does not exist yet. After a realm change, recreate it: `docker compose down` and `docker volume rm air-freight-operations_keycloak-data`.
 - Issuer: `http://localhost:8180/realms/air-freight`. Inside Docker, signing keys are fetched from `http://keycloak:8080/realms/air-freight/protocol/openid-connect/certs`.
 - Browser login and operation-specific role checks are not implemented.
 

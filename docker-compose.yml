@@ -53,6 +53,7 @@ services:
       SPRING_RABBITMQ_USERNAME: user
       SPRING_RABBITMQ_PASSWORD: password
       FLIGHT_API_URL: http://flight-service:8080
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_FLIGHT_TOKENURI: http://keycloak:8080/realms/air-freight/protocol/openid-connect/token
     depends_on:
       keycloak:
         condition: service_healthy

@@ -29,6 +29,10 @@ Authorization: Bearer {{access_token}}
 GET http://localhost:8081/api/status
 Authorization: Bearer {{access_token}}
 
+### Flight lookup by key (200 for a flight created from an SSM, 404 otherwise)
+GET http://localhost:8080/api/flights/HJ221/2026-10-19/BRU
+Authorization: Bearer {{access_token}}
+
 ### Anonymous Flight request (401)
 GET http://localhost:8080/api/status
 
