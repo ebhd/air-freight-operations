@@ -5,6 +5,7 @@ import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
@@ -13,12 +14,17 @@ import tools.jackson.databind.json.JsonMapper;
 
 @Configuration
 public class RabbitConfiguration {
-    // reserved for events later that will be implemented
     static final String FLIGHT_EVENTS = "flight.events";
+    static final String FLIGHT_CREATED = "flight.created";
 
     static final String SSM_QUEUE = "flight.ssm";
     static final String DEAD_LETTER_EXCHANGE = "flight.dlx";
     static final String DEAD_LETTER_QUEUE = "flight.dlq"; // rejected messages queue
+
+    @Bean
+    TopicExchange flightEvents() {
+        return new TopicExchange(FLIGHT_EVENTS);
+    }
 
     @Bean
     Queue ssm() {

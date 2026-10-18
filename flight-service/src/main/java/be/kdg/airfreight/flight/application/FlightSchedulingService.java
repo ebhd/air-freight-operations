@@ -3,9 +3,12 @@ package be.kdg.airfreight.flight.application;
 import be.kdg.airfreight.flight.domain.Flight;
 import be.kdg.airfreight.flight.domain.FlightRepository;
 import be.kdg.airfreight.flight.domain.FlightSchedule;
+import be.kdg.airfreight.flight.domain.events.FlightCreated;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,9 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class FlightSchedulingService {
     private final FlightRepository flightRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public FlightSchedulingService(FlightRepository flightRepository) {
+    public FlightSchedulingService(
+            FlightRepository flightRepository, ApplicationEventPublisher eventPublisher) {
         this.flightRepository = flightRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -33,7 +39,17 @@ public class FlightSchedulingService {
                 log.info("Skipping existing flight {} from SSM {}", flight.key(), messageId);
                 continue;
             }
-            created.add(flightRepository.save(flight));
+            Flight saved = flightRepository.save(flight);
+            created.add(saved);
+
+            FlightCreated event =
+                    new FlightCreated(
+                            saved.key(),
+                            saved.arrivalAirportCode(),
+                            saved.scheduledDeparture(),
+                            saved.scheduledArrival(),
+                            Instant.now());
+            eventPublisher.publishEvent(event);
         }
         return new ProcessSsmResult(messageId, created, duplicateKeys);
     }
