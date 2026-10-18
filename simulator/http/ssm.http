@@ -1,0 +1,23 @@
+### Start Flight Service first and dan start the simulator and then send rq
+### send twice to controll the ignore
+### docker compose up -d app-postgres app-rabbitmq keycloak
+### .\gradlew.bat :flight-service:bootRun
+### .\gradlew.bat :simulator:bootRun
+
+POST http://localhost:8083/api/simulator/flight-schedules
+Content-Type: application/json
+
+[
+  {
+    "startDate": "2026-10-14",
+    "endDate": "2026-10-21",
+    "operatingDays": ["MONDAY", "WEDNESDAY"],
+    "departureTime": "08:00:00",
+    "arrivalTime": "10:00:00",
+    "flightNumber": "HJ221",
+    "departureAirportCode": "BRU",
+    "arrivalAirportCode": "AMS",
+    "aircraftRegistration": "SXBAA"
+  }
+]
+
