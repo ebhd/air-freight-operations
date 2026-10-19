@@ -9,9 +9,11 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+@Getter
 @Entity
 @Table(name = "flights")
 public class JpaFlight {
@@ -69,29 +71,5 @@ public class JpaFlight {
                 scheduledDeparture,
                 scheduledArrival,
                 status);
-    }
-
-    public JpaFlightId getId() {
-        return id;
-    }
-
-    public String getArrivalAirportCode() {
-        return arrivalAirportCode;
-    }
-
-    public String getAircraftRegistration() {
-        return aircraftRegistration;
-    }
-
-    public Instant getScheduledDeparture() {
-        return scheduledDeparture;
-    }
-
-    public Instant getScheduledArrival() {
-        return scheduledArrival;
-    }
-
-    public FlightStatus getStatus() {
-        return status;
     }
 }

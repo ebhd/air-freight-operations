@@ -10,3 +10,18 @@ CREATE TABLE IF NOT EXISTS flights (
     PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code)
 );
 
+
+
+CREATE TABLE IF NOT EXISTS outbox_messages (
+    id UUID PRIMARY KEY,
+    exchange_name VARCHAR(255) NOT NULL,
+    routing_key VARCHAR(255) NOT NULL,
+    payload TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    published_at TIMESTAMP WITH TIME ZONE
+
+);
+
+CREATE INDEX IF NOT EXISTS outbox_messages_pending_idx
+    ON outbox_messages (created_at, id)
+    WHERE published_at IS NULL;

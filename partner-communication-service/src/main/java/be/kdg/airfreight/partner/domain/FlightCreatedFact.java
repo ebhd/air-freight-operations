@@ -11,7 +11,8 @@ public record FlightCreatedFact(
         String departureAirportCode,
         String arrivalAirportCode,
         Instant scheduledDeparture,
-        Instant scheduledArrival) {
+        Instant scheduledArrival,
+        Instant occurredOn) {
     public FlightCreatedFact {
         if (flightNumber == null || flightNumber.isBlank()) {
             throw new IllegalArgumentException("flight number must not be blank");
@@ -21,6 +22,7 @@ public record FlightCreatedFact(
         Objects.requireNonNull(scheduledDepartureDate, "scheduled departure date must not be null");
         Objects.requireNonNull(scheduledDeparture, "scheduled departure must not be null");
         Objects.requireNonNull(scheduledArrival, "scheduled arrival must not be null");
+        Objects.requireNonNull(occurredOn, "event occurrence time must not be null");
         if (!scheduledArrival.isAfter(scheduledDeparture)) {
             throw new IllegalArgumentException("scheduled arrival must be after departure");
         }

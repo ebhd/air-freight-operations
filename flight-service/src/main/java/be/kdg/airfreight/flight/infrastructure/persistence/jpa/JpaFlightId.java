@@ -6,9 +6,11 @@ import jakarta.persistence.Embeddable;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.Objects;
+import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+@Getter
 @Embeddable
 public class JpaFlightId implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -39,18 +41,6 @@ public class JpaFlightId implements Serializable {
 
     public FlightKey toDomain() {
         return new FlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
-    }
-
-    public String getFlightNumber() {
-        return flightNumber;
-    }
-
-    public LocalDate getScheduledDepartureDate() {
-        return scheduledDepartureDate;
-    }
-
-    public String getDepartureAirportCode() {
-        return departureAirportCode;
     }
 
     @Override

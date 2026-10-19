@@ -18,6 +18,66 @@ import org.junit.jupiter.api.Test;
 
 class FlightSchedulingServiceTest {
     @Test
+    void newScheduleCreatesOneEventPerFlight() {
+        var repository = new InMemoryFlights();
+        var events = new ArrayList<Object>();
+        var service = new FlightSchedulingService(repository, events::add);
+
+        var result =
+                service.createFlights(
+                        "new", schedule(LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 14)));
+
+        assertThat(result.createdFlights()).hasSize(2);
+        assertThat(result.duplicateFlightKeys()).isEmpty();
+        assertThat(events)
+                .extracting(event -> ((FlightCreated) event).flightKey())
+                .containsExactlyElementsOf(
+                        result.createdFlights().stream().map(Flight::key).toList());
+    }
+
+    @Test
+    void overlappingScheduleOnlyCreatesEventsForNewDates() {
+        var repository = new InMemoryFlights();
+        var events = new ArrayList<Object>();
+        var service = new FlightSchedulingService(repository, events::add);
+        service.createFlights(
+                "first", schedule(LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 14)));
+        var originalFlights = new HashMap<>(repository.flights);
+        events.clear();
+
+        var overlap =
+                new FlightSchedule(
+                        LocalDate.of(2026, 10, 14),
+                        LocalDate.of(2026, 10, 19),
+                        EnumSet.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
+                        LocalTime.of(8, 0),
+                        LocalTime.of(11, 0),
+                        "HJ221",
+                        "BRU",
+                        "LHR",
+                        "CHANGED");
+        var result = service.createFlights("overlap", overlap);
+
+        assertThat(repository.flights).hasSize(3);
+        originalFlights.forEach(
+                (key, flight) -> assertThat(repository.flights.get(key)).isSameAs(flight));
+        assertThat(result.duplicateFlightKeys()).hasSize(1);
+        assertThat(result.createdFlights())
+                .singleElement()
+                .satisfies(
+                        flight ->
+                                assertThat(flight.key().scheduledDepartureDate())
+                                        .isEqualTo(LocalDate.of(2026, 10, 19)));
+        assertThat(events)
+                .singleElement()
+                .isInstanceOfSatisfying(
+                        FlightCreated.class,
+                        event ->
+                                assertThat(event.flightKey())
+                                        .isEqualTo(result.createdFlights().getFirst().key()));
+    }
+
+    @Test
     void createsMatchingFlightsAndContinuesAfterExistingFlight() {
         var repository = new InMemoryFlights();
         var schedule = schedule(LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 14));
