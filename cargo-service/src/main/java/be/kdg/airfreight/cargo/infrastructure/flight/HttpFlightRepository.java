@@ -9,12 +9,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.core.OAuth2AuthorizationException;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
-@Repository
+// not @Repository since jpa would turn its IllegalArgumentException into a db error
+@Component
 class HttpFlightRepository implements FlightRepository {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpFlightRepository.class);
 

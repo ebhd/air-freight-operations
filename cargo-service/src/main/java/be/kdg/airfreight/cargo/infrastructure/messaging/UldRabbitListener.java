@@ -79,11 +79,12 @@ class UldRabbitListener {
                 | TransactionException outage) {
             // outage so throw and let rabbit retry
             throw outage;
-        } catch (BookingRejectedException
-                | IllegalArgumentException
-                | NullPointerException invalid) {
-            // value objects throw npe for missing fields
-            rejectedMessageStore.store(messageId, payload, invalid.getMessage());
+        } catch (BookingRejectedException | IllegalArgumentException invalid) {
+            // the reason column cant be null and not every exception has a message
+            String reason =
+                    Objects.requireNonNullElse(
+                            invalid.getMessage(), invalid.getClass().getSimpleName());
+            rejectedMessageStore.store(messageId, payload, reason);
         } catch (RuntimeException unexpected) {
             // a bug so reject instead of retrying forever
             LOGGER.error("Unexpected error processing ULD message {}", messageId, unexpected);
@@ -116,17 +117,24 @@ class UldRabbitListener {
 
     private static BookUldCommand toCommand(
             String messageId, UldMessage message, Instant firstReceivedAt) {
-        Objects.requireNonNull(
-                message.scheduledDepartureDay(), "Scheduled departure day is required");
-        Objects.requireNonNull(message.weight(), "Weight is required");
+        UldMessage.WeightValue weight = required(message.weight(), "Weight");
         return new BookUldCommand(
                 messageId,
-                message.flightNumber(),
-                message.scheduledDepartureDay(),
-                new AirportCode(message.departureAirportCode()),
-                new UldCode(message.uldCode()),
-                new Weight(message.weight().value(), WeightUnit.parse(message.weight().unit())),
-                new AirportCode(message.destination()),
+                required(message.flightNumber(), "Flight number"),
+                required(message.scheduledDepartureDay(), "Scheduled departure day"),
+                new AirportCode(required(message.departureAirportCode(), "Departure airport code")),
+                new UldCode(required(message.uldCode(), "ULD code")),
+                new Weight(
+                        required(weight.value(), "Weight value"), WeightUnit.parse(weight.unit())),
+                new AirportCode(required(message.destination(), "Destination")),
                 firstReceivedAt);
+    }
+
+    // a missing json field is a rejection not a NullPointerException
+    private static <T> T required(T value, String field) {
+        if (value == null) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+        return value;
     }
 }
