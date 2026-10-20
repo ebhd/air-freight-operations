@@ -10,6 +10,7 @@ import be.kdg.airfreight.flight.domain.FlightKey;
 import be.kdg.airfreight.flight.domain.FlightRepository;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,13 @@ class FlightControllerTest {
                     }
 
                     @Override
+                    public List<Flight> findByScheduledDepartureDate(LocalDate date) {
+                        return flight.key().scheduledDepartureDate().equals(date)
+                                ? List.of(flight)
+                                : List.of();
+                    }
+
+                    @Override
                     public Flight save(Flight saved) {
                         return saved;
                     }
@@ -58,6 +66,27 @@ class FlightControllerTest {
                 .andExpect(jsonPath("$.arrivalAirportCode").value("AMS"))
                 .andExpect(jsonPath("$.status").value("PLANNED"))
                 .andExpect(jsonPath("$.scheduledDeparture").value("2026-10-19T08:00:00Z"));
+    }
+
+    @Test
+    void dayOverviewListsFlightsOfThatDate() throws Exception {
+        mvc.perform(get("/api/flights").param("date", "2026-10-19"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].flightNumber").value("HJ221"))
+                .andExpect(jsonPath("$[0].scheduledDeparture").value("2026-10-19T08:00:00Z"));
+    }
+
+    @Test
+    void dayWithoutFlightsIsAnEmptyList() throws Exception {
+        mvc.perform(get("/api/flights").param("date", "2026-10-20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void dayOverviewNeedsADate() throws Exception {
+        mvc.perform(get("/api/flights")).andExpect(status().isBadRequest());
     }
 
     @Test
