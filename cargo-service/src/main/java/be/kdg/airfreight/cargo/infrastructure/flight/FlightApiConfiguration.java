@@ -27,6 +27,8 @@ class FlightApiConfiguration {
         // fetches and caches a client credentials token and adds it as bearer header
         var tokenInterceptor = new OAuth2ClientHttpRequestInterceptor(authorizedClientManager);
         tokenInterceptor.setClientRegistrationIdResolver(request -> CLIENT_REGISTRATION_ID);
+        tokenInterceptor.setAuthorizationFailureHandler(
+                OAuth2ClientHttpRequestInterceptor.authorizationFailureHandler(authorizedClients));
 
         // dont let a hanging flight service block the listener for long
         var requestFactory = new SimpleClientHttpRequestFactory();
