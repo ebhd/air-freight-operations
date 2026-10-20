@@ -16,11 +16,7 @@ class RabbitConfiguration {
         return QueueBuilder.durable(ULD_QUEUE).build();
     }
 
-    /**
-     * Only failures that may pass, such as an unreachable database or Flight Operations, reach the
-     * listener's retry. After the retries the message goes back on the queue instead of being
-     * dropped. Rejected input is handled in the listener itself.
-     */
+    // after the retries put the message back on the queue instead of dropping it
     @Bean
     MessageRecoverer requeueAfterRetries() {
         return new ImmediateRequeueMessageRecoverer();

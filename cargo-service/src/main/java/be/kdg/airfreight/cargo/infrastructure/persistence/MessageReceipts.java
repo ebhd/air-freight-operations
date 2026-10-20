@@ -7,11 +7,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Records when a message ID was first received, in its own transaction so the time survives a
- * failed attempt. Retries and requeues therefore resolve dates against the same instant. Plain SQL
- * is used for the insert-if-absent, which also holds when two deliveries arrive together.
- */
 @Component
 public class MessageReceipts {
     private final JdbcClient jdbc;
@@ -20,6 +15,7 @@ public class MessageReceipts {
         this.jdbc = jdbc;
     }
 
+    // own transaction so the first receipt time survives a failed attempt
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Instant firstReceivedAt(String messageId, Instant now) {
         jdbc.sql(

@@ -2,7 +2,7 @@ package be.kdg.airfreight.cargo.domain;
 
 import java.util.Locale;
 
-/** Accepted weight units. Limiting these to kilograms and pounds is the team's choice for Q15. */
+// kg and lb only is our q15 choice
 public enum WeightUnit {
     KG,
     LB;

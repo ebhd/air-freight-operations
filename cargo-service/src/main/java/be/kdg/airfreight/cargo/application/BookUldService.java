@@ -15,10 +15,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Books a received ULD on its flight. Throws {@link BookingRejectedException} or {@link
- * IllegalArgumentException} for input that may not be applied; other exceptions are failures.
- */
 @Service
 public class BookUldService {
     private static final Logger LOGGER = LoggerFactory.getLogger(BookUldService.class);

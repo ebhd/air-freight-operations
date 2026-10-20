@@ -2,7 +2,6 @@ package be.kdg.airfreight.cargo.domain;
 
 import java.util.Objects;
 
-/** A booking identified by its ULD code within the owning cargo plan; not yet loaded. */
 public final class UldBooking {
     private final UldCode code;
     private final Weight weight;

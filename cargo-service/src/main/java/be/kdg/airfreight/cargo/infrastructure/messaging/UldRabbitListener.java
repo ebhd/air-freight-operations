@@ -23,15 +23,6 @@ import org.springframework.transaction.TransactionException;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Receives ULD bookings. Unreadable or invalid messages and bookings that may not be applied are
- * stored as rejected and acknowledged; a rejected message ID stays rejected on redelivery. Database
- * and Flight Operations outages are thrown so the message is retried later.
- *
- * <p>Value objects report missing fields with {@link NullPointerException}, so it is handled as
- * invalid input. Any other unexpected exception is logged as an error and the message is kept in
- * the rejected messages instead of being retried endlessly.
- */
 @Component
 class UldRabbitListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(UldRabbitListener.class);
@@ -85,19 +76,22 @@ class UldRabbitListener {
         } catch (FlightLookupUnavailableException
                 | DataAccessException
                 | TransactionException outage) {
+            // outage so throw and let rabbit retry
             throw outage;
         } catch (BookingRejectedException
                 | IllegalArgumentException
                 | NullPointerException invalid) {
+            // value objects throw npe for missing fields
             rejectedMessageStore.store(messageId, payload, invalid.getMessage());
         } catch (RuntimeException unexpected) {
+            // a bug so reject instead of retrying forever
             LOGGER.error("Unexpected error processing ULD message {}", messageId, unexpected);
             rejectedMessageStore.store(
                     messageId, payload, "Unexpected processing error: " + unexpected);
         }
     }
 
-    /** Returns null for unreadable JSON and for a JSON {@code null} body. */
+    // null for unreadable json or a json null body
     private UldMessage parse(String payload) {
         try {
             return jsonMapper.readValue(payload, UldMessage.class);

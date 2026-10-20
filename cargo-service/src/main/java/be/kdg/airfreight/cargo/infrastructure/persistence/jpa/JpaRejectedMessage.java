@@ -8,7 +8,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 
-/** An incoming message that was not applied, kept with its content and the reason. */
 @Entity
 @Table(name = "rejected_messages")
 public class JpaRejectedMessage {
