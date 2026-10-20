@@ -4,6 +4,7 @@ import be.kdg.airfreight.cargo.application.BookUldCommand;
 import be.kdg.airfreight.cargo.application.BookUldService;
 import be.kdg.airfreight.cargo.domain.AirportCode;
 import be.kdg.airfreight.cargo.domain.BookingRejectedException;
+import be.kdg.airfreight.cargo.domain.FlightLookupRejectedException;
 import be.kdg.airfreight.cargo.domain.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.UldCode;
 import be.kdg.airfreight.cargo.domain.Weight;
@@ -78,7 +79,9 @@ class UldRabbitListener {
                 | TransactionException outage) {
             // outage so throw and let rabbit retry
             throw outage;
-        } catch (BookingRejectedException | IllegalArgumentException invalid) {
+        } catch (BookingRejectedException
+                | FlightLookupRejectedException
+                | IllegalArgumentException invalid) {
             // the reason column cant be null and not every exception has a message
             String reason =
                     Objects.requireNonNullElse(
