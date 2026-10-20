@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 public final class CargoPlan {
     private final FlightKey flightKey;
@@ -29,6 +30,10 @@ public final class CargoPlan {
         }
         bookings.put(code, booking);
         return true;
+    }
+
+    public Optional<UldBooking> findBooking(UldCode code) {
+        return Optional.ofNullable(bookings.get(code));
     }
 
     public FlightKey getFlightKey() {

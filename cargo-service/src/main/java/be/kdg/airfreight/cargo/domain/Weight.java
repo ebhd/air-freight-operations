@@ -18,4 +18,9 @@ public record Weight(BigDecimal value, WeightUnit unit) {
                     "Weight must have at most 9 digits before and 3 after the decimal point");
         }
     }
+
+    @Override
+    public String toString() {
+        return value.toPlainString() + " " + unit;
+    }
 }

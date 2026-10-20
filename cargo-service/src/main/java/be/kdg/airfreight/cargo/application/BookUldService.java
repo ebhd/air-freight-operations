@@ -7,6 +7,7 @@ import be.kdg.airfreight.cargo.domain.DayOfMonthDateRule;
 import be.kdg.airfreight.cargo.domain.FlightInformation;
 import be.kdg.airfreight.cargo.domain.FlightKey;
 import be.kdg.airfreight.cargo.domain.FlightRepository;
+import be.kdg.airfreight.cargo.domain.UldBooking;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
@@ -66,14 +67,33 @@ public class BookUldService {
             LOGGER.info("Booked ULD {} on flight {}", command.uldCode().value(), flightKey);
         } else {
             outcome = BookUldResult.Outcome.DUPLICATE_ULD;
-            LOGGER.info(
-                    "Ignored duplicate ULD {} on flight {}", command.uldCode().value(), flightKey);
+            logIgnoredRepeat(cargoPlan.findBooking(command.uldCode()).orElseThrow(), command);
         }
 
         processedMessageRepository.save(
                 new ProcessedMessage(
                         command.messageId(), Instant.now(), flightKey, command.uldCode(), outcome));
         return new BookUldResult(flightKey, outcome);
+    }
+
+    private static void logIgnoredRepeat(UldBooking existing, BookUldCommand repeat) {
+        if (existing.getWeight().equals(repeat.weight())
+                && existing.getDestination().equals(repeat.destination())) {
+            LOGGER.info(
+                    "Ignored repeated booking of ULD {} from message {}",
+                    existing.getCode().value(),
+                    repeat.messageId());
+            return;
+        }
+        LOGGER.warn(
+                "Ignored repeated booking of ULD {} from message {} with different content: kept"
+                        + " {} to {}, ignored {} to {}",
+                existing.getCode().value(),
+                repeat.messageId(),
+                existing.getWeight(),
+                existing.getDestination(),
+                repeat.weight(),
+                repeat.destination());
     }
 
     private void requirePlannedFlight(FlightKey flightKey) {
