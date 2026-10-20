@@ -33,6 +33,14 @@ Authorization: Bearer {{access_token}}
 GET http://localhost:8080/api/flights/HJ221/2026-10-19/BRU
 Authorization: Bearer {{access_token}}
 
+### Flight day overview (flights by UTC departure date)
+GET http://localhost:8080/api/flights?date=2026-10-19
+Authorization: Bearer {{access_token}}
+
+### Cargo day overview for the load planner (503 when Flight is down)
+GET http://localhost:8081/api/flights?date=2026-10-19
+Authorization: Bearer {{access_token}}
+
 ### Anonymous Flight request (401)
 GET http://localhost:8080/api/status
 

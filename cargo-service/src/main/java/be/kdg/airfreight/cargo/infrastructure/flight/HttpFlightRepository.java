@@ -5,6 +5,9 @@ import be.kdg.airfreight.cargo.domain.FlightKey;
 import be.kdg.airfreight.cargo.domain.FlightLookupRejectedException;
 import be.kdg.airfreight.cargo.domain.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.FlightRepository;
+import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +57,29 @@ class HttpFlightRepository implements FlightRepository {
         } catch (RestClientException | OAuth2AuthorizationException exception) {
             // flight down timeout 5xx or keycloak unreachable
             throw unavailable(flightKey, exception);
+        }
+    }
+
+    @Override
+    public List<FlightInformation> findByScheduledDepartureDate(LocalDate scheduledDepartureDate) {
+        try {
+            FlightResponse[] response =
+                    flightApiClient
+                            .get()
+                            .uri("/api/flights?date={date}", scheduledDepartureDate)
+                            .retrieve()
+                            .body(FlightResponse[].class);
+            // flight always sends a list so no body means something is broken
+            if (response == null) {
+                throw new FlightLookupUnavailableException(scheduledDepartureDate, null);
+            }
+            return Arrays.stream(response).map(FlightResponse::toFlightInformation).toList();
+        } catch (RestClientException | OAuth2AuthorizationException exception) {
+            LOGGER.warn(
+                    "Flight lookup for {} failed: {}",
+                    scheduledDepartureDate,
+                    exception.getMessage());
+            throw new FlightLookupUnavailableException(scheduledDepartureDate, exception);
         }
     }
 

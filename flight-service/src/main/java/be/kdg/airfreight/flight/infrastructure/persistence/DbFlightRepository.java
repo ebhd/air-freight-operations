@@ -6,6 +6,8 @@ import be.kdg.airfreight.flight.domain.FlightRepository;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaFlight;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaFlightId;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaFlightRepository;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
 
@@ -20,6 +22,13 @@ class DbFlightRepository implements FlightRepository {
     @Override
     public Optional<Flight> findById(FlightKey key) {
         return flights.findById(JpaFlightId.fromDomain(key)).map(JpaFlight::toDomain);
+    }
+
+    @Override
+    public List<Flight> findByScheduledDepartureDate(LocalDate date) {
+        return flights.findByIdScheduledDepartureDateOrderByScheduledDepartureAsc(date).stream()
+                .map(JpaFlight::toDomain)
+                .toList();
     }
 
     @Override

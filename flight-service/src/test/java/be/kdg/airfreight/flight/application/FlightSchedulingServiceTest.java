@@ -12,6 +12,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -90,6 +91,13 @@ class FlightSchedulingServiceTest {
         @Override
         public Optional<Flight> findById(FlightKey key) {
             return Optional.ofNullable(flights.get(key));
+        }
+
+        @Override
+        public List<Flight> findByScheduledDepartureDate(LocalDate date) {
+            return flights.values().stream()
+                    .filter(flight -> flight.key().scheduledDepartureDate().equals(date))
+                    .toList();
         }
 
         @Override

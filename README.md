@@ -9,7 +9,7 @@ Java 22 · Spring Boot 4.1.1 · Gradle 9.7.1 multi-project build.
 | `partner-communication-service` | 8082 | `partner_communication` |
 | `simulator`  | 8083 | None |
 
-The three business services use `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks, bearer-token authentication, Flight's US-3 SSM ingestion and a local SSM simulator (see [Local development](#local-development)). Flight exposes a flight lookup by key, which Cargo calls with a service token. Cargo books ULDs received on RabbitMQ onto planned flights; see [ULD bookings](#uld-bookings). Flight uses a plain domain model with separate JPA entities and a database adapter. Other business workflows and the web UI are not implemented.
+The three business services use `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks, bearer-token authentication, Flight's US-3 SSM ingestion and a local SSM simulator (see [Local development](#local-development)). Flight exposes a flight lookup by key and a day overview (`GET /api/flights?date=`), which Cargo calls with a service token. Cargo serves the day overview to the load planner on its own `GET /api/flights?date=` and answers 503 when Flight is unreachable. Cargo books ULDs received on RabbitMQ onto planned flights; see [ULD bookings](#uld-bookings). Flight uses a plain domain model with separate JPA entities and a database adapter. Other business workflows and the web UI are not implemented.
 
 ## Run
 

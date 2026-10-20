@@ -12,7 +12,9 @@ import be.kdg.airfreight.cargo.domain.AirportCode;
 import be.kdg.airfreight.cargo.domain.FlightKey;
 import be.kdg.airfreight.cargo.domain.FlightLookupRejectedException;
 import be.kdg.airfreight.cargo.domain.FlightLookupUnavailableException;
+import be.kdg.airfreight.cargo.domain.FlightStatus;
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -90,6 +92,33 @@ class HttpFlightRepositoryTest {
         flight.expect(requestTo(URL)).andRespond(withStatus(status));
 
         assertThatThrownBy(() -> repository.findByFlightKey(KEY))
+                .isInstanceOf(FlightLookupUnavailableException.class);
+    }
+
+    @Test
+    void dayOverviewIsTranslatedToTheCargoModel() {
+        flight.expect(requestTo("http://flight/api/flights?date=2026-10-19"))
+                .andRespond(withSuccess("[" + json("DEPARTED") + "]", MediaType.APPLICATION_JSON));
+
+        assertThat(repository.findByScheduledDepartureDate(LocalDate.of(2026, 10, 19)))
+                .singleElement()
+                .satisfies(
+                        info -> {
+                            assertThat(info.flightKey()).isEqualTo(KEY);
+                            assertThat(info.arrivalAirportCode()).isEqualTo(new AirportCode("AMS"));
+                            assertThat(info.status()).isEqualTo(FlightStatus.DEPARTED);
+                            assertThat(info.scheduledDeparture())
+                                    .isEqualTo(Instant.parse("2026-10-19T08:00:00Z"));
+                        });
+    }
+
+    @Test
+    void dayOverviewOutageIsRetryable() {
+        flight.expect(requestTo("http://flight/api/flights?date=2026-10-19"))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+
+        assertThatThrownBy(
+                        () -> repository.findByScheduledDepartureDate(LocalDate.of(2026, 10, 19)))
                 .isInstanceOf(FlightLookupUnavailableException.class);
     }
 
