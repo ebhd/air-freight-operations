@@ -92,11 +92,7 @@ class UldRabbitListener {
         }
     }
 
-    /**
-     * Two deliveries for the same ULD code or message ID can be processed at the same time; the
-     * database then refuses the second insert. Running the booking again finds the committed one
-     * and records the repeat as a duplicate instead of treating it as an outage.
-     */
+    // two deliveries can insert at once so the db refuses one and a second run marks it duplicate
     private void bookOnce(BookUldCommand command) {
         try {
             bookUldService.bookUld(command);

@@ -76,7 +76,6 @@ public class BookUldService {
         return new BookUldResult(flightKey, outcome);
     }
 
-    /** A repeated ULD code never changes the existing booking; differing content is a warning. */
     private static void logIgnoredRepeat(UldBooking existing, BookUldCommand repeat) {
         if (existing.getWeight().equals(repeat.weight())
                 && existing.getDestination().equals(repeat.destination())) {
