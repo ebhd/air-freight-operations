@@ -8,7 +8,7 @@ import java.util.Objects;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** Flight key plus ULD code: the database enforces one booking per ULD code per flight. */
+// db allows one booking per uld code per flight
 @Embeddable
 public class JpaUldBookingId implements Serializable {
     private static final long serialVersionUID = 1L;

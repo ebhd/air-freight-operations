@@ -8,12 +8,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.stream.Stream;
 
-/** Turns a day-of-month flight reference into a full scheduled departure date. */
 public final class DayOfMonthDateRule {
     private DayOfMonthDateRule() {}
 
     public static LocalDate resolve(int dayOfMonth, Instant reference) {
-        // no month has these days so reject right away
         if (dayOfMonth < 1 || dayOfMonth > 31) {
             throw new IllegalArgumentException("Day of month must be between 1 and 31");
         }

@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Keeps rejected incoming messages apart from the domain data, once per message ID. */
 @Component
 public class RejectedMessageStore {
     private static final Logger LOGGER = LoggerFactory.getLogger(RejectedMessageStore.class);

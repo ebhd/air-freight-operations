@@ -3,7 +3,6 @@ package be.kdg.airfreight.cargo.domain;
 import java.util.Locale;
 import java.util.Objects;
 
-/** Identifies a container or pallet within a flight's cargo plan; stored trimmed in upper case. */
 public record UldCode(String value) {
     public UldCode {
         Objects.requireNonNull(value, "ULD code is required");

@@ -10,10 +10,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
 
-/**
- * Stores a cargo plan as its bookings. A plan has no state of its own yet, so a flight without
- * bookings has no stored plan.
- */
+// no plan table yet so a plan is just its bookings
 @Repository
 class DbCargoPlanRepository implements CargoPlanRepository {
     private final JpaUldBookingRepository bookings;

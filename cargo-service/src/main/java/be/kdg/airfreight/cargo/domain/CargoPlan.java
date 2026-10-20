@@ -6,7 +6,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Owns the bookings for one flight and protects their per-flight uniqueness. */
 public final class CargoPlan {
     private final FlightKey flightKey;
     private final Map<UldCode, UldBooking> bookings = new LinkedHashMap<>();
@@ -23,10 +22,7 @@ public final class CargoPlan {
         return cargoPlan;
     }
 
-    /**
-     * Adds an unpositioned booking. The caller must first verify that the flight exists and is
-     * planned. Returns false for a duplicate so the caller can log it; existing data is preserved.
-     */
+    // false on a duplicate and the existing booking stays
     public boolean bookUld(UldCode code, Weight weight, AirportCode destination) {
         UldBooking booking = new UldBooking(code, weight, destination);
         if (bookings.containsKey(code)) {

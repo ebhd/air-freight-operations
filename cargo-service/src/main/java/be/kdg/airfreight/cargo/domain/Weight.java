@@ -3,7 +3,6 @@ package be.kdg.airfreight.cargo.domain;
 import java.math.BigDecimal;
 import java.util.Objects;
 
-/** A positive weight with its unit; the unit is never converted on input. */
 public record Weight(BigDecimal value, WeightUnit unit) {
     public Weight {
         Objects.requireNonNull(value, "Weight value is required");
@@ -11,7 +10,7 @@ public record Weight(BigDecimal value, WeightUnit unit) {
         if (value.signum() <= 0) {
             throw new IllegalArgumentException("Weight must be greater than zero");
         }
-        // Equal decimal values should stay equal regardless of trailing zeroes.
+        // so 1250.50 equals 1250.5
         value = value.stripTrailingZeros();
     }
 

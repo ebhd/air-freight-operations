@@ -6,10 +6,6 @@ import be.kdg.airfreight.cargo.domain.Weight;
 import java.time.Instant;
 import java.util.Objects;
 
-/**
- * Internal use-case input, not a RabbitMQ JSON contract. The day of month is resolved against
- * {@code firstReceivedAt}, the first time this message was received.
- */
 public record BookUldCommand(
         String messageId,
         String flightNumber,
@@ -18,6 +14,7 @@ public record BookUldCommand(
         UldCode uldCode,
         Weight weight,
         AirportCode destination,
+        // first receipt so a retry resolves the same date
         Instant firstReceivedAt) {
     public BookUldCommand {
         Objects.requireNonNull(messageId, "Message ID is required");

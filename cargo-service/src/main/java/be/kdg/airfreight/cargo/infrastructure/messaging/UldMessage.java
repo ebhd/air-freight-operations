@@ -2,10 +2,7 @@ package be.kdg.airfreight.cargo.infrastructure.messaging;
 
 import java.math.BigDecimal;
 
-/**
- * Incoming ULD booking message. The course has not published the official ULD JSON schema (Q01);
- * these field names are the team's provisional contract.
- */
+// our provisional json until the course publishes the uld schema q01
 record UldMessage(
         String messageId,
         String flightNumber,

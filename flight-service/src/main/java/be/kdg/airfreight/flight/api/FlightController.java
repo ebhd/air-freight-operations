@@ -26,7 +26,6 @@ public class FlightController {
         this.flightQueryService = flightQueryService;
     }
 
-    // one flight by its identity number utc departure date and departure airport
     @GetMapping("/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}")
     public ResponseEntity<FlightResponse> findFlight(
             @PathVariable String flightNumber,
