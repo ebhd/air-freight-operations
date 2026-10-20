@@ -21,6 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -29,8 +30,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Runs both real service JARs; Docker is required. Logs are in build/integration-tests. */
 @Testcontainers
+@Disabled("Requires Docker, which is unavailable on the shared GitLab runner")
 class SsmToFlmIntegrationTest {
     @Container
     private static final GenericContainer<?> POSTGRES =
