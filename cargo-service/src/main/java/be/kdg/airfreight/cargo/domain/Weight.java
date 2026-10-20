@@ -12,5 +12,10 @@ public record Weight(BigDecimal value, WeightUnit unit) {
         }
         // so 1250.50 equals 1250.5
         value = value.stripTrailingZeros();
+        // keeps numbers like 1e999999999 out of the db and the logs
+        if ((long) value.precision() - value.scale() > 9 || value.scale() > 3) {
+            throw new IllegalArgumentException(
+                    "Weight must have at most 9 digits before and 3 after the decimal point");
+        }
     }
 }
