@@ -66,7 +66,7 @@ Cargo consumes ULD bookings from the durable `cargo.uld` queue. The official ULD
 - The AMQP `message_id` property identifies the message; `messageId` in the body is used when it is absent.
 - The day of month is resolved to the nearest date relative to when the message ID was first received (`message_receipts`), preferring the future on a tie (team interpretation of Q02). Retries and requeues reuse that instant. Weight units are `KG` or `LB` (Q15).
 - The flight must exist in Flight and be planned. A ULD code already booked on that flight is ignored and logged, even when weight or destination differ; the existing booking never changes. Differing content is logged as a warning.
-- Two deliveries processed at the same time cannot book the same ULD twice: the database rejects the second insert and the message is checked again as a duplicate.
+- Two deliveries processed at the same time cannot book the same ULD twice: the database rejects the second insert, and its retry records it as a duplicate.
 - A redelivered message ID has no second effect: `processed_messages` keeps the first result.
 - Unreadable or invalid messages, unknown flights and flights that are no longer planned are stored in `rejected_messages` with their content and reason; a redelivered rejected message ID stays rejected. Database or Flight outages are retried and the message is requeued, not dropped.
 
