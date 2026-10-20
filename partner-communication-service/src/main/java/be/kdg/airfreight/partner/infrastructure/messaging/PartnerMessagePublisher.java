@@ -100,10 +100,13 @@ public class PartnerMessagePublisher {
 
     private void sendAndConfirm(PartnerMessage message)
             throws InterruptedException, ExecutionException, TimeoutException {
+
+        // remove when adding cpm etc
         if (!"FLM".equals(message.content().type())) {
             throw new IllegalArgumentException(
                     "Unsupported partner message type: " + message.content().type());
         }
+
         var envelope =
                 new PartnerMessageEnvelope(
                         message.id().value(),
@@ -111,13 +114,16 @@ public class PartnerMessagePublisher {
                         message.content().formatVersion(),
                         message.content().type(),
                         jsonMapper.readTree(message.content().payload()));
+
         var properties = new MessageProperties();
         properties.setMessageId(message.id().value().toString());
         properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
         properties.setContentEncoding(StandardCharsets.UTF_8.name());
         properties.setDeliveryMode(MessageDeliveryMode.PERSISTENT);
+
         var amqpMessage = new Message(jsonMapper.writeValueAsBytes(envelope), properties);
         var correlation = new CorrelationData();
+
         rabbit.send(
                 RabbitConfiguration.PARTNER_MESSAGES,
                 RabbitConfiguration.FLM,

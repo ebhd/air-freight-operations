@@ -33,7 +33,6 @@ public class FlightCreatedMessageRecoverer implements MessageRecoverer {
         retryPublisher.setConfirmTimeout(5_000);
     }
 
-    // Spring calls this after the listener's short retries have been exhausted.
     @Override
     public void recover(Message message, Throwable cause) {
         if (!isTemporaryDatabaseFailure(cause)) {
