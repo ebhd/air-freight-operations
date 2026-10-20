@@ -3,7 +3,7 @@ package be.kdg.airfreight.cargo.domain;
 import java.time.LocalDate;
 import java.util.Objects;
 
-/** Uses the UTC date of scheduled departure; delays do not change this identity. */
+// utc departure date so a delay never changes the key
 public record FlightKey(
         String flightNumber, LocalDate scheduledDepartureDate, AirportCode departureAirportCode) {
     public FlightKey {
