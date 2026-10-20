@@ -2,6 +2,7 @@ package be.kdg.airfreight.cargo.infrastructure.flight;
 
 import be.kdg.airfreight.cargo.domain.FlightInformation;
 import be.kdg.airfreight.cargo.domain.FlightKey;
+import be.kdg.airfreight.cargo.domain.FlightLookupRejectedException;
 import be.kdg.airfreight.cargo.domain.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.FlightRepository;
 import java.util.Optional;
@@ -48,12 +49,8 @@ class HttpFlightRepository implements FlightRepository {
                 throw unavailable(flightKey, clientError);
             }
             // any other 4xx means our request is invalid and retrying wont help
-            throw new IllegalArgumentException(
-                    "Flight Operations refused the lookup for "
-                            + flightKey
-                            + ": "
-                            + clientError.getStatusCode(),
-                    clientError);
+            throw new FlightLookupRejectedException(
+                    flightKey, clientError.getStatusCode().value(), clientError);
         } catch (RestClientException | OAuth2AuthorizationException exception) {
             // flight down timeout 5xx or keycloak unreachable
             throw unavailable(flightKey, exception);

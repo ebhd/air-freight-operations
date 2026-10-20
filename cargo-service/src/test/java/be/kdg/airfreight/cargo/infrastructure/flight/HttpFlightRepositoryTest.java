@@ -1,7 +1,6 @@
 package be.kdg.airfreight.cargo.infrastructure.flight;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -11,6 +10,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import be.kdg.airfreight.cargo.domain.AirportCode;
 import be.kdg.airfreight.cargo.domain.FlightKey;
+import be.kdg.airfreight.cargo.domain.FlightLookupRejectedException;
 import be.kdg.airfreight.cargo.domain.FlightLookupUnavailableException;
 import java.io.IOException;
 import java.time.LocalDate;
@@ -78,7 +78,8 @@ class HttpFlightRepositoryTest {
         // retrying a request flight refuses would loop forever
         flight.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.BAD_REQUEST));
 
-        assertThatIllegalArgumentException().isThrownBy(() -> repository.findByFlightKey(KEY));
+        assertThatThrownBy(() -> repository.findByFlightKey(KEY))
+                .isInstanceOf(FlightLookupRejectedException.class);
     }
 
     @ParameterizedTest

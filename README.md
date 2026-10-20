@@ -9,7 +9,7 @@ Java 22 · Spring Boot 4.1.1 · Gradle 9.7.1 multi-project build.
 | `partner-communication-service` | 8082 | `partner_communication` |
 | `simulator`  | 8083 | None |
 
-The three business services use `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks, bearer-token authentication, Flight's US-3 SSM ingestion and a local SSM simulator (see [Local development](#local-development)). Flight exposes a flight lookup by key, which Cargo calls with a service token. Flight uses a plain domain model with separate JPA entities and a database adapter. Other business workflows and the web UI are not implemented.
+The three business services use `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks, bearer-token authentication, Flight's US-3 SSM ingestion and a local SSM simulator (see [Local development](#local-development)). Flight exposes a flight lookup by key, which Cargo calls with a service token. Cargo books ULDs received on RabbitMQ onto planned flights; see [ULD bookings](#uld-bookings). Flight uses a plain domain model with separate JPA entities and a database adapter. Other business workflows and the web UI are not implemented.
 
 ## Run
 
@@ -46,6 +46,30 @@ Development only: demo credentials and Keycloak `start-dev` with persistent file
 Configuration lives in each service's `application.properties`; standard Spring environment variables override it. Compose sets container hostnames and Cargo's `FLIGHT_API_URL`.
 
 For manual SSM submission, start Flight Service and run `./gradlew :simulator:bootRun`. Then send the request in [simulator/http/ssm.http](simulator/http/ssm.http). The simulator runs locally on port 8083; it is not part of the default Compose deployment.
+
+## ULD bookings
+
+Cargo consumes ULD bookings from the durable `cargo.uld` queue. The official ULD JSON schema has not been published (Q01), so this is the team's provisional contract:
+
+```json
+{
+  "messageId": "uld-0001",
+  "flightNumber": "HJ221",
+  "scheduledDepartureDay": 19,
+  "departureAirportCode": "BRU",
+  "uldCode": "AKE12345KL",
+  "weight": { "value": 1250.5, "unit": "KG" },
+  "destination": "AMS"
+}
+```
+
+- The AMQP `message_id` property identifies the message; `messageId` in the body is used when it is absent.
+- The day of month is resolved to the nearest date relative to when the message ID was first received (`message_receipts`), preferring the future on a tie (team interpretation of Q02). Retries and requeues reuse that instant. Weight units are `KG` or `LB` (Q15).
+- The flight must exist in Flight and be planned. A ULD code already booked on that flight is ignored and logged.
+- A redelivered message ID has no second effect: `processed_messages` keeps the first result.
+- Unreadable or invalid messages, unknown flights and flights that are no longer planned are stored in `rejected_messages` with their content and reason; a redelivered rejected message ID stays rejected. Database or Flight outages are retried and the message is requeued, not dropped.
+
+Until the ULD simulator exists, publish a booking manually: create the flight with the SSM simulator, then publish the JSON above to `cargo.uld` in the RabbitMQ management UI with a `message_id` property.
 
 ## Authentication
 
