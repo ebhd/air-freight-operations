@@ -54,6 +54,7 @@ Cargo consumes ULD bookings from the durable `cargo.uld` queue. The official ULD
 ```json
 {
   "messageId": "uld-0001",
+  "version": 1,
   "flightNumber": "HJ221",
   "scheduledDepartureDay": 19,
   "departureAirportCode": "BRU",
@@ -64,6 +65,7 @@ Cargo consumes ULD bookings from the durable `cargo.uld` queue. The official ULD
 ```
 
 - The AMQP `message_id` property identifies the message; `messageId` in the body is used when it is absent.
+- `version` is required and must be `1`. A message without it or with another version is stored in `rejected_messages`.
 - The day of month is resolved to the nearest date relative to when the message ID was first received (`message_receipts`), preferring the future on a tie (team interpretation of Q02). Retries and requeues reuse that instant. Weight units are `KG` or `LB` (Q15).
 - The flight must exist in Flight and be planned. A ULD code already booked on that flight is ignored and logged, even when weight or destination differ; the existing booking never changes. Differing content is logged as a warning.
 - Two deliveries processed at the same time cannot book the same ULD twice: the database rejects the second insert, and its retry records it as a duplicate.
