@@ -82,6 +82,47 @@ public final class CargoPlan {
         }
     }
 
+    // a uld with a position moves and its old position becomes free (team reading of q16)
+    public void assignPosition(UldCode code, LoadingPosition position, LoadingContext context) {
+        requireLoadingAllowed(context);
+        UldBooking booking = requireBooking(code);
+        if (position == null) {
+            throw new InvalidCargoValueException("Loading position is required");
+        }
+        Optional<UldBooking> occupant = bookingAt(position);
+        // the same uld on the same position again changes nothing
+        if (occupant.isPresent() && occupant.get() != booking) {
+            throw new PositionOccupiedException(flightKey, position, occupant.get().getCode());
+        }
+        booking.placeAt(position);
+    }
+
+    // clearing a uld without a position changes nothing
+    public void clearPosition(UldCode code, LoadingContext context) {
+        requireLoadingAllowed(context);
+        requireBooking(code).clearPosition();
+    }
+
+    private UldBooking requireBooking(UldCode code) {
+        if (code == null) {
+            throw new InvalidCargoValueException("ULD code is required");
+        }
+        UldBooking booking = bookings.get(code);
+        if (booking == null) {
+            throw new UldNotBookedException(flightKey, code);
+        }
+        return booking;
+    }
+
+    private Optional<UldBooking> bookingAt(LoadingPosition position) {
+        for (UldBooking booking : bookings.values()) {
+            if (booking.getPosition().equals(Optional.of(position))) {
+                return Optional.of(booking);
+            }
+        }
+        return Optional.empty();
+    }
+
     public FlightKey getFlightKey() {
         return flightKey;
     }
