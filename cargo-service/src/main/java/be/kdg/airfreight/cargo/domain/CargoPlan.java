@@ -48,6 +48,40 @@ public final class CargoPlan {
         return state == CargoPlanState.FINALIZED;
     }
 
+    // the one rule for changing checking and finalizing a load
+    public Optional<LoadingRefusal> loadingRefusal(LoadingContext context) {
+        FlightKey contextFlightKey = context.flight().flightKey();
+        if (!contextFlightKey.equals(flightKey)) {
+            throw new InvalidCargoValueException(
+                    "Loading context of "
+                            + contextFlightKey
+                            + " is not for cargo plan "
+                            + flightKey);
+        }
+        // first because a later delay must never reopen a finalized plan
+        if (isFinalized()) {
+            return Optional.of(LoadingRefusal.PLAN_FINALIZED);
+        }
+        if (!context.flight().planned()) {
+            return Optional.of(LoadingRefusal.FLIGHT_NOT_PLANNED);
+        }
+        if (context.window().hasNotOpenedAt(context.now())) {
+            return Optional.of(LoadingRefusal.WINDOW_NOT_OPEN_YET);
+        }
+        if (context.window().hasClosedAt(context.now())) {
+            return Optional.of(LoadingRefusal.WINDOW_CLOSED);
+        }
+        return Optional.empty();
+    }
+
+    // positions checks and finalizing call this first and booking does not
+    public void requireLoadingAllowed(LoadingContext context) {
+        Optional<LoadingRefusal> refusal = loadingRefusal(context);
+        if (refusal.isPresent()) {
+            throw new LoadingNotAllowedException(flightKey, refusal.get(), context.window());
+        }
+    }
+
     public FlightKey getFlightKey() {
         return flightKey;
     }
