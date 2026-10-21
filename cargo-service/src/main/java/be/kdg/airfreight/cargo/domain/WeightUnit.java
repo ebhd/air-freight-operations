@@ -9,12 +9,13 @@ public enum WeightUnit {
 
     public static WeightUnit parse(String unit) {
         if (unit == null) {
-            throw new IllegalArgumentException("Weight unit is required");
+            throw new InvalidCargoValueException("Weight unit is required");
         }
         try {
             return valueOf(unit.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException unknown) {
-            throw new IllegalArgumentException("Unsupported weight unit: " + unit);
+            // valueOf throws this for an unknown name
+            throw new InvalidCargoValueException("Unsupported weight unit: " + unit);
         }
     }
 }
