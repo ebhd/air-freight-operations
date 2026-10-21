@@ -120,6 +120,7 @@ class FlightOverviewControllerTest {
                 };
         return MockMvcBuilders.standaloneSetup(
                         new FlightOverviewController(new FlightOverviewService(flights)))
+                .setControllerAdvice(new CargoApiExceptionHandler())
                 .build();
     }
 }
