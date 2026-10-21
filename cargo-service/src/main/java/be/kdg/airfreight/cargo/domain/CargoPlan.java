@@ -9,13 +9,21 @@ import java.util.Optional;
 public final class CargoPlan {
     private final FlightKey flightKey;
     private final Map<UldCode, UldBooking> bookings = new LinkedHashMap<>();
+    // only restore can give finalized until finalizing exists in issue 26
+    private final CargoPlanState state;
 
     public CargoPlan(FlightKey flightKey) {
-        this.flightKey = Objects.requireNonNull(flightKey, "Flight key is required");
+        this(flightKey, CargoPlanState.DRAFT);
     }
 
-    public static CargoPlan restore(FlightKey flightKey, List<UldBooking> bookings) {
-        CargoPlan cargoPlan = new CargoPlan(flightKey);
+    private CargoPlan(FlightKey flightKey, CargoPlanState state) {
+        this.flightKey = Objects.requireNonNull(flightKey, "Flight key is required");
+        this.state = state;
+    }
+
+    public static CargoPlan restore(
+            FlightKey flightKey, CargoPlanState state, List<UldBooking> bookings) {
+        CargoPlan cargoPlan = new CargoPlan(flightKey, state);
         for (UldBooking booking : bookings) {
             cargoPlan.bookings.put(booking.getCode(), booking);
         }
@@ -34,6 +42,10 @@ public final class CargoPlan {
 
     public Optional<UldBooking> findBooking(UldCode code) {
         return Optional.ofNullable(bookings.get(code));
+    }
+
+    public boolean isFinalized() {
+        return state == CargoPlanState.FINALIZED;
     }
 
     public FlightKey getFlightKey() {

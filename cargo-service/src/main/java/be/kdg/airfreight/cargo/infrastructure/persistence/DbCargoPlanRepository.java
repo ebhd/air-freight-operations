@@ -2,6 +2,7 @@ package be.kdg.airfreight.cargo.infrastructure.persistence;
 
 import be.kdg.airfreight.cargo.domain.CargoPlan;
 import be.kdg.airfreight.cargo.domain.CargoPlanRepository;
+import be.kdg.airfreight.cargo.domain.CargoPlanState;
 import be.kdg.airfreight.cargo.domain.FlightKey;
 import be.kdg.airfreight.cargo.domain.UldBooking;
 import be.kdg.airfreight.cargo.infrastructure.persistence.jpa.JpaUldBooking;
@@ -30,9 +31,10 @@ class DbCargoPlanRepository implements CargoPlanRepository {
                         .stream()
                         .map(JpaUldBooking::toDomain)
                         .toList();
+        // state not stored until issue 26 since nothing can finalize a plan yet
         return stored.isEmpty()
                 ? Optional.empty()
-                : Optional.of(CargoPlan.restore(flightKey, stored));
+                : Optional.of(CargoPlan.restore(flightKey, CargoPlanState.DRAFT, stored));
     }
 
     @Override

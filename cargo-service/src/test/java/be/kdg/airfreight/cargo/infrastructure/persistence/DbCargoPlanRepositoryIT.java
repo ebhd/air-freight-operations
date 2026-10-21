@@ -54,6 +54,8 @@ class DbCargoPlanRepositoryIT {
         CargoPlan stored = repository.findByFlightKey(KEY).orElseThrow();
 
         assertThat(stored.getFlightKey()).isEqualTo(KEY);
+        // nothing can finalize a plan yet so every stored plan is a draft
+        assertThat(stored.isFinalized()).isFalse();
         assertThat(stored.getBookings())
                 .extracting(booking -> booking.getCode().value())
                 .containsExactlyInAnyOrder("AKE12345KL", "PMC00001KL");

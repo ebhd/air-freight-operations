@@ -15,6 +15,7 @@ import be.kdg.airfreight.cargo.application.CargoPlanQueryService;
 import be.kdg.airfreight.cargo.domain.AirportCode;
 import be.kdg.airfreight.cargo.domain.CargoPlan;
 import be.kdg.airfreight.cargo.domain.CargoPlanRepository;
+import be.kdg.airfreight.cargo.domain.CargoPlanState;
 import be.kdg.airfreight.cargo.domain.FlightInformation;
 import be.kdg.airfreight.cargo.domain.FlightKey;
 import be.kdg.airfreight.cargo.domain.FlightLookupUnavailableException;
@@ -161,7 +162,9 @@ class CargoPlanControllerTest {
                                         Instant.parse("2026-10-19T10:00:00Z"),
                                         Instant.parse("2026-10-19T08:00:00Z"))));
         when(cargoPlans.findByFlightKey(KEY))
-                .thenReturn(Optional.of(CargoPlan.restore(KEY, List.of(bookings))));
+                .thenReturn(
+                        Optional.of(
+                                CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of(bookings))));
     }
 
     private static UldBooking booking(
