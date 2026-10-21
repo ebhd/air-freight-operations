@@ -1,18 +1,8 @@
 import { clearError, getJson, showError } from './api.js';
 import { whenSignedIn } from './auth.js';
 import { requiredElement } from './dom.js';
+import type { FlightOverview } from './flight-overview.js';
 import { formatBrusselsDateTime, utcToday } from './time.js';
-
-// one row of GET /api/flights as sent by FlightOverviewResponse
-type FlightOverview = {
-    flightNumber: string;
-    scheduledDepartureDate: string;
-    departureAirportCode: string;
-    arrivalAirportCode: string;
-    status: string;
-    scheduledDeparture: string;
-    scheduledArrival: string;
-};
 
 const dateInput = requiredElement('#date', HTMLInputElement);
 const includeDepartedInput = requiredElement('#include-departed', HTMLInputElement);

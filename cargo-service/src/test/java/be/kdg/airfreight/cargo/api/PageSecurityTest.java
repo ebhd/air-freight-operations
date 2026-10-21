@@ -47,6 +47,8 @@ class PageSecurityTest {
         mvc.perform(get("/index.html"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(Matchers.containsString("<title>")));
+        mvc.perform(get("/cargo-plan.html")).andExpect(status().isOk());
+        mvc.perform(get("/js/cargo-plan.js")).andExpect(status().isOk());
         mvc.perform(get("/js/api.js")).andExpect(status().isOk());
         mvc.perform(get("/css/app.css")).andExpect(status().isOk());
     }

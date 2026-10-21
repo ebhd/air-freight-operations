@@ -1,8 +1,8 @@
 import { getAccessToken, signOut } from './auth.js';
 import { requiredElement } from './dom.js';
 
-// a failure carries the message to show so a page never reads http status codes
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; message: string };
+// a failure carries the message to show and the http status which is null when the server did not answer
+export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number | null; message: string };
 
 type ProblemDetail = {
     detail?: string;
@@ -15,7 +15,7 @@ export async function getJson<T>(path: string): Promise<ApiResult<T>> {
             headers: { Authorization: `Bearer ${getAccessToken()}` },
         });
     } catch {
-        return { ok: false, message: 'Cargo service is unreachable.' };
+        return { ok: false, status: null, message: 'Cargo service is unreachable.' };
     }
     if (response.ok) {
         // typescript does not check json at runtime so the requested type must match the java response
@@ -23,12 +23,12 @@ export async function getJson<T>(path: string): Promise<ApiResult<T>> {
     }
     if (response.status === 401) {
         signOut();
-        return { ok: false, message: 'Your session has expired. Please sign in again.' };
+        return { ok: false, status: response.status, message: 'Your session has expired. Please sign in again.' };
     }
     if (response.status === 403) {
-        return { ok: false, message: 'You are not allowed to do this.' };
+        return { ok: false, status: response.status, message: 'You are not allowed to do this.' };
     }
-    return { ok: false, message: await problemDetail(response) };
+    return { ok: false, status: response.status, message: await problemDetail(response) };
 }
 
 // spring explains a refused request in the detail of a problem json body
