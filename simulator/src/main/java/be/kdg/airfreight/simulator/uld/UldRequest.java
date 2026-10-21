@@ -1,0 +1,12 @@
+package be.kdg.airfreight.simulator.uld;
+
+import java.time.LocalDate;
+
+// one uld record as the tester sends it with the full utc scheduled departure date
+public record UldRequest(
+        String flightNumber,
+        LocalDate scheduledDepartureDate,
+        String departureAirportCode,
+        String uldCode,
+        UldWeight weight,
+        String destination) {}
