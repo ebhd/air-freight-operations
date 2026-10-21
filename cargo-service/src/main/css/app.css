@@ -1,0 +1,9 @@
+@import "tailwindcss" source(none);
+@source "../resources/static/*.html";
+@source "../typescript/*.ts";
+
+@layer components {
+    .error {
+        @apply border border-red-700 bg-red-50 px-4 py-3 text-red-700;
+    }
+}

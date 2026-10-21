@@ -1,7 +1,10 @@
+import com.github.gradle.node.npm.task.NpxTask
+
 plugins {
     id 'java'
     id 'org.springframework.boot'
     id 'io.spring.dependency-management'
+    id 'com.github.node-gradle.node'
 }
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(22) } }
@@ -17,6 +20,39 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
     runtimeOnly 'org.postgresql:postgresql'
+}
+
+// gradle downloads this node version so the build needs no node installation
+node {
+    download = true
+    version = '24.22.1'
+    npmInstallCommand = 'ci'
+}
+
+// tsconfig.json tells tsc to write the javascript into build/generated/typescript
+tasks.register('compileTypeScript', NpxTask) {
+    dependsOn tasks.named('npmInstall')
+    command = 'tsc'
+    args = ['--project', 'tsconfig.json']
+    inputs.dir('src/main/typescript')
+    inputs.files('tsconfig.json', 'package-lock.json')
+    outputs.dir('build/generated/typescript')
+}
+
+// tailwind keeps only the classes it finds in the html pages and the typescript
+tasks.register('compileTailwindCss', NpxTask) {
+    dependsOn tasks.named('npmInstall')
+    command = 'tailwindcss'
+    args = ['--input', 'src/main/css/app.css', '--output', 'build/generated/tailwind/app.css', '--minify']
+    inputs.files('src/main/css/app.css', 'package-lock.json')
+    inputs.files(fileTree('src/main/resources/static') { include '*.html' })
+    inputs.dir('src/main/typescript')
+    outputs.file('build/generated/tailwind/app.css')
+}
+
+tasks.named('processResources') {
+    from(tasks.named('compileTypeScript')) { into 'static/js' }
+    from(tasks.named('compileTailwindCss')) { into 'static/css' }
 }
 
 apply from: rootProject.file('gradle/quality.gradle')
