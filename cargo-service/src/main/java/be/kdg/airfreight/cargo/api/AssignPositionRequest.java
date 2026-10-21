@@ -1,4 +1,4 @@
 package be.kdg.airfreight.cargo.api;
 
-// body of the put like {"position":"RL"}
+// json body of the put with one position code
 public record AssignPositionRequest(String position) {}

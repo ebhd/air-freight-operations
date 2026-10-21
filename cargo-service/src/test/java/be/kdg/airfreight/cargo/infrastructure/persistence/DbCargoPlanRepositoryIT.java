@@ -77,7 +77,7 @@ class DbCargoPlanRepositoryIT {
         assertThat(repository.findByFlightKey(KEY)).isEmpty();
     }
 
-    // the context starts with ddl-auto validate so the entities match schema.sql
+    // the context starts with ddl-auto validate so the entities match the schema file
     @Test
     void storesAndRestoresPositions() {
         repository.save(

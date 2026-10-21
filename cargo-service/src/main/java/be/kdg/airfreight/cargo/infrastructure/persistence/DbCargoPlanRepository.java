@@ -33,7 +33,7 @@ class DbCargoPlanRepository implements CargoPlanRepository {
         this.entityManager = entityManager;
     }
 
-    // joins the caller's transaction and keeps the plan row with the version that save checks
+    // joins the transaction of the caller and keeps the plan row with the version save checks
     @Override
     @Transactional(readOnly = true)
     public Optional<CargoPlan> findByFlightKey(FlightKey flightKey) {

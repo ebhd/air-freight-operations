@@ -82,7 +82,7 @@ public final class CargoPlan {
         }
     }
 
-    // a uld with a position moves and its old position becomes free (team reading of q16)
+    // a uld with a position moves and its old position becomes free as our q16 reading
     public void assignPosition(UldCode code, LoadingPosition position, LoadingContext context) {
         requireLoadingAllowed(context);
         UldBooking booking = requireBooking(code);

@@ -193,7 +193,7 @@ class CargoPlanVersionIT {
         assertThat(version()).isEqualTo(3);
     }
 
-    // the service gets spring's own transaction template so this also proves the wiring
+    // the service gets the transaction template of spring so this also proves the wiring
     @Test
     void positionServiceCommitsEachChangeInItsOwnTransaction() {
         bookAkeAndPmc();

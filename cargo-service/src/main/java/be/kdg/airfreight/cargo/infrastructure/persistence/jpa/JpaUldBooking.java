@@ -33,7 +33,7 @@ public class JpaUldBooking {
     @Column(name = "destination_airport_code", nullable = false, length = 3)
     private String destinationAirportCode;
 
-    // stores the name like RL and never the ordinal so reordering the enum keeps the data right
+    // stores the enum name and never the ordinal so reordering the enum keeps the data right
     @Enumerated(EnumType.STRING)
     @Column(name = "loading_position", length = 2)
     private LoadingPosition loadingPosition;
