@@ -16,6 +16,15 @@ public class FlmFormatter implements MessageFormatter<FlightCreatedFact> {
 
     @Override
     public MessageContent format(FlightCreatedFact flightFact) {
-        return new MessageContent("FLM", jsonMapper.writeValueAsString(flightFact), 1);
+        var payload =
+                new FlmPayload(
+                        flightFact.flightNumber(),
+                        flightFact.scheduledDepartureDate(),
+                        flightFact.departureAirportCode(),
+                        flightFact.arrivalAirportCode(),
+                        flightFact.scheduledDeparture(),
+                        flightFact.scheduledArrival());
+
+        return new MessageContent("FLM", jsonMapper.writeValueAsString(payload), 1);
     }
 }

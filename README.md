@@ -84,6 +84,17 @@ Until the ULD simulator exists, publish a booking manually: create the flight wi
 
 Run the token request in `http/local.http` before its authenticated requests.
 
+## Incoming message recovery
+
+Flight and Partner use the same incoming recovery policy after the configured short retries. Each service's default listener factory uses its local recoverer component, which selects a confirmed retry publisher from an explicit source-queue map:
+
+| Service / recoverer | Source queue | Retry queue |
+| --- | --- | --- |
+| Flight / `FlightMessageRecoverer` | `flight.ssm` | `flight.ssm.retry` |
+| Partner / `PartnerMessageRecoverer` | `partner.flight-created` | `partner.flight-created.retry` |
+
+Temporary database failures are deferred through durable quorum retry queues with a 30-second message TTL and at-least-once dead-lettering back to the source queue. Other processing failures use the source queue's DLQ configuration. Missing retry mappings or failed retry publication requeue the original delivery. Add mappings when implementing new listeners and their retry queues; Partner's commented CPM entry is an example only. Short retry settings remain in each service's `spring.rabbitmq.listener.simple.retry.*`. The existing source queues and DLQs are unchanged; the new SSM retry queue does not automatically replay SSMs already in `flight.dlq`.
+
 ## Checks
 
 ```sh
@@ -93,5 +104,7 @@ npm ci                          # Install Husky hooks; requires Node.js
 ```
 
 Spotless (Google Java Format/AOSP), Checkstyle, JUnit, AssertJ, ArchUnit and JaCoCo. Tests run without Docker; coverage reports are under `<service>/build/reports/jacoco/test/`. No coverage threshold is enforced.
+
+US-5 integration tests use `@SpringBootTest`, an in-memory H2 database and a mocked RabbitMQ sender. Flight tests cover SSM processing, duplicate messages and overlapping schedules; Partner tests cover FLM contents and duplicate handling. They run with the normal `test` task locally and in CI. These are separate service tests, not a broker-connected end-to-end test: RabbitMQ delivery/retry behavior and the PostgreSQL schema still need verification against the running stack.
 
 Husky checks formatting and lint without modifying files. GitLab CI runs format, lint, build and test jobs per service; artifacts are retained for one week.

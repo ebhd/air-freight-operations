@@ -2,14 +2,13 @@ package be.kdg.airfreight.partner.infrastructure.messaging;
 
 import be.kdg.airfreight.partner.application.PartnerMessageService;
 import be.kdg.airfreight.partner.domain.FlightCreatedFact;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
 @Component
+@Slf4j
 public class FlightCreatedListener {
-    private static final Logger log = LoggerFactory.getLogger(FlightCreatedListener.class);
     private final PartnerMessageService partnerMessageService;
 
     public FlightCreatedListener(PartnerMessageService partnerMessageService) {
@@ -34,7 +33,8 @@ public class FlightCreatedListener {
                         message.departureAirportCode(),
                         message.arrivalAirportCode(),
                         message.scheduledDeparture(),
-                        message.scheduledArrival());
+                        message.scheduledArrival(),
+                        message.occurredOn());
         partnerMessageService.prepareFlm(message.messageId(), fact);
     }
 }
