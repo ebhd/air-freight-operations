@@ -21,7 +21,7 @@ class UldPublisher {
                 request.messageId() != null ? request.messageId() : UUID.randomUUID().toString();
         UldMessage message = UldMessage.from(messageId, request);
 
-        // default exchange "" routes straight to the queue named by the routing key
+        // the default exchange routes straight to the queue named by the routing key
         rabbit.convertAndSend(
                 "",
                 ULD_QUEUE,

@@ -57,7 +57,7 @@ class UldController {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
     }
 
-    // spring's default 400 does not say which value was wrong
+    // the default spring 400 does not say which value was wrong
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ProblemDetail unreadableRequest(HttpMessageNotReadableException exception) {
         String cause = exception.getMostSpecificCause().getMessage();
