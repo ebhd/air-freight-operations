@@ -49,6 +49,7 @@ flowchart LR
 | ULD | — | Unit Load Device (container or pallet) booked on a flight, with code, weight and destination; placement is optional | Positioned ULD details included in CPM |
 | Weight | — | Value and unit used for cargo calculations | ULD weight and unit included in CPM |
 | Loading position | — | Named place on the aircraft deck | ULD position included in CPM |
+| Loading window | — | Period from STD - 12 hours to current ETD - 20 minutes in which a planned, unfinalized load may change; recomputed for every action | — |
 | Finalized load | Processed CPM confirms the cargo prerequisite for departure | Checked, frozen load | Load snapshot carried in CPM |
 | CPM | Received load message whose processing satisfies the cargo prerequisite for departure | Containers / Pallets Message describing the finalized load | Copy forwarded to partners |
 
@@ -145,9 +146,35 @@ classDiagram
     class CargoPlan {
         <<AggregateRoot>>
         bookUld(code, weight, destination)
+        loadingRefusal(context)
+        requireLoadingAllowed(context)
         assignPosition(code, position)
         checkLoad(context)
         finalizeLoad(context)
+    }
+    class LoadingContext {
+        <<ValueObject>>
+        flight
+        window
+        now
+    }
+    class LoadingWindow {
+        <<ValueObject>>
+        opensAt
+        closesAt
+    }
+    class LoadingWindowPolicy {
+        <<Policy>>
+        opensBeforeStd
+        closesBeforeEtd
+        windowFor(std, etd)
+    }
+    class LoadingRefusal {
+        <<enumeration>>
+        PLAN_FINALIZED
+        FLIGHT_NOT_PLANNED
+        WINDOW_NOT_OPEN_YET
+        WINDOW_CLOSED
     }
     class UldBooking {
         <<Entity>>
@@ -207,6 +234,10 @@ classDiagram
     }
     CargoPlan --> FlightKey : identity
     CargoPlan --> CargoPlanState : state
+    CargoPlan ..> LoadingContext : judges actions on
+    CargoPlan ..> LoadingRefusal : returns
+    LoadingContext --> LoadingWindow
+    LoadingWindowPolicy ..> LoadingWindow : creates
     CargoPlan "1" *-- "0..*" UldBooking : bookings
     UldBooking --> UldCode : identity within plan
     UldBooking --> Weight
@@ -226,7 +257,8 @@ classDiagram
 | --- | --- |
 | Aggregate root | `CargoPlan` (owns bookings) |
 | Entity | `UldBooking` |
-| Value objects | `FlightKey`, `UldCode`, `Weight`, `AirportCode`, `Position`, `LoadCheckResult`, `LoadCheckReport` |
+| Value objects | `FlightKey`, `UldCode`, `Weight`, `AirportCode`, `Position`, `LoadingWindow`, `LoadingContext`, `LoadCheckResult`, `LoadCheckReport` |
+| Policy | `LoadingWindowPolicy` (configurable offsets) |
 | Domain checks | `LateralBalanceCheck`, `OffloadingCheck`, `AllCargoLoadedCheck` |
 | Domain event | `LoadFinalized` |
 | Repository | `CargoPlanRepository` |
@@ -235,11 +267,16 @@ classDiagram
 Invariants on `CargoPlan`:
 
 1. Unique ULD code per flight; one ULD per valid position, one position per ULD.
-2. Booking only while planned. Placement, checking and finalization require a load planner, a planned flight, an open loading period and an unfinalized plan.
+2. Booking only while planned. Placement, checking and finalization require a load planner, a planned flight, an open loading period and an unfinalized plan. `requireLoadingAllowed(context)` enforces the last three and is the first call of every such method; role checks belong to the API (#2).
 3. Finalization reruns all checks; hard failures block it, soft failures warn.
 4. Finalized load cannot change.
 
 Loading period: **STD - 12 hours → current ETD - 20 minutes**
+
+- Both offsets are settings (`cargo.loading-window.*`); `LoadingWindowPolicy` computes the window from STD and ETD only, so arrival times cannot move it.
+- The window is half open: open at the opening instant, closed at the closing instant (team reading of Q06).
+- It is never stored. The application service builds a `LoadingContext` per action from Flight's current data, the policy and an injected `Clock`, so a departure delay moves the end at the next action.
+- The finalized state is checked first: a later delay never reopens a finalized plan.
 
 ### Load checks
 
@@ -261,6 +298,7 @@ stateDiagram-v2
     DRAFT --> FINALIZED: finalize / LoadFinalized
 ```
 
+- A departure delay never moves a plan from `FINALIZED` back to `DRAFT`; there is no unfinalize operation.
 - `LoadFinalized` carries the flight key and frozen positioned cargo, used to publish CPM.
 - CPM goes via RabbitMQ to Flight Operations and Partner Communication. Departure requires Flight Operations to have received and processed it.
 
@@ -441,7 +479,7 @@ Each service uses `domain` for business rules and repository interfaces, `applic
 
 A service serves its own web pages as static files from its JAR (so far only Cargo): HTML from `src/main/resources/static`, plus TypeScript modules and Tailwind CSS that the Gradle build compiles into `static/js` and `static/css`. The pages render on the client: the TypeScript modules call the service's REST API with `fetch` and a bearer token.
 
-Cargo signals a missing or invalid input value with its own `InvalidCargoValueException` from the value objects. The ULD listener stores such a message in `rejected_messages` without retrying; a REST controller turns it into 400 only while it builds the domain values from the URL, so bad data from Flight stays a 500. `CargoApiExceptionHandler` gives every Cargo endpoint the same answers: 404 for a flight Flight does not know, 503 when Flight is unreachable. Read use cases such as the cargo plan view (`CargoPlanQueryService`) load the aggregate through its repository and add Flight's data; they check no flight state, so the plan stays readable after departure.
+Cargo signals a missing or invalid input value with its own `InvalidCargoValueException` from the value objects. The ULD listener stores such a message in `rejected_messages` without retrying; a REST controller turns it into 400 only while it builds the domain values from the URL, so bad data from Flight stays a 500. `CargoApiExceptionHandler` gives every Cargo endpoint the same answers: 404 for a flight Flight does not know, 503 when Flight is unreachable, 409 with a refusal code when the loading rules refuse an action (`LoadingNotAllowedException`). Read use cases such as the cargo plan view (`CargoPlanQueryService`) load the aggregate through its repository and add Flight's data; they check no flight state, so the plan stays readable after departure.
 
 ## 10. Running it 
 
