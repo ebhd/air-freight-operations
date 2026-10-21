@@ -441,6 +441,8 @@ Each service uses `domain` for business rules and repository interfaces, `applic
 
 A service serves its own web pages as static files from its JAR (so far only Cargo): HTML from `src/main/resources/static`, plus TypeScript modules and Tailwind CSS that the Gradle build compiles into `static/js` and `static/css`. The pages render on the client: the TypeScript modules call the service's REST API with `fetch` and a bearer token.
 
+Cargo signals a missing or invalid input value with its own `InvalidCargoValueException` from the value objects. The ULD listener stores such a message in `rejected_messages` without retrying; a REST controller turns it into 400 only while it builds the domain values from the URL, so bad data from Flight stays a 500. `CargoApiExceptionHandler` gives every Cargo endpoint the same answers: 404 for a flight Flight does not know, 503 when Flight is unreachable. Read use cases such as the cargo plan view (`CargoPlanQueryService`) load the aggregate through its repository and add Flight's data; they check no flight state, so the plan stays readable after departure.
+
 ## 10. Running it 
 
 Run `docker compose up -d --build` from the repository root. See [README](../README.md) for ports, development credentials, IntelliJ setup and the current implementation limits. Health endpoints verify PostgreSQL and RabbitMQ; Cargo also checks its HTTP connection to Flight. Keycloak token validation is configured for Flight and Cargo. Domain message flows and action-specific authorization are still to be implemented.
