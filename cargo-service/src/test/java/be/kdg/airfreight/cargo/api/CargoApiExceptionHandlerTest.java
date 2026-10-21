@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.api;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -13,6 +14,7 @@ import be.kdg.airfreight.cargo.domain.LoadingWindow;
 import java.time.Instant;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -41,6 +43,13 @@ class CargoApiExceptionHandlerTest {
                 .andExpect(jsonPath("$.closesAt").value("2026-10-22T07:40:00Z"));
     }
 
+    // elsewhere it can mean a bug so only CargoPlanController turns it into a 409
+    @Test
+    void dataIntegrityViolationIsNotMappedForEveryEndpoint() {
+        assertThatThrownBy(() -> mvc.perform(put("/integrity")))
+                .hasRootCauseInstanceOf(DataIntegrityViolationException.class);
+    }
+
     // stands in for a later load changing endpoint like the positions of issue 20
     @RestController
     static class RefusingController {
@@ -52,6 +61,11 @@ class CargoApiExceptionHandlerTest {
                     new LoadingWindow(
                             Instant.parse("2026-10-21T20:00:00Z"),
                             Instant.parse("2026-10-22T07:40:00Z")));
+        }
+
+        @PutMapping("/integrity")
+        void violate() {
+            throw new DataIntegrityViolationException("duplicate key");
         }
     }
 }
