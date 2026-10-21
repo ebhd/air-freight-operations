@@ -27,6 +27,7 @@ class UldMessageJsonTest {
     void matchesProvisionalContract() throws Exception {
         UldRequest request =
                 new UldRequest(
+                        null,
                         "HJ221",
                         LocalDate.of(2026, 10, 19),
                         "BRU",

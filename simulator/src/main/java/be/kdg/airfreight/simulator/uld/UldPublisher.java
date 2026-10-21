@@ -17,7 +17,8 @@ class UldPublisher {
     }
 
     String publish(UldRequest request) {
-        String messageId = UUID.randomUUID().toString();
+        String messageId =
+                request.messageId() != null ? request.messageId() : UUID.randomUUID().toString();
         UldMessage message = UldMessage.from(messageId, request);
 
         // default exchange "" routes straight to the queue named by the routing key

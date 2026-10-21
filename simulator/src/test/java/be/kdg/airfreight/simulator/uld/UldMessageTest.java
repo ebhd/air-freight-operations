@@ -14,6 +14,7 @@ class UldMessageTest {
     void convertsFullDateToDayOfMonth(LocalDate scheduledDepartureDate, int expectedDay) {
         UldRequest request =
                 new UldRequest(
+                        null,
                         "HJ221",
                         scheduledDepartureDate,
                         "BRU",
@@ -31,7 +32,13 @@ class UldMessageTest {
         UldWeight weight = new UldWeight(new BigDecimal("-5"), "ton");
         UldRequest request =
                 new UldRequest(
-                        "hj221", LocalDate.of(2026, 10, 26), "bru", "ake12345kl", weight, "ams");
+                        null,
+                        "hj221",
+                        LocalDate.of(2026, 10, 26),
+                        "bru",
+                        "ake12345kl",
+                        weight,
+                        "ams");
 
         UldMessage message = UldMessage.from("uld-1", request);
 

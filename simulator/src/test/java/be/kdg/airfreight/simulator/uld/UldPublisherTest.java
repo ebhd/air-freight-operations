@@ -21,6 +21,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 class UldPublisherTest {
     private static final UldRequest REQUEST =
             new UldRequest(
+                    null,
                     "HJ221",
                     LocalDate.of(2026, 10, 26),
                     "BRU",
@@ -68,5 +69,25 @@ class UldPublisherTest {
         String messageId = publisher.publish(REQUEST);
 
         assertThatCode(() -> UUID.fromString(messageId)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void usesTheGivenMessageId() {
+        UldRequest replay =
+                new UldRequest(
+                        "uld-demo-1",
+                        "HJ221",
+                        LocalDate.of(2026, 10, 26),
+                        "BRU",
+                        "AKE12345KL",
+                        new UldWeight(new BigDecimal("1250.5"), "KG"),
+                        "AMS");
+
+        assertThat(publisher.publish(replay)).isEqualTo("uld-demo-1");
+        ArgumentCaptor<Object> sent = ArgumentCaptor.forClass(Object.class);
+        verify(rabbit)
+                .convertAndSend(
+                        eq(""), eq("cargo.uld"), sent.capture(), any(MessagePostProcessor.class));
+        assertThat(((UldMessage) sent.getValue()).messageId()).isEqualTo("uld-demo-1");
     }
 }
