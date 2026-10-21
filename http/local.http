@@ -45,6 +45,18 @@ Authorization: Bearer {{access_token}}
 GET http://localhost:8081/api/flights?date=2026-10-19&includeDeparted=true
 Authorization: Bearer {{access_token}}
 
+### Cargo plan of one flight: flight data, status and every booked ULD (position null until #20; 503 when Flight is down)
+GET http://localhost:8081/api/cargo-plans/HJ221/2026-10-19/BRU
+Authorization: Bearer {{access_token}}
+
+### Cargo plan of a flight Flight does not know (404)
+GET http://localhost:8081/api/cargo-plans/XX999/2026-10-19/BRU
+Authorization: Bearer {{access_token}}
+
+### Cargo plan with an invalid flight key (400)
+GET http://localhost:8081/api/cargo-plans/HJ-221/2026-10-19/BRU
+Authorization: Bearer {{access_token}}
+
 ### Anonymous Flight request (401)
 GET http://localhost:8080/api/status
 

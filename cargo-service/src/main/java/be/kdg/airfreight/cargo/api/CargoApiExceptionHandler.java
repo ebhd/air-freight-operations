@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.api;
 
+import be.kdg.airfreight.cargo.application.UnknownFlightException;
 import be.kdg.airfreight.cargo.domain.FlightLookupUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -15,5 +16,10 @@ class CargoApiExceptionHandler {
         return ProblemDetail.forStatusAndDetail(
                 HttpStatus.SERVICE_UNAVAILABLE,
                 "Flight Operations is unavailable, try again later");
+    }
+
+    @ExceptionHandler(UnknownFlightException.class)
+    ProblemDetail unknownFlight(UnknownFlightException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 }
