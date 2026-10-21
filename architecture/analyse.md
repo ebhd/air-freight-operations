@@ -439,6 +439,8 @@ stateDiagram-v2
 
 Each service uses `domain` for business rules and repository interfaces, `application` for use cases, `infrastructure` for persistence and external adapters, and `api` for REST controllers, DTOs and mappers. The initial setup contains these packages; business workflows are still to be implemented.
 
+A service serves its own web pages as static files from its JAR (so far only Cargo): HTML from `src/main/resources/static`, plus TypeScript modules and Tailwind CSS that the Gradle build compiles into `static/js` and `static/css`. The pages render on the client: the TypeScript modules call the service's REST API with `fetch` and a bearer token.
+
 ## 10. Running it 
 
 Run `docker compose up -d --build` from the repository root. See [README](../README.md) for ports, development credentials, IntelliJ setup and the current implementation limits. Health endpoints verify PostgreSQL and RabbitMQ; Cargo also checks its HTTP connection to Flight. Keycloak token validation is configured for Flight and Cargo. Domain message flows and action-specific authorization are still to be implemented.

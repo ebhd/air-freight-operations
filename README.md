@@ -9,7 +9,7 @@ Java 22 · Spring Boot 4.1.1 · Gradle 9.7.1 multi-project build.
 | `partner-communication-service` | 8082 | `partner_communication` |
 | `simulator`  | 8083 | None |
 
-The three business services use `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks, bearer-token authentication, Flight's US-3 SSM ingestion and a local SSM simulator (see [Local development](#local-development)). Flight exposes a flight lookup by key and a day overview (`GET /api/flights?date=`), which Cargo calls with a service token. Cargo serves the day overview to the load planner on its own `GET /api/flights?date=` and answers 503 when Flight is unreachable. Cargo books ULDs received on RabbitMQ onto planned flights; see [ULD bookings](#uld-bookings). Flight uses a plain domain model with separate JPA entities and a database adapter. Other business workflows and the web UI are not implemented.
+The three business services use `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks, bearer-token authentication, Flight's US-3 SSM ingestion and a local SSM simulator (see [Local development](#local-development)). Flight exposes a flight lookup by key and a day overview (`GET /api/flights?date=`), which Cargo calls with a service token. Cargo serves the day overview to the load planner on its own `GET /api/flights?date=`, which hides departed and landed flights unless `includeDeparted=true`, and answers 503 when Flight is unreachable. Cargo also serves the load planner's "Flights to load" page at `http://localhost:8081/`, written in TypeScript with Tailwind CSS and compiled by the Gradle build (see [Cargo frontend](#cargo-frontend)). Cargo books ULDs received on RabbitMQ onto planned flights; see [ULD bookings](#uld-bookings). Flight uses a plain domain model with separate JPA entities and a database adapter. Other business workflows and Flight's web UI are not implemented.
 
 ## Run
 
@@ -45,6 +45,10 @@ Development only: demo credentials and Keycloak `start-dev` with persistent file
 
 Configuration lives in each service's `application.properties`; standard Spring environment variables override it. Compose sets container hostnames and Cargo's `FLIGHT_API_URL`.
 
+### Cargo frontend
+
+Page HTML lives in `cargo-service/src/main/resources/static/`, TypeScript modules in `cargo-service/src/main/typescript/` and the Tailwind CSS input in `cargo-service/src/main/css/app.css`. Gradle's `processResources` (part of `bootJar`, `bootRun` and `check`) runs `tsc` and the Tailwind CLI and puts the output in the JAR as `static/js/*.js` and `static/css/app.css`. The Gradle Node plugin downloads the pinned Node version and runs `npm ci` in `cargo-service/`, so no Node installation is needed, also not in Docker or CI. A TypeScript type error fails the build. Compiled files are not committed; edit the sources.
+
 For manual SSM submission, start Flight Service and run `./gradlew :simulator:bootRun`. Then send the request in [simulator/http/ssm.http](simulator/http/ssm.http). The simulator runs locally on port 8083; it is not part of the default Compose deployment.
 
 ## ULD bookings
@@ -74,13 +78,14 @@ Until the ULD simulator exists, publish a booking manually: create the flight wi
 
 ## Authentication
 
-- Realm: `air-freight`; public client: `air-freight-dev` (password grant).
+- Realm: `air-freight`; public client: `air-freight-dev` (password grant, web origin `http://localhost:8081`). Access tokens last 30 minutes in this development realm.
 - Users and corresponding realm roles: `flight-planner`, `load-planner`; password: `password`.
 - Flight/Cargo `/api/status` requires a bearer token; health endpoints are public.
 - Confidential client `cargo-service` (client-credentials grant, development secret `cargo-service-secret`): Cargo uses its service token to call `GET /api/flights/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}` on Flight. Compose sets Cargo's token URL to `http://keycloak:8080/...`.
-- Keycloak imports the realm only when it does not exist yet. After a realm change, recreate it: `docker compose down` and `docker volume rm air-freight-operations_keycloak-data`.
+- Keycloak imports the realm only when it does not exist yet. After a realm change, recreate it: `docker compose down` and `docker volume rm air-freight-operations_keycloak-data`. The web origin and token lifespan for the Cargo page (#12) are such a change.
 - Issuer: `http://localhost:8180/realms/air-freight`. Inside Docker, signing keys are fetched from `http://keycloak:8080/realms/air-freight/protocol/openid-connect/certs`.
-- Browser login and operation-specific role checks are not implemented.
+- Cargo's page uses a development sign-in until browser login (#1) exists: it sends username and password to Keycloak's token endpoint (password grant) and keeps the access token in the tab's `sessionStorage`. Page files (`/`, `*.html`, `/css/**`, `/js/**`) load without a token; every `/api` request needs one. #1 replaces this with Keycloak's login page.
+- Operation-specific role checks are not implemented.
 
 Run the token request in `http/local.http` before its authenticated requests.
 
