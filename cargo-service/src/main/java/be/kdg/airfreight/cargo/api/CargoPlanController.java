@@ -37,7 +37,7 @@ public class CargoPlanController {
     }
 
     // only a bad key in the url is a 400 so bad data from flight stays a 500
-    private static FlightKey toFlightKey(
+    static FlightKey toFlightKey(
             String flightNumber, LocalDate scheduledDepartureDate, String departureAirportCode) {
         try {
             return new FlightKey(

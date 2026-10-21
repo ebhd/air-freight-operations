@@ -76,3 +76,11 @@ client_id=air-freight-dev&grant_type=password&username=load-planner&password=pas
     });
     client.global.set("access_token", response.body.access_token);
 %}
+
+### Loading window of one flight with the load planner token: opensAt is STD - 12h, closesAt is ETD - 20m (UTC), loadingAllowed and the refusal code; 200 for every known flight
+GET http://localhost:8081/api/cargo-plans/HJ221/2026-10-19/BRU/loading-window
+Authorization: Bearer {{access_token}}
+
+### Loading window of a flight Flight does not know (404)
+GET http://localhost:8081/api/cargo-plans/XX999/2026-10-19/BRU/loading-window
+Authorization: Bearer {{access_token}}
