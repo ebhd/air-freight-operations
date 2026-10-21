@@ -7,6 +7,8 @@ import static org.mockito.Mockito.when;
 import be.kdg.airfreight.cargo.application.BookUldCommand;
 import be.kdg.airfreight.cargo.application.BookUldResult;
 import be.kdg.airfreight.cargo.application.BookUldService;
+import be.kdg.airfreight.cargo.application.LoadingWindowService;
+import be.kdg.airfreight.cargo.application.UldPositionService;
 import be.kdg.airfreight.cargo.domain.AirportCode;
 import be.kdg.airfreight.cargo.domain.CargoPlan;
 import be.kdg.airfreight.cargo.domain.FlightInformation;
@@ -20,16 +22,20 @@ import be.kdg.airfreight.cargo.domain.UldCode;
 import be.kdg.airfreight.cargo.domain.Weight;
 import be.kdg.airfreight.cargo.domain.WeightUnit;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -48,7 +54,14 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @DataJpaTest
 @Testcontainers(disabledWithoutDocker = true)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-@Import({DbCargoPlanRepository.class, DbProcessedMessageRepository.class, BookUldService.class})
+@Import({
+    DbCargoPlanRepository.class,
+    DbProcessedMessageRepository.class,
+    BookUldService.class,
+    LoadingWindowService.class,
+    UldPositionService.class,
+    CargoPlanVersionIT.LoadingWindowBeans.class
+})
 class CargoPlanVersionIT {
     private static final FlightKey KEY =
             new FlightKey("HJ221", LocalDate.of(2026, 10, 19), new AirportCode("BRU"));
@@ -62,12 +75,11 @@ class CargoPlanVersionIT {
                     STD.plus(Duration.ofHours(2)),
                     STD);
     // inside the window 2026-10-18T20:00Z to 2026-10-19T07:40Z
+    private static final LoadingWindowPolicy POLICY =
+            new LoadingWindowPolicy(Duration.ofHours(12), Duration.ofMinutes(20));
+    private static final Instant INSIDE = Instant.parse("2026-10-19T06:00:00Z");
     private static final LoadingContext OPEN =
-            new LoadingContext(
-                    PLANNED,
-                    new LoadingWindowPolicy(Duration.ofHours(12), Duration.ofMinutes(20))
-                            .windowFor(STD, STD),
-                    Instant.parse("2026-10-19T06:00:00Z"));
+            new LoadingContext(PLANNED, POLICY.windowFor(STD, STD), INSIDE);
     private static final UldCode AKE = new UldCode("AKE12345KL");
     private static final UldCode PMC = new UldCode("PMC00001KL");
     // day 19 resolves to 2026-10-19 from this first receipt
@@ -78,6 +90,7 @@ class CargoPlanVersionIT {
 
     @Autowired private DbCargoPlanRepository repository;
     @Autowired private BookUldService bookUldService;
+    @Autowired private UldPositionService uldPositionService;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private JdbcClient jdbc;
     @MockitoBean private FlightRepository flights;
@@ -180,6 +193,20 @@ class CargoPlanVersionIT {
         assertThat(version()).isEqualTo(3);
     }
 
+    // the service gets spring's own transaction template so this also proves the wiring
+    @Test
+    void positionServiceCommitsEachChangeInItsOwnTransaction() {
+        bookAkeAndPmc();
+
+        uldPositionService.assignPosition(KEY, AKE, LoadingPosition.RL);
+        assertThat(positionOf(AKE)).isEqualTo("RL");
+        assertThat(version()).isEqualTo(2);
+
+        uldPositionService.clearPosition(KEY, AKE);
+        assertThat(positionOf(AKE)).isNull();
+        assertThat(version()).isEqualTo(3);
+    }
+
     private void bookAkeAndPmc() {
         book("uld-1", AKE);
         book("uld-2", PMC);
@@ -240,6 +267,19 @@ class CargoPlanVersionIT {
                 .query(String.class)
                 .list()
                 .getFirst();
+    }
+
+    @TestConfiguration
+    static class LoadingWindowBeans {
+        @Bean
+        LoadingWindowPolicy loadingWindowPolicy() {
+            return POLICY;
+        }
+
+        @Bean
+        Clock clock() {
+            return Clock.fixed(INSIDE, ZoneOffset.UTC);
+        }
     }
 
     private static Weight weight() {
