@@ -37,8 +37,12 @@ Authorization: Bearer {{access_token}}
 GET http://localhost:8080/api/flights?date=2026-10-19
 Authorization: Bearer {{access_token}}
 
-### Cargo day overview for the load planner (503 when Flight is down)
+### Cargo day overview for the load planner (only planned flights; 503 when Flight is down)
 GET http://localhost:8081/api/flights?date=2026-10-19
+Authorization: Bearer {{access_token}}
+
+### Cargo day overview including departed and landed flights
+GET http://localhost:8081/api/flights?date=2026-10-19&includeDeparted=true
 Authorization: Bearer {{access_token}}
 
 ### Anonymous Flight request (401)

@@ -25,8 +25,9 @@ public class FlightOverviewController {
     // day overview like /api/flights?date=2026-10-19
     @GetMapping
     public List<FlightOverviewResponse> findFlights(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        return flightOverviewService.findFlightsOn(date).stream()
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(defaultValue = "false") boolean includeDeparted) {
+        return flightOverviewService.findFlightsOn(date, includeDeparted).stream()
                 .map(FlightOverviewResponse::from)
                 .toList();
     }
