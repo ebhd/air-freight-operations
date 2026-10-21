@@ -28,7 +28,7 @@
 
     <section id="content" hidden>
         <button id="retry" class="mb-4 cursor-pointer rounded bg-blue-900 px-3 py-2 font-medium text-white hover:bg-blue-800" type="button" hidden>Try again</button>
-        <dl id="flight" class="mb-6 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1" hidden>
+        <dl id="flight" class="details-list" hidden>
             <dt class="font-semibold">Flight</dt>
             <dd id="flight-number"></dd>
             <dt class="font-semibold">Scheduled departure date (UTC)</dt>
@@ -44,6 +44,8 @@
             <dt class="font-semibold">Status</dt>
             <dd id="flight-status"></dd>
         </dl>
+        <h2 class="mb-2 text-xl font-semibold">Loading window</h2>
+        <dl id="loading-window" class="details-list" hidden></dl>
         <h2 class="mb-2 text-xl font-semibold">Booked ULDs</h2>
         <table class="w-full bg-white">
             <thead>

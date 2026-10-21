@@ -2,6 +2,7 @@ import { clearError, getJson, showError } from './api.js';
 import { whenSignedIn } from './auth.js';
 import { requiredElement } from './dom.js';
 import type { FlightOverview } from './flight-overview.js';
+import { loadLoadingWindow, renderLoadingWindow } from './loading-window.js';
 import { formatBrusselsDateTime } from './time.js';
 
 // the cargo plan of one flight as sent by CargoPlanResponse
@@ -31,6 +32,7 @@ type FlightKey = {
 const INVALID_LINK = 'Invalid link to the cargo plan.';
 
 const flightBlock = requiredElement('#flight', HTMLDListElement);
+const windowBlock = requiredElement('#loading-window', HTMLDListElement);
 const rows = requiredElement('#bookings', HTMLTableSectionElement);
 const tableStatus = requiredElement('#table-status', HTMLElement);
 const retryButton = requiredElement('#retry', HTMLButtonElement);
@@ -59,6 +61,7 @@ async function loadCargoPlan(): Promise<void> {
     clearError();
     retryButton.hidden = true;
     flightBlock.hidden = true;
+    windowBlock.hidden = true;
     rows.replaceChildren();
     const flightKey = readFlightKey(new URLSearchParams(location.search));
     if (!flightKey) {
@@ -67,13 +70,23 @@ async function loadCargoPlan(): Promise<void> {
         return;
     }
     tableStatus.textContent = 'Loading…';
-    const result = await getJson<CargoPlanResponse>(cargoPlanPath(flightKey));
-    if (!result.ok) {
-        renderError(result.status, result.message);
+    const path = cargoPlanPath(flightKey);
+    // both or nothing so the page never shows half a plan
+    const [cargoPlan, loadingWindow] = await Promise.all([
+        getJson<CargoPlanResponse>(path),
+        loadLoadingWindow(path),
+    ]);
+    if (!cargoPlan.ok) {
+        renderError(cargoPlan.status, cargoPlan.message);
         return;
     }
-    renderFlight(result.data.flight);
-    renderBookings(result.data.bookings);
+    if (!loadingWindow.ok) {
+        renderError(loadingWindow.status, loadingWindow.message);
+        return;
+    }
+    renderFlight(cargoPlan.data.flight);
+    renderLoadingWindow(windowBlock, loadingWindow.data);
+    renderBookings(cargoPlan.data.bookings);
 }
 
 function renderFlight(flight: FlightOverview): void {
