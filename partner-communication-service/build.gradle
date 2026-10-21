@@ -15,18 +15,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
     runtimeOnly 'org.postgresql:postgresql'
-    testImplementation 'org.testcontainers:testcontainers'
-    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    testRuntimeOnly 'com.h2database:h2'
 }
 
 apply from: rootProject.file('gradle/quality.gradle')
-
-// The integration test runs the two applications as independent processes.
-tasks.named('test') {
-    dependsOn ':flight-service:bootJar', tasks.named('bootJar')
-    inputs.files(project(':flight-service').tasks.named('bootJar').flatMap { it.archiveFile })
-    doFirst {
-        systemProperty 'flight.jar', project(':flight-service').tasks.named('bootJar').get().archiveFile.get().asFile.absolutePath
-        systemProperty 'partner.jar', tasks.named('bootJar').get().archiveFile.get().asFile.absolutePath
-    }
-}

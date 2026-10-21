@@ -1,7 +1,10 @@
-package be.kdg.airfreight.partner.infrastructure.messaging;
+package be.kdg.airfreight.flight.infrastructure.messaging;
 
 import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.amqp.ImmediateRequeueAmqpException;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageDeliveryMode;
@@ -18,37 +21,52 @@ import org.springframework.transaction.CannotCreateTransactionException;
 
 @Component
 @Slf4j
-public class FlightCreatedMessageRecoverer implements MessageRecoverer {
-    private final RepublishMessageRecovererWithConfirms retryPublisher;
+class FlightMessageRecoverer implements MessageRecoverer {
+    private final Map<String, RepublishMessageRecovererWithConfirms> retryPublishers;
     private final RejectAndDontRequeueRecoverer deadLetterRecoverer =
             new RejectAndDontRequeueRecoverer();
 
-    public FlightCreatedMessageRecoverer(RabbitTemplate rabbit) {
-        retryPublisher =
+    FlightMessageRecoverer(RabbitTemplate rabbit) {
+        var publishers = new HashMap<String, RepublishMessageRecovererWithConfirms>();
+        publishers.put(
+                RabbitConfiguration.SSM_QUEUE,
+                createRetryPublisher(rabbit, RabbitConfiguration.SSM_RETRY_QUEUE));
+        retryPublishers = Map.copyOf(publishers);
+    }
+
+    private RepublishMessageRecovererWithConfirms createRetryPublisher(
+            RabbitTemplate rabbit, String retryQueue) {
+        var publisher =
                 new RepublishMessageRecovererWithConfirms(
-                        rabbit,
-                        "",
-                        RabbitConfiguration.FLIGHT_CREATED_RETRY_QUEUE,
-                        ConfirmType.CORRELATED);
-        retryPublisher.setConfirmTimeout(5_000);
+                        rabbit, "", retryQueue, ConfirmType.CORRELATED);
+        publisher.setConfirmTimeout(5_000);
+        return publisher;
     }
 
     @Override
-    public void recover(Message message, Throwable cause) {
+    public void recover(@NonNull Message message, @NonNull Throwable cause) {
         if (!isTemporaryDatabaseFailure(cause)) {
             deadLetterRecoverer.recover(message, cause);
             return;
+        }
+
+        String sourceQueue = message.getMessageProperties().getConsumerQueue();
+        var retryPublisher = sourceQueue == null ? null : retryPublishers.get(sourceQueue);
+        if (retryPublisher == null) {
+            throw new ImmediateRequeueAmqpException(
+                    "No database retry route configured for source queue: " + sourceQueue, cause);
         }
 
         try {
             message.getMessageProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT);
             retryPublisher.recover(message, cause);
             log.warn(
-                    "Deferred FlightCreated {} for a database retry in 30 seconds",
-                    message.getMessageProperties().getMessageId());
+                    "Deferred message {} from queue {} for a database retry",
+                    message.getMessageProperties().getMessageId(),
+                    sourceQueue);
         } catch (RuntimeException failure) {
             throw new ImmediateRequeueAmqpException(
-                    "Could not safely store FlightCreated for retry", failure);
+                    "Could not safely store message for retry", failure);
         }
     }
 

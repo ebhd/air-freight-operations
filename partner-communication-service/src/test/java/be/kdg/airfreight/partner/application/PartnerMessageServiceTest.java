@@ -43,8 +43,17 @@ class PartnerMessageServiceTest {
         assertThat(message.state()).isEqualTo(PublicationState.PENDING);
         assertThat(message.content().type()).isEqualTo("FLM");
         assertThat(message.content().formatVersion()).isEqualTo(1);
-        assertThat(mapper.readValue(message.content().payload(), FlightCreatedFact.class))
-                .isEqualTo(fact);
+        var payload = mapper.readTree(message.content().payload());
+        assertThat(payload.get("flightNumber").asText()).isEqualTo(fact.flightNumber());
+        assertThat(payload.get("scheduledDepartureDate").asText())
+                .isEqualTo(fact.scheduledDepartureDate().toString());
+        assertThat(payload.get("departureAirportCode").asText())
+                .isEqualTo(fact.departureAirportCode());
+        assertThat(payload.get("arrivalAirportCode").asText()).isEqualTo(fact.arrivalAirportCode());
+        assertThat(payload.get("scheduledDeparture").asText())
+                .isEqualTo(fact.scheduledDeparture().toString());
+        assertThat(payload.get("scheduledArrival").asText())
+                .isEqualTo(fact.scheduledArrival().toString());
         verify(repository).save(message);
         verify(events).publishEvent(message);
     }

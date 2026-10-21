@@ -16,9 +16,15 @@ public class FlmFormatter implements MessageFormatter<FlightCreatedFact> {
 
     @Override
     public MessageContent format(FlightCreatedFact flightFact) {
-        // TODO: ask docent: should we expose both FlightCreateEvent AND Partnermessage creation
-        // timestamp to the the partner? or just one
+        var payload =
+                new FlmPayload(
+                        flightFact.flightNumber(),
+                        flightFact.scheduledDepartureDate(),
+                        flightFact.departureAirportCode(),
+                        flightFact.arrivalAirportCode(),
+                        flightFact.scheduledDeparture(),
+                        flightFact.scheduledArrival());
 
-        return new MessageContent("FLM", jsonMapper.writeValueAsString(flightFact), 1);
+        return new MessageContent("FLM", jsonMapper.writeValueAsString(payload), 1);
     }
 }
