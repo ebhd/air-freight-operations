@@ -2,6 +2,7 @@ package be.kdg.airfreight.cargo.infrastructure.persistence.jpa;
 
 import be.kdg.airfreight.cargo.domain.AirportCode;
 import be.kdg.airfreight.cargo.domain.FlightKey;
+import be.kdg.airfreight.cargo.domain.LoadingPosition;
 import be.kdg.airfreight.cargo.domain.UldBooking;
 import be.kdg.airfreight.cargo.domain.UldCode;
 import be.kdg.airfreight.cargo.domain.Weight;
@@ -32,6 +33,11 @@ public class JpaUldBooking {
     @Column(name = "destination_airport_code", nullable = false, length = 3)
     private String destinationAirportCode;
 
+    // stores the name like RL and never the ordinal so reordering the enum keeps the data right
+    @Enumerated(EnumType.STRING)
+    @Column(name = "loading_position", length = 2)
+    private LoadingPosition loadingPosition;
+
     protected JpaUldBooking() {}
 
     public static JpaUldBooking fromDomain(FlightKey flightKey, UldBooking booking) {
@@ -45,6 +51,7 @@ public class JpaUldBooking {
         entity.weightValue = booking.getWeight().value();
         entity.weightUnit = booking.getWeight().unit();
         entity.destinationAirportCode = booking.getDestination().value();
+        entity.loadingPosition = booking.getPosition().orElse(null);
         return entity;
     }
 
@@ -52,6 +59,7 @@ public class JpaUldBooking {
         return new UldBooking(
                 new UldCode(id.getUldCode()),
                 new Weight(weightValue, weightUnit),
-                new AirportCode(destinationAirportCode));
+                new AirportCode(destinationAirportCode),
+                loadingPosition);
     }
 }
