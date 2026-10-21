@@ -158,7 +158,8 @@ class CargoPlanControllerTest {
                                         new AirportCode("AMS"),
                                         status,
                                         Instant.parse("2026-10-19T08:00:00Z"),
-                                        Instant.parse("2026-10-19T10:00:00Z"))));
+                                        Instant.parse("2026-10-19T10:00:00Z"),
+                                        Instant.parse("2026-10-19T08:00:00Z"))));
         when(cargoPlans.findByFlightKey(KEY))
                 .thenReturn(Optional.of(CargoPlan.restore(KEY, List.of(bookings))));
     }

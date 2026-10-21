@@ -68,7 +68,8 @@ class FlightOverviewServiceTest {
                 new AirportCode("AMS"),
                 status,
                 Instant.parse("2026-10-21T08:00:00Z"),
-                Instant.parse("2026-10-21T10:00:00Z"));
+                Instant.parse("2026-10-21T10:00:00Z"),
+                Instant.parse("2026-10-21T08:00:00Z"));
     }
 
     private static class StubFlightRepository implements FlightRepository {

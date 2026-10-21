@@ -27,6 +27,8 @@ record FlightResponse(
                 new AirportCode(arrivalAirportCode),
                 FlightStatus.valueOf(status),
                 scheduledDeparture,
-                scheduledArrival);
+                scheduledArrival,
+                // etd equals std until flight sends delays in issue 15
+                scheduledDeparture);
     }
 }
