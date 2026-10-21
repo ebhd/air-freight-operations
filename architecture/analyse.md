@@ -148,7 +148,8 @@ classDiagram
         bookUld(code, weight, destination)
         loadingRefusal(context)
         requireLoadingAllowed(context)
-        assignPosition(code, position)
+        assignPosition(code, position, context)
+        clearPosition(code, context)
         checkLoad(context)
         finalizeLoad(context)
     }
@@ -200,8 +201,10 @@ classDiagram
     class AirportCode {
         <<ValueObject>>
     }
-    class Position {
+    class LoadingPosition {
         <<ValueObject>>
+        row
+        side
     }
     class CargoPlanState {
         <<enumeration>>
@@ -242,7 +245,7 @@ classDiagram
     UldBooking --> UldCode : identity within plan
     UldBooking --> Weight
     UldBooking --> AirportCode : destination
-    UldBooking --> "0..1" Position : optional placement
+    UldBooking --> "0..1" LoadingPosition : optional placement
     CargoPlan ..> FloorPlan : validates placements
     CargoPlan ..> LoadCheck : runs all checks
     LoadCheck <|.. LateralBalanceCheck
@@ -257,7 +260,7 @@ classDiagram
 | --- | --- |
 | Aggregate root | `CargoPlan` (owns bookings) |
 | Entity | `UldBooking` |
-| Value objects | `FlightKey`, `UldCode`, `Weight`, `AirportCode`, `Position`, `LoadingWindow`, `LoadingContext`, `LoadCheckResult`, `LoadCheckReport` |
+| Value objects | `FlightKey`, `UldCode`, `Weight`, `AirportCode`, `LoadingPosition`, `LoadingWindow`, `LoadingContext`, `LoadCheckResult`, `LoadCheckReport` |
 | Policy | `LoadingWindowPolicy` (configurable offsets) |
 | Domain checks | `LateralBalanceCheck`, `OffloadingCheck`, `AllCargoLoadedCheck` |
 | Domain event | `LoadFinalized` |
@@ -270,6 +273,10 @@ Invariants on `CargoPlan`:
 2. Booking only while planned. Placement, checking and finalization require a load planner, a planned flight, an open loading period and an unfinalized plan. `requireLoadingAllowed(context)` enforces the last three and is the first call of every such method; role checks belong to the API (#2).
 3. Finalization reruns all checks; hard failures block it, soft failures warn.
 4. Finalized load cannot change.
+
+Every change to a cargo plan (booking, position, later finalization) raises the version of its `cargo_plans` row, and Hibernate checks that version at commit (optimistic locking). Of two overlapping changes the second is rolled back and the API answers 409; a unique constraint on (flight, position) also guards invariant 1 in the database. A ULD with a position moves to a free position in one step; swapping two ULDs takes two steps (team reading of Q16).
+
+`LoadingPosition` is an enum of the 34 main-deck positions of the Boeing 747-400 freighter with row and side; with one aircraft type it is the floor plan's position list. A second aircraft type would introduce a `FloorPlan` per type.
 
 Loading period: **STD - 12 hours → current ETD - 20 minutes**
 
