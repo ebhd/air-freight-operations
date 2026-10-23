@@ -1,10 +1,74 @@
 package be.kdg.airfreight.cargo.domain;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 // destination cargo leaves through the door at rl without moving cargo for other airports
 final class OffloadingCheck {
+
+    // unloads on a copy of the positions so the plan itself never changes
+    public OffloadingResult evaluate(List<UldBooking> bookings, AirportCode arrivalAirport) {
+        if (bookings == null) {
+            throw new InvalidCargoValueException("Bookings are required");
+        }
+        if (arrivalAirport == null) {
+            throw new InvalidCargoValueException("Arrival airport is required");
+        }
+        Set<LoadingPosition> occupied = new HashSet<>();
+        Set<LoadingPosition> toUnload = new HashSet<>();
+        for (UldBooking booking : bookings) {
+            Optional<LoadingPosition> position = booking.getPosition();
+            // hard checks look at positioned cargo only
+            if (position.isPresent()) {
+                occupied.add(position.get());
+                if (booking.getDestination().equals(arrivalAirport)) {
+                    toUnload.add(position.get());
+                }
+            }
+        }
+        List<LoadingPosition> unloadingOrder = new ArrayList<>();
+        boolean unloadedAny = true;
+        // a pass that unloads nothing means the rest is stuck
+        while (unloadedAny) {
+            unloadedAny = false;
+            for (LoadingPosition position : LoadingPosition.values()) {
+                if (toUnload.contains(position) && canLeave(position, occupied)) {
+                    toUnload.remove(position);
+                    occupied.remove(position);
+                    unloadingOrder.add(position);
+                    unloadedAny = true;
+                }
+            }
+        }
+        List<LoadingPosition> blockedPositions = new ArrayList<>();
+        for (LoadingPosition position : LoadingPosition.values()) {
+            if (toUnload.contains(position)) {
+                blockedPositions.add(position);
+            }
+        }
+        return new OffloadingResult(unloadingOrder, blockedPositions);
+    }
+
+    private static boolean canLeave(LoadingPosition position, Set<LoadingPosition> occupied) {
+        if (position.side() == LoadingPosition.Side.NONE) {
+            // single positions wait for the maneuvering rule of issue 24 so they stay blocked
+            return false;
+        }
+        return isClear(routeToDoor(position), occupied);
+    }
+
+    // the route must be empty and not only free of other airports so the order is possible
+    private static boolean isClear(List<LoadingPosition> route, Set<LoadingPosition> occupied) {
+        for (LoadingPosition passed : route) {
+            if (occupied.contains(passed)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     // package private so the route tests can call it
     static List<LoadingPosition> routeToDoor(LoadingPosition position) {
