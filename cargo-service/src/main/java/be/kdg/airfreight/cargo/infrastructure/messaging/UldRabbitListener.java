@@ -6,6 +6,7 @@ import be.kdg.airfreight.cargo.domain.AirportCode;
 import be.kdg.airfreight.cargo.domain.BookingRejectedException;
 import be.kdg.airfreight.cargo.domain.FlightLookupRejectedException;
 import be.kdg.airfreight.cargo.domain.FlightLookupUnavailableException;
+import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.UldCode;
 import be.kdg.airfreight.cargo.domain.Weight;
 import be.kdg.airfreight.cargo.domain.WeightUnit;
@@ -92,7 +93,7 @@ class UldRabbitListener {
             throw outage;
         } catch (BookingRejectedException
                 | FlightLookupRejectedException
-                | IllegalArgumentException invalid) {
+                | InvalidCargoValueException invalid) {
             // the reason column cant be null and not every exception has a message
             String reason =
                     Objects.requireNonNullElse(
@@ -134,7 +135,7 @@ class UldRabbitListener {
     // a missing json field is a rejection not a NullPointerException
     private static <T> T required(T value, String field) {
         if (value == null) {
-            throw new IllegalArgumentException(field + " is required");
+            throw new InvalidCargoValueException(field + " is required");
         }
         return value;
     }

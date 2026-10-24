@@ -13,7 +13,7 @@ public final class DayOfMonthDateRule {
 
     public static LocalDate resolve(int dayOfMonth, Instant reference) {
         if (dayOfMonth < 1 || dayOfMonth > 31) {
-            throw new IllegalArgumentException("Day of month must be between 1 and 31");
+            throw new InvalidCargoValueException("Day of month must be between 1 and 31");
         }
         // only the utc date counts not the time of day
         LocalDate referenceDate = LocalDate.ofInstant(reference, ZoneOffset.UTC);

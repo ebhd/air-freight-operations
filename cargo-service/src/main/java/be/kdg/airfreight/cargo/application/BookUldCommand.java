@@ -1,10 +1,10 @@
 package be.kdg.airfreight.cargo.application;
 
 import be.kdg.airfreight.cargo.domain.AirportCode;
+import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.UldCode;
 import be.kdg.airfreight.cargo.domain.Weight;
 import java.time.Instant;
-import java.util.Objects;
 
 public record BookUldCommand(
         String messageId,
@@ -17,15 +17,29 @@ public record BookUldCommand(
         // first receipt so a retry resolves the same date
         Instant firstReceivedAt) {
     public BookUldCommand {
-        Objects.requireNonNull(messageId, "Message ID is required");
-        Objects.requireNonNull(flightNumber, "Flight number is required");
-        Objects.requireNonNull(departureAirportCode, "Departure airport code is required");
-        Objects.requireNonNull(uldCode, "ULD code is required");
-        Objects.requireNonNull(weight, "Weight is required");
-        Objects.requireNonNull(destination, "Destination is required");
-        Objects.requireNonNull(firstReceivedAt, "First receipt instant is required");
+        if (messageId == null) {
+            throw new InvalidCargoValueException("Message ID is required");
+        }
+        if (flightNumber == null) {
+            throw new InvalidCargoValueException("Flight number is required");
+        }
+        if (departureAirportCode == null) {
+            throw new InvalidCargoValueException("Departure airport code is required");
+        }
+        if (uldCode == null) {
+            throw new InvalidCargoValueException("ULD code is required");
+        }
+        if (weight == null) {
+            throw new InvalidCargoValueException("Weight is required");
+        }
+        if (destination == null) {
+            throw new InvalidCargoValueException("Destination is required");
+        }
+        if (firstReceivedAt == null) {
+            throw new InvalidCargoValueException("First receipt instant is required");
+        }
         if (messageId.isBlank() || messageId.length() > 255) {
-            throw new IllegalArgumentException("Message ID must be 1 to 255 characters");
+            throw new InvalidCargoValueException("Message ID must be 1 to 255 characters");
         }
     }
 }

@@ -1,10 +1,11 @@
 package be.kdg.airfreight.cargo.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class AirportCodeTest {
@@ -15,8 +16,10 @@ class AirportCodeTest {
     }
 
     @ParameterizedTest
+    @NullSource
     @ValueSource(strings = {"", "BR", "BRUX", "B1U"})
     void rejectsAnythingButThreeLetters(String code) {
-        assertThatIllegalArgumentException().isThrownBy(() -> new AirportCode(code));
+        assertThatExceptionOfType(InvalidCargoValueException.class)
+                .isThrownBy(() -> new AirportCode(code));
     }
 }

@@ -2,6 +2,7 @@ package be.kdg.airfreight.cargo.infrastructure;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -14,9 +15,15 @@ public class SecurityConfiguration {
                         requests ->
                                 requests.requestMatchers("/actuator/health", "/actuator/health/**")
                                         .permitAll()
+                                        // page files hold no data so they load without a token
+                                        .requestMatchers(
+                                                HttpMethod.GET, "/", "/*.html", "/css/**", "/js/**")
+                                        .permitAll()
                                         .anyRequest()
                                         .authenticated())
                 .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()))
+                // only a bearer token is accepted and a browser never adds it by itself so no csrf
+                .csrf(csrf -> csrf.disable())
                 .build();
     }
 }

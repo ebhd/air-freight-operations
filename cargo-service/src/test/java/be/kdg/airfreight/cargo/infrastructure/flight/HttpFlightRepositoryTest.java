@@ -68,6 +68,19 @@ class HttpFlightRepositoryTest {
                 .hasValueSatisfying(info -> assertThat(info.planned()).isFalse());
     }
 
+    // flight sends no delays until issue 15 so etd equals std
+    @Test
+    void estimatedDepartureEqualsScheduledDepartureUntilFlightSendsDelays() {
+        flight.expect(requestTo(URL))
+                .andRespond(withSuccess(json("PLANNED"), MediaType.APPLICATION_JSON));
+
+        assertThat(repository.findByFlightKey(KEY))
+                .hasValueSatisfying(
+                        info ->
+                                assertThat(info.estimatedDeparture())
+                                        .isEqualTo(Instant.parse("2026-10-19T08:00:00Z")));
+    }
+
     @Test
     void notFoundMeansUnknownFlight() {
         flight.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
