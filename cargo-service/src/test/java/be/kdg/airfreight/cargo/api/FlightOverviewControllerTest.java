@@ -101,7 +101,8 @@ class FlightOverviewControllerTest {
                 new AirportCode("AMS"),
                 status,
                 Instant.parse("2026-10-19T08:00:00Z"),
-                Instant.parse("2026-10-19T10:00:00Z"));
+                Instant.parse("2026-10-19T10:00:00Z"),
+                Instant.parse("2026-10-19T08:00:00Z"));
     }
 
     // security is the same filter chain as /api/status which StatusSecurityTest covers
@@ -120,6 +121,7 @@ class FlightOverviewControllerTest {
                 };
         return MockMvcBuilders.standaloneSetup(
                         new FlightOverviewController(new FlightOverviewService(flights)))
+                .setControllerAdvice(new CargoApiExceptionHandler())
                 .build();
     }
 }

@@ -8,7 +8,8 @@ public record FlightInformation(
         AirportCode arrivalAirportCode,
         FlightStatus status,
         Instant scheduledDeparture,
-        Instant scheduledArrival) {
+        Instant scheduledArrival,
+        Instant estimatedDeparture) {
     public FlightInformation {
         Objects.requireNonNull(flightKey, "Flight key is required");
         Objects.requireNonNull(arrivalAirportCode, "Arrival airport code is required");

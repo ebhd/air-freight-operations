@@ -1,7 +1,7 @@
 package be.kdg.airfreight.cargo.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -33,7 +33,7 @@ class DayOfMonthDateRuleTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 32})
     void rejectsImpossibleDay(int dayOfMonth) {
-        assertThatIllegalArgumentException()
+        assertThatExceptionOfType(InvalidCargoValueException.class)
                 .isThrownBy(
                         () ->
                                 DayOfMonthDateRule.resolve(
