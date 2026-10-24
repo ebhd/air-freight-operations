@@ -7,15 +7,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import be.kdg.airfreight.cargo.infrastructure.SecurityConfiguration;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ContextConfiguration;
@@ -49,7 +48,7 @@ class PageSecurityTest {
                 .andExpect(content().string(Matchers.containsString("<title>")));
         mvc.perform(get("/cargo-plan.html")).andExpect(status().isOk());
         mvc.perform(get("/js/cargo-plan.js")).andExpect(status().isOk());
-        mvc.perform(get("/js/api.js")).andExpect(status().isOk());
+        mvc.perform(get("/js/flights-to-load.js")).andExpect(status().isOk());
         mvc.perform(get("/css/app.css")).andExpect(status().isOk());
     }
 
@@ -62,7 +61,7 @@ class PageSecurityTest {
     @Configuration
     @EnableWebMvc
     @EnableWebSecurity
-    @Import(SecurityConfiguration.class)
+    @ComponentScan("be.kdg.airfreight.cargo.infrastructure.security")
     static class Config implements WebMvcConfigurer {
         // spring boot does both of these for static files and the welcome page
         @Override

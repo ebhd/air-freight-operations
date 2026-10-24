@@ -7,7 +7,7 @@
 
 ### 0. The flight exists for Cargo (run the load-planner token request in http/local.http first)
 GET http://localhost:8081/api/flights?date=2026-10-21
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 
 ### 1. One booking (202; Cargo books it)
 POST http://localhost:8083/api/simulator/uld-bookings

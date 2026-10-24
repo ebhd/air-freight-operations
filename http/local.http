@@ -7,55 +7,69 @@ GET http://localhost:8081/actuator/health
 ### Partner health: database and RabbitMQ
 GET http://localhost:8082/actuator/health
 
-### Get a development Flight planner token (run before authenticated requests)
-POST http://localhost:8180/realms/air-freight/protocol/openid-connect/token
+### Get a Flight planner token (select the dev environment; run before Flight requests)
+POST {{keycloak-url}}/realms/{{realm}}/protocol/openid-connect/token
 Content-Type: application/x-www-form-urlencoded
 
-client_id=air-freight-dev&grant_type=password&username=flight-planner&password=password
+client_id=flight-service&client_secret={{flight-client-secret}}&grant_type=password&username=flight-planner&password={{flight-planner-password}}&scope=openid
 
 > {%
     client.test("Token issued", function () {
         client.assert(response.status === 200, "Expected HTTP 200");
         client.assert(!!response.body.access_token, "Expected an access token");
     });
-    client.global.set("access_token", response.body.access_token);
+    client.global.set("flight_access_token", response.body.access_token);
 %}
 
 ### Authenticated Flight request (200)
 GET http://localhost:8080/api/status
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{flight_access_token}}
+
+### Get a Load planner token (run before Cargo requests)
+POST {{keycloak-url}}/realms/{{realm}}/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+client_id=cargo-service&client_secret={{cargo-client-secret}}&grant_type=password&username=load-planner&password={{load-planner-password}}&scope=openid
+
+> {%
+    client.test("Token issued", function () {
+        client.assert(response.status === 200, "Expected HTTP 200");
+        client.assert(!!response.body.access_token, "Expected an access token");
+    });
+    client.global.set("cargo_access_token", response.body.access_token);
+%}
 
 ### Authenticated Cargo request (200)
 GET http://localhost:8081/api/status
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 
 ### Flight lookup by key (200 for a flight created from an SSM, 404 otherwise)
 GET http://localhost:8080/api/flights/HJ221/2026-10-19/BRU
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{flight_access_token}}
 
 ### Flight day overview (flights by UTC departure date)
 GET http://localhost:8080/api/flights?date=2026-10-19
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{flight_access_token}}
 
 ### Cargo day overview for the load planner (only planned flights; 503 when Flight is down)
 GET http://localhost:8081/api/flights?date=2026-10-19
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 
 ### Cargo day overview including departed and landed flights
 GET http://localhost:8081/api/flights?date=2026-10-19&includeDeparted=true
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 
 ### Cargo plan of one flight: flight data, status and every booked ULD with its position or null (503 when Flight is down)
 GET http://localhost:8081/api/cargo-plans/HJ221/2026-10-19/BRU
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 
 ### Cargo plan of a flight Flight does not know (404)
 GET http://localhost:8081/api/cargo-plans/XX999/2026-10-19/BRU
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 
 ### Cargo plan with an invalid flight key (400)
 GET http://localhost:8081/api/cargo-plans/HJ-221/2026-10-19/BRU
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 
 ### Anonymous Flight request (401)
 GET http://localhost:8080/api/status
@@ -63,73 +77,84 @@ GET http://localhost:8080/api/status
 ### Anonymous Cargo request (401)
 GET http://localhost:8081/api/status
 
-### Get a development Load planner token
-POST http://localhost:8180/realms/air-freight/protocol/openid-connect/token
-Content-Type: application/x-www-form-urlencoded
-
-client_id=air-freight-dev&grant_type=password&username=load-planner&password=password
-
-> {%
-    client.test("Token issued", function () {
-        client.assert(response.status === 200, "Expected HTTP 200");
-        client.assert(!!response.body.access_token, "Expected an access token");
-    });
-    client.global.set("access_token", response.body.access_token);
-%}
-
 ### Loading window of one flight with the load planner token: opensAt is STD - 12h, closesAt is ETD - 20m (UTC), loadingAllowed and the refusal code; 200 for every known flight
 GET http://localhost:8081/api/cargo-plans/HJ221/2026-10-19/BRU/loading-window
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 
 ### Loading window of a flight Flight does not know (404)
 GET http://localhost:8081/api/cargo-plans/XX999/2026-10-19/BRU/loading-window
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 
 ### Main-deck loading positions: 34 entries nose to tail, RL is row R LEFT and LR is row L RIGHT
 GET http://localhost:8081/api/loading-positions
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 
 ### Put a booked ULD on RL or move it there (204; needs an open loading window, 409 with the refusal otherwise)
 PUT http://localhost:8081/api/cargo-plans/HJ221/2026-10-19/BRU/bookings/AKE12345KL/position
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 Content-Type: application/json
 
 {"position": "RL"}
 
 ### The same position again changes nothing (204)
 PUT http://localhost:8081/api/cargo-plans/HJ221/2026-10-19/BRU/bookings/AKE12345KL/position
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 Content-Type: application/json
 
 {"position": "RL"}
 
 ### A second ULD on a taken position (409 naming the ULD on it; book PMC00001KL first)
 PUT http://localhost:8081/api/cargo-plans/HJ221/2026-10-19/BRU/bookings/PMC00001KL/position
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 Content-Type: application/json
 
 {"position": "RL"}
 
 ### Unknown position (400)
 PUT http://localhost:8081/api/cargo-plans/HJ221/2026-10-19/BRU/bookings/AKE12345KL/position
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 Content-Type: application/json
 
 {"position": "ZZ"}
 
 ### ULD not booked on this flight (404)
 PUT http://localhost:8081/api/cargo-plans/HJ221/2026-10-19/BRU/bookings/XXX99999XX/position
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 Content-Type: application/json
 
 {"position": "CL"}
 
 ### Take the ULD off its position (204, also when it has none)
 DELETE http://localhost:8081/api/cargo-plans/HJ221/2026-10-19/BRU/bookings/AKE12345KL/position
-Authorization: Bearer {{access_token}}
+Authorization: Bearer {{cargo_access_token}}
 
-### Position change without a token (401; role checks come with #2)
+### Position change without a token (401)
 PUT http://localhost:8081/api/cargo-plans/HJ221/2026-10-19/BRU/bookings/AKE12345KL/position
+Content-Type: application/json
+
+{"position": "RL"}
+
+### Get a Flight planner token for Cargo's read-only role check
+POST {{keycloak-url}}/realms/{{realm}}/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+client_id=cargo-service&client_secret={{cargo-client-secret}}&grant_type=password&username=flight-planner&password={{flight-planner-password}}&scope=openid
+
+> {%
+    client.test("Token issued", function () {
+        client.assert(response.status === 200, "Expected HTTP 200");
+        client.assert(!!response.body.access_token, "Expected an access token");
+    });
+    client.global.set("cargo_flight_planner_token", response.body.access_token);
+%}
+
+### Flight planner can read Cargo (200)
+GET http://localhost:8081/api/flights?date=2026-10-19
+Authorization: Bearer {{cargo_flight_planner_token}}
+
+### Flight planner cannot change a position (403, even with a valid Cargo audience)
+PUT http://localhost:8081/api/cargo-plans/HJ221/2026-10-19/BRU/bookings/AKE12345KL/position
+Authorization: Bearer {{cargo_flight_planner_token}}
 Content-Type: application/json
 
 {"position": "RL"}

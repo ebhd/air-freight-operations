@@ -3,10 +3,12 @@
     "target": "es2022",
     "lib": ["es2022", "dom"],
     "module": "es2022",
+    "moduleResolution": "bundler",
+    "types": ["vite/client"],
     "strict": true,
     "noUnusedLocals": true,
     "rootDir": "src/main/typescript",
-    "outDir": "build/generated/typescript"
+    "noEmit": true
   },
   "include": ["src/main/typescript"]
 }

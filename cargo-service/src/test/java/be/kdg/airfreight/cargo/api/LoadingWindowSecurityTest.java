@@ -16,7 +16,6 @@ import be.kdg.airfreight.cargo.domain.FlightKey;
 import be.kdg.airfreight.cargo.domain.FlightRepository;
 import be.kdg.airfreight.cargo.domain.FlightStatus;
 import be.kdg.airfreight.cargo.domain.LoadingWindowPolicy;
-import be.kdg.airfreight.cargo.infrastructure.SecurityConfiguration;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -28,9 +27,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -75,7 +76,11 @@ class LoadingWindowSecurityTest {
 
     @Test
     void signedInUserReadsTheLoadingWindow() throws Exception {
-        mvc.perform(get(URL).with(jwt()))
+        mvc.perform(
+                        get(URL).with(
+                                        jwt().authorities(
+                                                        new SimpleGrantedAuthority(
+                                                                "ROLE_load-planner"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.closesAt").value("2026-10-22T07:40:00Z"))
                 .andExpect(jsonPath("$.loadingAllowed").value(true));
@@ -84,8 +89,8 @@ class LoadingWindowSecurityTest {
     @Configuration
     @EnableWebMvc
     @EnableWebSecurity
+    @ComponentScan("be.kdg.airfreight.cargo.infrastructure.security")
     @Import({
-        SecurityConfiguration.class,
         LoadingWindowController.class,
         CargoApiExceptionHandler.class,
         LoadingWindowService.class
