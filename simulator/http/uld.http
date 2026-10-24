@@ -1,0 +1,122 @@
+### ULD simulator, port 8083. Order matters:
+### 1. docker compose up -d --wait app-postgres app-rabbitmq keycloak
+### 2. Start Flight and Cargo (Cargo declares the cargo.uld queue), then ./gradlew :simulator:bootRun
+### 3. Process the SSM first: send ssm.http, then check below that Cargo lists the flight
+### scheduledDepartureDate is the UTC scheduled departure date (yyyy-MM-dd); keep it within two weeks of today
+### 202 means published, not booked: check the Cargo log, uld_bookings or rejected_messages
+
+### 0. The flight exists for Cargo (run the load-planner token request in http/local.http first)
+GET http://localhost:8081/api/flights?date=2026-10-21
+Authorization: Bearer {{access_token}}
+
+### 1. One booking (202; Cargo books it)
+POST http://localhost:8083/api/simulator/uld-bookings
+Content-Type: application/json
+
+[
+  {
+    "flightNumber": "HJ221",
+    "scheduledDepartureDate": "2026-10-21",
+    "departureAirportCode": "BRU",
+    "uldCode": "AKE12345KL",
+    "weight": { "value": 1250.5, "unit": "KG" },
+    "destination": "AMS"
+  }
+]
+
+### 2. Two records, the second with an invalid weight (202 for both; Cargo books one and rejects the other)
+POST http://localhost:8083/api/simulator/uld-bookings
+Content-Type: application/json
+
+[
+  {
+    "flightNumber": "HJ221",
+    "scheduledDepartureDate": "2026-10-21",
+    "departureAirportCode": "BRU",
+    "uldCode": "AKE20001KL",
+    "weight": { "value": 800, "unit": "KG" },
+    "destination": "AMS"
+  },
+  {
+    "flightNumber": "HJ221",
+    "scheduledDepartureDate": "2026-10-21",
+    "departureAirportCode": "BRU",
+    "uldCode": "AKE20002KL",
+    "weight": { "value": -5, "unit": "KG" },
+    "destination": "AMS"
+  }
+]
+
+### 3. Same ULD code as request 1 with another weight (202; Cargo ignores it and logs a warning)
+POST http://localhost:8083/api/simulator/uld-bookings
+Content-Type: application/json
+
+[
+  {
+    "flightNumber": "HJ221",
+    "scheduledDepartureDate": "2026-10-21",
+    "departureAirportCode": "BRU",
+    "uldCode": "AKE12345KL",
+    "weight": { "value": 999, "unit": "KG" },
+    "destination": "AMS"
+  }
+]
+
+### 4. Fixed messageId: send twice (202 both times; Cargo ignores the redelivery, one booking)
+POST http://localhost:8083/api/simulator/uld-bookings
+Content-Type: application/json
+
+[
+  {
+    "messageId": "uld-demo-1",
+    "flightNumber": "HJ221",
+    "scheduledDepartureDate": "2026-10-21",
+    "departureAirportCode": "BRU",
+    "uldCode": "AKE30001KL",
+    "weight": { "value": 500, "unit": "LB" },
+    "destination": "AMS"
+  }
+]
+
+### 5. Missing scheduledDepartureDate in record 2 (400; nothing published, record 1 neither)
+POST http://localhost:8083/api/simulator/uld-bookings
+Content-Type: application/json
+
+[
+  {
+    "flightNumber": "HJ221",
+    "scheduledDepartureDate": "2026-10-21",
+    "departureAirportCode": "BRU",
+    "uldCode": "AKE40001KL",
+    "weight": { "value": 100, "unit": "KG" },
+    "destination": "AMS"
+  },
+  {
+    "flightNumber": "HJ221",
+    "departureAirportCode": "BRU",
+    "uldCode": "AKE40002KL",
+    "weight": { "value": 100, "unit": "KG" },
+    "destination": "AMS"
+  }
+]
+
+### 6. Empty array (400)
+POST http://localhost:8083/api/simulator/uld-bookings
+Content-Type: application/json
+
+[]
+
+### 7. Invalid date (400 with the reason)
+POST http://localhost:8083/api/simulator/uld-bookings
+Content-Type: application/json
+
+[
+  {
+    "flightNumber": "HJ221",
+    "scheduledDepartureDate": "2026-02-30",
+    "departureAirportCode": "BRU",
+    "uldCode": "AKE50001KL",
+    "weight": { "value": 100, "unit": "KG" },
+    "destination": "AMS"
+  }
+]

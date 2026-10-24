@@ -9,8 +9,7 @@ import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.core.OAuth2AuthorizationException;
 import org.springframework.stereotype.Repository;
@@ -19,9 +18,8 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 @Repository
+@Slf4j
 class HttpFlightRepository implements FlightRepository {
-    private static final Logger LOGGER = LoggerFactory.getLogger(HttpFlightRepository.class);
-
     private final RestClient flightApiClient;
 
     HttpFlightRepository(RestClient flightApiClient) {
@@ -44,7 +42,7 @@ class HttpFlightRepository implements FlightRepository {
             return Optional.ofNullable(response).map(FlightResponse::toFlightInformation);
         } catch (HttpClientErrorException.NotFound notFound) {
             // unknown flight not an error
-            LOGGER.debug("Flight Operations does not know flight {}", flightKey);
+            log.debug("Flight Operations does not know flight {}", flightKey);
             return Optional.empty();
         } catch (HttpClientErrorException clientError) {
             // 401 or 403 is a token or config problem that can be fixed so retry
@@ -75,7 +73,7 @@ class HttpFlightRepository implements FlightRepository {
             }
             return Arrays.stream(response).map(FlightResponse::toFlightInformation).toList();
         } catch (RestClientException | OAuth2AuthorizationException exception) {
-            LOGGER.warn(
+            log.warn(
                     "Flight lookup for {} failed: {}",
                     scheduledDepartureDate,
                     exception.getMessage());
@@ -90,7 +88,7 @@ class HttpFlightRepository implements FlightRepository {
 
     private static FlightLookupUnavailableException unavailable(
             FlightKey flightKey, RuntimeException cause) {
-        LOGGER.warn("Flight lookup for {} failed: {}", flightKey, cause.getMessage());
+        log.warn("Flight lookup for {} failed: {}", flightKey, cause.getMessage());
         return new FlightLookupUnavailableException(flightKey, cause);
     }
 }

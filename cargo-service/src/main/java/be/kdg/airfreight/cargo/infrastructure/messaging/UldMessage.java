@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 // our provisional json until the course publishes the uld schema q01
 record UldMessage(
         String messageId,
+        Integer version,
         String flightNumber,
         Integer scheduledDepartureDay,
         String departureAirportCode,

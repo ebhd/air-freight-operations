@@ -15,8 +15,7 @@ import be.kdg.airfreight.cargo.infrastructure.persistence.RejectedMessageStore;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Objects;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.dao.DataAccessException;
@@ -26,9 +25,10 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 @Component
+@Slf4j
 class UldRabbitListener {
-    private static final Logger LOGGER = LoggerFactory.getLogger(UldRabbitListener.class);
     private static final int MAX_MESSAGE_ID_LENGTH = 255;
+    private static final int SUPPORTED_VERSION = 1;
 
     private final BookUldService bookUldService;
     private final RejectedMessageStore rejectedMessageStore;
@@ -50,7 +50,7 @@ class UldRabbitListener {
     void receive(Message message) {
         String payload = new String(message.getBody(), StandardCharsets.UTF_8);
         String messageId = message.getMessageProperties().getMessageId();
-        LOGGER.debug("Received ULD message {}: {}", messageId, payload);
+        log.debug("Received ULD message {}: {}", messageId, payload);
 
         UldMessage uldMessage = parse(payload);
         if (uldMessage == null) {
@@ -68,7 +68,18 @@ class UldRabbitListener {
             return;
         }
         if (rejectedMessageStore.contains(messageId)) {
-            LOGGER.info("Ignored redelivery of rejected ULD message {}", messageId);
+            log.info("Ignored redelivery of rejected ULD message {}", messageId);
+            return;
+        }
+        // a missing version counts as unknown so we never guess the field layout
+        if (!Objects.equals(uldMessage.version(), SUPPORTED_VERSION)) {
+            rejectedMessageStore.store(
+                    messageId,
+                    payload,
+                    "Message version must be "
+                            + SUPPORTED_VERSION
+                            + ", was "
+                            + uldMessage.version());
             return;
         }
         Instant firstReceivedAt = messageReceipts.firstReceivedAt(messageId, Instant.now());
@@ -90,7 +101,7 @@ class UldRabbitListener {
             rejectedMessageStore.store(messageId, payload, reason);
         } catch (RuntimeException unexpected) {
             // a bug so reject instead of retrying forever
-            LOGGER.error("Unexpected error processing ULD message {}", messageId, unexpected);
+            log.error("Unexpected error processing ULD message {}", messageId, unexpected);
             rejectedMessageStore.store(
                     messageId, payload, "Unexpected processing error: " + unexpected);
         }
@@ -101,7 +112,7 @@ class UldRabbitListener {
         try {
             return jsonMapper.readValue(payload, UldMessage.class);
         } catch (JacksonException unreadable) {
-            LOGGER.debug("Unreadable ULD message: {}", unreadable.getOriginalMessage());
+            log.debug("Unreadable ULD message: {}", unreadable.getOriginalMessage());
             return null;
         }
     }
