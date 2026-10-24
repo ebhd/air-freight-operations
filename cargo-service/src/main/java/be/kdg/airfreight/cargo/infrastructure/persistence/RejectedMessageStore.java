@@ -3,15 +3,13 @@ package be.kdg.airfreight.cargo.infrastructure.persistence;
 import be.kdg.airfreight.cargo.infrastructure.persistence.jpa.JpaRejectedMessage;
 import be.kdg.airfreight.cargo.infrastructure.persistence.jpa.JpaRejectedMessageRepository;
 import java.time.Instant;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
+@Slf4j
 public class RejectedMessageStore {
-    private static final Logger LOGGER = LoggerFactory.getLogger(RejectedMessageStore.class);
-
     private final JpaRejectedMessageRepository rejectedMessages;
 
     RejectedMessageStore(JpaRejectedMessageRepository rejectedMessages) {
@@ -26,10 +24,10 @@ public class RejectedMessageStore {
     @Transactional
     public void store(String messageId, String payload, String reason) {
         if (messageId != null && rejectedMessages.existsByMessageId(messageId)) {
-            LOGGER.info("Rejected message {} was redelivered; already stored", messageId);
+            log.info("Rejected message {} was redelivered; already stored", messageId);
             return;
         }
         rejectedMessages.save(new JpaRejectedMessage(messageId, payload, reason, Instant.now()));
-        LOGGER.warn("Rejected message {}: {}", messageId, reason);
+        log.warn("Rejected message {}: {}", messageId, reason);
     }
 }

@@ -4,8 +4,7 @@ import be.kdg.airfreight.flight.application.FlightQueryService;
 import be.kdg.airfreight.flight.domain.FlightKey;
 import java.time.LocalDate;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -19,9 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/flights")
+@Slf4j
 public class FlightController {
-    private static final Logger LOGGER = LoggerFactory.getLogger(FlightController.class);
-
     private final FlightQueryService flightQueryService;
 
     public FlightController(FlightQueryService flightQueryService) {
@@ -49,7 +47,7 @@ public class FlightController {
                 .map(flight -> ResponseEntity.ok(FlightResponse.from(flight)))
                 .orElseGet(
                         () -> {
-                            LOGGER.info("Flight lookup for unknown flight {}", key);
+                            log.info("Flight lookup for unknown flight {}", key);
                             return ResponseEntity.notFound().build();
                         });
     }

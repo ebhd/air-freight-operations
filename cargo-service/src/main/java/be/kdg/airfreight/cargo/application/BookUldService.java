@@ -11,15 +11,13 @@ import be.kdg.airfreight.cargo.domain.UldBooking;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
 public class BookUldService {
-    private static final Logger LOGGER = LoggerFactory.getLogger(BookUldService.class);
-
     private final FlightRepository flightRepository;
     private final CargoPlanRepository cargoPlanRepository;
     private final ProcessedMessageRepository processedMessageRepository;
@@ -38,7 +36,7 @@ public class BookUldService {
         Optional<ProcessedMessage> earlier =
                 processedMessageRepository.findByMessageId(command.messageId());
         if (earlier.isPresent()) {
-            LOGGER.info(
+            log.info(
                     "Ignored redelivered ULD message {} for flight {}",
                     command.messageId(),
                     earlier.get().flightKey());
@@ -64,7 +62,7 @@ public class BookUldService {
         if (cargoPlan.bookUld(command.uldCode(), command.weight(), command.destination())) {
             cargoPlanRepository.save(cargoPlan);
             outcome = BookUldResult.Outcome.BOOKED;
-            LOGGER.info("Booked ULD {} on flight {}", command.uldCode().value(), flightKey);
+            log.info("Booked ULD {} on flight {}", command.uldCode().value(), flightKey);
         } else {
             outcome = BookUldResult.Outcome.DUPLICATE_ULD;
             logIgnoredRepeat(cargoPlan.findBooking(command.uldCode()).orElseThrow(), command);
@@ -79,13 +77,13 @@ public class BookUldService {
     private static void logIgnoredRepeat(UldBooking existing, BookUldCommand repeat) {
         if (existing.getWeight().equals(repeat.weight())
                 && existing.getDestination().equals(repeat.destination())) {
-            LOGGER.info(
+            log.info(
                     "Ignored repeated booking of ULD {} from message {}",
                     existing.getCode().value(),
                     repeat.messageId());
             return;
         }
-        LOGGER.warn(
+        log.warn(
                 "Ignored repeated booking of ULD {} from message {} with different content: kept"
                         + " {} to {}, ignored {} to {}",
                 existing.getCode().value(),
