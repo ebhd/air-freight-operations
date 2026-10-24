@@ -1,8 +1,8 @@
 package be.kdg.airfreight.flight.application;
 
-import be.kdg.airfreight.flight.domain.Flight;
-import be.kdg.airfreight.flight.domain.FlightKey;
-import be.kdg.airfreight.flight.domain.FlightRepository;
+import be.kdg.airfreight.flight.domain.flight.Flight;
+import be.kdg.airfreight.flight.domain.flight.FlightKey;
+import be.kdg.airfreight.flight.domain.flight.FlightRepository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;

@@ -1,4 +1,4 @@
-package be.kdg.airfreight.flight.infrastructure.messaging;
+package be.kdg.airfreight.flight.infrastructure.messaging.ssm;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;

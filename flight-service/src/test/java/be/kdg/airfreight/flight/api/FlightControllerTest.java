@@ -1,19 +1,24 @@
 package be.kdg.airfreight.flight.api;
 
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import be.kdg.airfreight.flight.api.flight.FlightController;
+import be.kdg.airfreight.flight.application.FlightDelayService;
 import be.kdg.airfreight.flight.application.FlightQueryService;
-import be.kdg.airfreight.flight.domain.Flight;
-import be.kdg.airfreight.flight.domain.FlightKey;
-import be.kdg.airfreight.flight.domain.FlightRepository;
+import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
+import be.kdg.airfreight.flight.domain.flight.Flight;
+import be.kdg.airfreight.flight.domain.flight.FlightKey;
+import be.kdg.airfreight.flight.domain.flight.FlightRepository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -52,7 +57,13 @@ class FlightControllerTest {
         // security is the same filter chain as /api/status which StatusSecurityTest covers
         mvc =
                 MockMvcBuilders.standaloneSetup(
-                                new FlightController(new FlightQueryService(flights)))
+                                new FlightController(
+                                        new FlightQueryService(flights),
+                                        new FlightDelayService(
+                                                flights,
+                                                mock(DelayReasonRepository.class),
+                                                mock(ApplicationEventPublisher.class))))
+                        .setControllerAdvice(new ErrorHandling())
                         .build();
     }
 

@@ -1,4 +1,4 @@
-package be.kdg.airfreight.flight.infrastructure.messaging;
+package be.kdg.airfreight.flight.infrastructure.messaging.events;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -13,4 +13,6 @@ public record FlightCreatedMessage(
         String departureAirportCode,
         String arrivalAirportCode,
         Instant scheduledDeparture,
-        Instant scheduledArrival) {}
+        Instant scheduledArrival) {
+    public static final int VERSION = 1;
+}

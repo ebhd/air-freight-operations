@@ -1,7 +1,8 @@
-package be.kdg.airfreight.flight.infrastructure.messaging;
+package be.kdg.airfreight.flight.infrastructure.messaging.ssm;
 
 import be.kdg.airfreight.flight.application.FlightSchedulingService;
-import be.kdg.airfreight.flight.domain.FlightSchedule;
+import be.kdg.airfreight.flight.domain.flight.FlightSchedule;
+import be.kdg.airfreight.flight.infrastructure.messaging.RabbitConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;

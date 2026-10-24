@@ -1,7 +1,14 @@
-package be.kdg.airfreight.flight.domain;
+package be.kdg.airfreight.flight.domain.flight;
 
+import be.kdg.airfreight.flight.domain.DomainRuleViolationException;
+import be.kdg.airfreight.flight.domain.NotFoundException;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 public final class Flight {
     private final FlightKey key;
@@ -10,6 +17,7 @@ public final class Flight {
     private final Instant scheduledDeparture;
     private final Instant scheduledArrival;
     private final FlightStatus status;
+    private final List<Delay> delays;
 
     private Flight(
             FlightKey key,
@@ -38,6 +46,7 @@ public final class Flight {
                     "flight key date must equal the UTC scheduled departure date");
         }
         this.status = Objects.requireNonNull(status, "flight status must not be null");
+        this.delays = new ArrayList<>();
     }
 
     public static Flight create(
@@ -61,14 +70,18 @@ public final class Flight {
             String aircraftRegistration,
             Instant scheduledDeparture,
             Instant scheduledArrival,
-            FlightStatus status) {
-        return new Flight(
-                key,
-                arrivalAirportCode,
-                aircraftRegistration,
-                scheduledDeparture,
-                scheduledArrival,
-                Objects.requireNonNull(status, "flight status must not be null"));
+            FlightStatus status,
+            List<Delay> delays) {
+        Flight flight =
+                new Flight(
+                        key,
+                        arrivalAirportCode,
+                        aircraftRegistration,
+                        scheduledDeparture,
+                        scheduledArrival,
+                        Objects.requireNonNull(status, "flight status must not be null"));
+        flight.delays.addAll(Objects.requireNonNull(delays, "delays must not be null"));
+        return flight;
     }
 
     private static String requireText(String value, String name) {
@@ -100,6 +113,72 @@ public final class Flight {
 
     public FlightStatus status() {
         return status;
+    }
+
+    public List<Delay> delays() {
+        return Collections.unmodifiableList(delays);
+    }
+
+    public void addDelay(DelayType type, int minutes, String reasonCode, String description) {
+        Objects.requireNonNull(type, "delay type must not be null");
+        requireDelayChangesAllowed(type);
+        delays.add(new Delay(type, minutes, reasonCode, description));
+    }
+
+    public void updateDelay(UUID delayId, int minutes, String description) {
+        Delay delay = requireDelay(delayId);
+        requireDelayChangesAllowed(delay.type());
+        delay.update(minutes, description);
+    }
+
+    public void removeDelay(UUID delayId) {
+        Delay delay = requireDelay(delayId);
+        requireDelayChangesAllowed(delay.type());
+        delays.remove(delay);
+    }
+
+    private Delay requireDelay(UUID delayId) {
+        Objects.requireNonNull(delayId, "delay id must not be null");
+        return delays.stream()
+                .filter(delay -> delay.id().equals(delayId))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("Unknown delay " + delayId));
+    }
+
+    private void requireDelayChangesAllowed(DelayType type) {
+        if (type == DelayType.DEPARTURE && status != FlightStatus.PLANNED) {
+            throw new DomainRuleViolationException(
+                    "departure delays can only be changed while the flight is planned");
+        }
+
+        if (type == DelayType.ARRIVAL && status == FlightStatus.LANDED) {
+            throw new DomainRuleViolationException(
+                    "arrival delays cannot be changed after landing");
+        }
+    }
+
+    public Instant estimatedDeparture() {
+        return scheduledDeparture.plus(Duration.ofMinutes(departureDelayMinutes()));
+    }
+
+    public Instant estimatedArrival() {
+        int totalDelayMinutes = departureDelayMinutes() + arrivalDelayMinutes();
+
+        return scheduledArrival.plus(Duration.ofMinutes(totalDelayMinutes));
+    }
+
+    public int departureDelayMinutes() {
+        return delays.stream()
+                .filter(delay -> delay.type() == DelayType.DEPARTURE)
+                .mapToInt(Delay::minutes)
+                .sum();
+    }
+
+    public int arrivalDelayMinutes() {
+        return delays.stream()
+                .filter(delay -> delay.type() == DelayType.ARRIVAL)
+                .mapToInt(Delay::minutes)
+                .sum();
     }
 
     @Override

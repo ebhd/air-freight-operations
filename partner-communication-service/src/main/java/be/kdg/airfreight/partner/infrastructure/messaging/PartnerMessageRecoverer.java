@@ -30,6 +30,10 @@ class PartnerMessageRecoverer implements MessageRecoverer {
         publishers.put(
                 RabbitConfiguration.FLIGHT_CREATED_QUEUE,
                 createRetryPublisher(rabbit, RabbitConfiguration.FLIGHT_CREATED_RETRY_QUEUE));
+        publishers.put(
+                RabbitConfiguration.FLIGHT_ESTIMATES_CHANGED_QUEUE,
+                createRetryPublisher(
+                        rabbit, RabbitConfiguration.FLIGHT_ESTIMATES_CHANGED_RETRY_QUEUE));
 
         // fabio: add its retry queue like this
         // publishers.put("partner.cpm", createRetryPublisher(rabbit, "partner.cpm.retry"));

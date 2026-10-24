@@ -1,6 +1,6 @@
 package be.kdg.airfreight.flight.domain.events;
 
-import be.kdg.airfreight.flight.domain.FlightKey;
+import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import java.time.Instant;
 
 public record FlightCreated(

@@ -16,10 +16,11 @@ import tools.jackson.databind.json.JsonMapper;
 @Configuration
 @EnableScheduling
 public class RabbitConfiguration {
-    static final String FLIGHT_EVENTS = "flight.events";
-    static final String FLIGHT_CREATED = "flight.created";
+    public static final String FLIGHT_EVENTS = "flight.events";
+    public static final String FLIGHT_CREATED = "flight.created";
+    public static final String FLIGHT_ESTIMATES_CHANGED = "flight.estimates-changed";
 
-    static final String SSM_QUEUE = "flight.ssm";
+    public static final String SSM_QUEUE = "flight.ssm";
     static final String SSM_RETRY_QUEUE = "flight.ssm.retry";
     static final String DEAD_LETTER_EXCHANGE = "flight.dlx";
     static final String DEAD_LETTER_QUEUE = "flight.dlq"; // rejected messages queue

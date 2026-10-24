@@ -1,4 +1,4 @@
-package be.kdg.airfreight.flight.domain;
+package be.kdg.airfreight.flight.domain.flight;
 
 import java.time.DayOfWeek;
 import java.time.Instant;

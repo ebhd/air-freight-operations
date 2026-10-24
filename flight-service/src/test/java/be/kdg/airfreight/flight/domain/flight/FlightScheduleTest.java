@@ -1,4 +1,4 @@
-package be.kdg.airfreight.flight.domain;
+package be.kdg.airfreight.flight.domain.flight;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

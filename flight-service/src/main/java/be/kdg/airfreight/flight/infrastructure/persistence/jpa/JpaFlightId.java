@@ -1,6 +1,6 @@
 package be.kdg.airfreight.flight.infrastructure.persistence.jpa;
 
-import be.kdg.airfreight.flight.domain.FlightKey;
+import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import java.io.Serializable;

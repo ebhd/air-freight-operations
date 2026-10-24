@@ -1,4 +1,4 @@
-package be.kdg.airfreight.flight.infrastructure;
+package be.kdg.airfreight.flight.infrastructure.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

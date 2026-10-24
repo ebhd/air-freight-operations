@@ -1,9 +1,9 @@
 package be.kdg.airfreight.flight.application;
 
-import be.kdg.airfreight.flight.domain.Flight;
-import be.kdg.airfreight.flight.domain.FlightRepository;
-import be.kdg.airfreight.flight.domain.FlightSchedule;
 import be.kdg.airfreight.flight.domain.events.FlightCreated;
+import be.kdg.airfreight.flight.domain.flight.Flight;
+import be.kdg.airfreight.flight.domain.flight.FlightRepository;
+import be.kdg.airfreight.flight.domain.flight.FlightSchedule;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

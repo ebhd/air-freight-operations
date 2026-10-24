@@ -1,4 +1,4 @@
-package be.kdg.airfreight.flight.infrastructure.messaging;
+package be.kdg.airfreight.flight.infrastructure.messaging.outbox;
 
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaOutboxMessage;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaOutboxMessageRepository;

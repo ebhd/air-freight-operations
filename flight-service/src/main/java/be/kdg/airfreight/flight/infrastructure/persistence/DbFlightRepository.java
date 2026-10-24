@@ -1,8 +1,8 @@
 package be.kdg.airfreight.flight.infrastructure.persistence;
 
-import be.kdg.airfreight.flight.domain.Flight;
-import be.kdg.airfreight.flight.domain.FlightKey;
-import be.kdg.airfreight.flight.domain.FlightRepository;
+import be.kdg.airfreight.flight.domain.flight.Flight;
+import be.kdg.airfreight.flight.domain.flight.FlightKey;
+import be.kdg.airfreight.flight.domain.flight.FlightRepository;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaFlight;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaFlightId;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaFlightRepository;

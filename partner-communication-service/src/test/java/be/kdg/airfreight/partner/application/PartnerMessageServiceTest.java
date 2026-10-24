@@ -13,6 +13,8 @@ import be.kdg.airfreight.partner.domain.PartnerMessage;
 import be.kdg.airfreight.partner.domain.PartnerMessageRepository;
 import be.kdg.airfreight.partner.domain.PublicationState;
 import be.kdg.airfreight.partner.infrastructure.formatting.FlmFormatter;
+import be.kdg.airfreight.partner.infrastructure.formatting.MvtEaFormatter;
+import be.kdg.airfreight.partner.infrastructure.formatting.MvtEdFormatter;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
@@ -27,7 +29,8 @@ class PartnerMessageServiceTest {
     private final JsonMapper mapper = JsonMapper.builder().findAndAddModules().build();
     private final FlmFormatter formatter = new FlmFormatter(mapper);
     private final PartnerMessageService service =
-            new PartnerMessageService(repository, formatter, events);
+            new PartnerMessageService(
+                    repository, formatter, new MvtEdFormatter(), new MvtEaFormatter(), events);
 
     @Test
     void createsPendingFlmWithRequiredFlightContent() {

@@ -4,6 +4,7 @@ import be.kdg.airfreight.partner.domain.PartnerMessage;
 import be.kdg.airfreight.partner.domain.PartnerMessageRepository;
 import be.kdg.airfreight.partner.domain.PublicationState;
 import java.nio.charset.StandardCharsets;
+import java.util.Date;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -100,35 +101,56 @@ public class PartnerMessagePublisher {
 
     private void sendAndConfirm(PartnerMessage message)
             throws InterruptedException, ExecutionException, TimeoutException {
+        String routingKey = routingKeyFor(message);
+        Message amqpMessage = toAmqpMessage(message);
+        var correlation = new CorrelationData();
 
-        // remove when adding cpm etc
-        if (!"FLM".equals(message.content().type())) {
-            throw new IllegalArgumentException(
-                    "Unsupported partner message type: " + message.content().type());
-        }
+        rabbit.send(RabbitConfiguration.PARTNER_MESSAGES, routingKey, amqpMessage, correlation);
+        awaitConfirmation(message, correlation);
+    }
 
-        var envelope =
-                new PartnerMessageEnvelope(
-                        message.id().value(),
-                        message.createdAtUTC(),
-                        message.content().formatVersion(),
-                        message.content().type(),
-                        jsonMapper.readTree(message.content().payload()));
+    private static String routingKeyFor(PartnerMessage message) {
+        return switch (message.content().type()) {
+            case "FLM" -> RabbitConfiguration.FLM;
+            case "MVT_ED" -> RabbitConfiguration.MVT_ED;
+            case "MVT_EA" -> RabbitConfiguration.MVT_EA;
+            default ->
+                    throw new IllegalArgumentException(
+                            "Unsupported partner message type: " + message.content().type());
+        };
+    }
 
+    private Message toAmqpMessage(PartnerMessage message) {
         var properties = new MessageProperties();
         properties.setMessageId(message.id().value().toString());
-        properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
         properties.setContentEncoding(StandardCharsets.UTF_8.name());
         properties.setDeliveryMode(MessageDeliveryMode.PERSISTENT);
 
-        var amqpMessage = new Message(jsonMapper.writeValueAsBytes(envelope), properties);
-        var correlation = new CorrelationData();
+        byte[] body;
+        if ("FLM".equals(message.content().type())) {
+            var envelope =
+                    new PartnerMessageEnvelope(
+                            message.id().value(),
+                            message.createdAtUTC(),
+                            message.content().formatVersion(),
+                            message.content().type(),
+                            jsonMapper.readTree(message.content().payload()));
+            properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+            body = jsonMapper.writeValueAsBytes(envelope);
+        } else {
+            properties.setContentType(MessageProperties.CONTENT_TYPE_TEXT_PLAIN);
+            properties.setType(message.content().type());
+            properties.setTimestamp(Date.from(message.createdAtUTC()));
+            properties.setHeader("createdAt", message.createdAtUTC().toString());
+            properties.setHeader("formatVersion", message.content().formatVersion());
+            body = message.content().payload().getBytes(StandardCharsets.UTF_8);
+        }
 
-        rabbit.send(
-                RabbitConfiguration.PARTNER_MESSAGES,
-                RabbitConfiguration.FLM,
-                amqpMessage,
-                correlation);
+        return new Message(body, properties);
+    }
+
+    private static void awaitConfirmation(PartnerMessage message, CorrelationData correlation)
+            throws InterruptedException, ExecutionException, TimeoutException {
         var confirmation =
                 correlation.getFuture().get(CONFIRMATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         if (!confirmation.ack()) {

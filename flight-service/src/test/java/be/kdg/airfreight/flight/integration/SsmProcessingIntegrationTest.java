@@ -7,8 +7,8 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import be.kdg.airfreight.flight.infrastructure.messaging.SsmMessage;
-import be.kdg.airfreight.flight.infrastructure.messaging.SsmRabbitListener;
+import be.kdg.airfreight.flight.infrastructure.messaging.ssm.SsmMessage;
+import be.kdg.airfreight.flight.infrastructure.messaging.ssm.SsmRabbitListener;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaFlightRepository;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaOutboxMessageRepository;
 import java.time.LocalDate;

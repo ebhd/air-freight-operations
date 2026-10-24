@@ -1,4 +1,4 @@
-package be.kdg.airfreight.flight.infrastructure.messaging;
+package be.kdg.airfreight.flight.infrastructure.messaging.outbox;
 
 import java.time.Instant;
 import java.util.Objects;

@@ -1,6 +1,6 @@
 package be.kdg.airfreight.flight.application;
 
-import be.kdg.airfreight.flight.domain.Flight;
+import be.kdg.airfreight.flight.domain.flight.Flight;
 import java.util.List;
 
 public record ProcessSsmResult(

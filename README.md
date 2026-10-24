@@ -9,7 +9,39 @@ Java 22 · Spring Boot 4.1.1 · Gradle 9.7.1 multi-project build.
 | `partner-communication-service` | 8082 | `partner_communication` |
 | `simulator`  | 8083 | None |
 
-The three business services use `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks, bearer-token authentication, Flight's US-3 SSM ingestion and a local SSM and ULD simulator (see [Local development](#local-development)). Flight exposes a flight lookup by key and a day overview (`GET /api/flights?date=`), which Cargo calls with a service token. Cargo serves the day overview to the load planner on its own `GET /api/flights?date=`, which hides departed and landed flights unless `includeDeparted=true`, and answers 503 when Flight is unreachable. `GET /api/cargo-plans/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}` returns one flight's data and status from Flight with all its ULD bookings and their loading position (`null` without one), also after departure: 404 for a flight Flight does not know, 400 for an invalid key, 503 when Flight is unreachable. `GET /api/cargo-plans/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/loading-window` returns the flight's loading window and whether loading is allowed now; see [Loading window](#loading-window). The load planner puts booked ULDs on the 34 main-deck positions; see [Loading positions](#loading-positions). Cargo also serves the load planner's "Flights to load" page at `http://localhost:8081/`, which links to each flight's "Cargo plan" page (`cargo-plan.html`); both pages are written in TypeScript with Tailwind CSS and compiled by the Gradle build (see [Cargo frontend](#cargo-frontend)). Cargo books ULDs received on RabbitMQ onto planned flights; see [ULD bookings](#uld-bookings). Flight uses a plain domain model with separate JPA entities and a database adapter. Other business workflows and Flight's web UI are not implemented.
+The three business services use `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks, bearer-token authentication, Flight's US-3 SSM ingestion and a local SSM and ULD simulator (see [Local development](#local-development)). Flight exposes a flight lookup by key and a day overview (`GET /api/flights?date=`), which Cargo calls with a service token. Cargo serves the day overview to the load planner on its own `GET /api/flights?date=`, which hides departed and landed flights unless `includeDeparted=true`, and answers 503 when Flight is unreachable. `GET /api/cargo-plans/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}` returns one flight's data and status from Flight with all its ULD bookings and their loading position (`null` without one), also after departure: 404 for a flight Flight does not know, 400 for an invalid key, 503 when Flight is unreachable. `GET /api/cargo-plans/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/loading-window` returns the flight's loading window and whether loading is allowed now; see [Loading window](#loading-window). The load planner puts booked ULDs on the 34 main-deck positions; see [Loading positions](#loading-positions). Cargo also serves the load planner's "Flights to load" page at `http://localhost:8081/`, which links to each flight's "Cargo plan" page (`cargo-plan.html`); both pages are written in TypeScript with Tailwind CSS and compiled by the Gradle build (see [Cargo frontend](#cargo-frontend)). Cargo books ULDs received on RabbitMQ onto planned flights; see [ULD bookings](#uld-bookings). Flight also provides the [delay management API](#delay-management). Flight uses a plain domain model with separate JPA entities and a database adapter. Other business workflows and Flight's web UI are not implemented.
+
+## Flight Service packages
+
+Flight Service keeps the four main layers and groups related files inside them:
+
+```text
+api/
+  flight/          Flight controller and its request/response DTOs
+  delayreason/     Reason catalogue controller and response DTO
+  ErrorHandling, StatusController
+application/
+  command/         Immutable use-case input classes
+  Application services and ProcessSsmResult
+domain/
+  flight/          Flight aggregate, owned delays, schedule, key and repository
+  delayreason/     Reason catalogue model and repository
+  events/          Domain events
+  Shared domain exceptions
+infrastructure/
+  security/        Security configuration
+  messaging/
+    ssm/           Incoming schedule messages and listener
+    events/        Outgoing integration messages and event publisher
+    outbox/        Durable delivery model and publisher
+    RabbitConfiguration, FlightMessageRecoverer
+  persistence/
+    jpa/           Persistence entities and Spring Data repositories
+    Database adapters
+```
+
+Flight and Delay stay in the same domain package. Flight creates delays from supplied values and controls their updates and removal; new-delay construction and child mutation remain package-private. Tests follow the moved packages where applicable; `FlightControllerTest` stays in `api` to access the shared package-private error handler. Class names, HTTP contracts, database mappings and RabbitMQ destinations are preserved by this organization.
+
 
 ## Run
 
@@ -60,6 +92,37 @@ Configuration lives in each service's `application.properties`; standard Spring 
 Page HTML lives in `cargo-service/src/main/resources/static/`, TypeScript modules in `cargo-service/src/main/typescript/` and the Tailwind CSS input in `cargo-service/src/main/css/app.css`. Gradle's `processResources` (part of `bootJar`, `bootRun` and `check`) runs `tsc` and the Tailwind CLI and puts the output in the JAR as `static/js/*.js` and `static/css/app.css`. The Gradle Node plugin downloads the pinned Node version and runs `npm ci` in `cargo-service/`, so no Node installation is needed, also not in Docker or CI. A TypeScript type error fails the build. Compiled files are not committed; edit the sources.
 
 For manual SSM and ULD submission, start Flight Service and Cargo Service and run `./gradlew :simulator:bootRun`. Then send the requests in [simulator/http/ssm.http](simulator/http/ssm.http) and [simulator/http/uld.http](simulator/http/uld.http). The simulator listens on 127.0.0.1:8083, has no database and is not part of the Compose deployment.
+
+## Delay management
+
+The day overview (`GET /api/flights?date=`) uses `FlightOverviewResponse`: flight number, scheduled departure date, both airport codes, status, scheduled departure/arrival and estimated departure/arrival. Flight lookup by key and the add-delay response use the full `FlightResponse`, which additionally includes `delays`. Each delay exposes its `id`, `type`, `minutes`, `reasonCode` and `description`. All API timestamps are UTC instants. ETD is STD plus departure delays; ETA is STA plus departure and arrival delays. Scheduled times and the flight key remain fixed.
+
+Let `{flight}` be `/api/flights/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}`. These endpoints require a bearer token:
+
+| Method | Path | Body / result |
+| --- | --- | --- |
+| GET | `/api/delay-reasons` | 200 with `{code, label}` entries ordered by code, read from the same table used for validation. |
+| POST | `{flight}/delays` | `{ "type": "DEPARTURE", "minutes": 20, "reasonCode": "71", "description": "Fog at departure" }`; 200 with the updated flight. `ARRIVAL` is also supported. |
+| PATCH | `{flight}/delays/{delayId}` | `{ "minutes": 30, "description": "Updated explanation" }`; both editable fields are required. Returns 204; GET the flight to refresh its delays and estimates. |
+| DELETE | `{flight}/delays/{delayId}` | Returns 204; GET the flight to refresh its delays and estimates. |
+
+Every delay requires 1–720 whole minutes, an existing reason code and a nonblank description. Fractional minutes are rejected rather than rounded. Editing preserves the delay ID, type and reason. Adding, editing and deleting departure delays is allowed only in `PLANNED`; arrival delays can also change in `DEPARTED`. `LANDED` freezes all delays. Removing the last applicable delay restores the corresponding estimate to its schedule.
+
+`data.sql` seeds two temporary IATA reasons: `63` for late crew boarding/departure procedures (excluding connection and standby), and `71` for departure-station weather. Their meanings follow [EUROCONTROL's published IATA reference](https://www.eurocontrol.int/sites/default/files/content/documents/official-documents/facts-and-figures/coda-reports/coda-digest-quarter2-2013.pdf). Startup inserts missing rows without overwriting existing catalogue labels. Selection of a complete catalogue/version remains open.
+
+Errors use `ProblemDetail`: 400 for invalid input (including missing fields, malformed JSON, invalid path values and unknown reason codes), 404 for an unknown flight or a delay absent from the selected flight, and 409 for a delay change refused by flight state. A plain controller advice translates application/domain exceptions; Spring MVC handles framework errors using its built-in ProblemDetail support. Operation-specific role checks and the flight-details UI remain outstanding.
+
+### Estimated-time notifications
+
+Adding, editing or removing a delay compares the flight's estimates before and after the change. A changed ETD produces MVT-ED and MVT-EA; an ETA-only change produces MVT-EA. Returning an estimate to its scheduled time also produces the corresponding notification. An edit that leaves both estimates unchanged produces none.
+
+Flight saves a `FlightEstimatesChanged` JSON snapshot in its existing outbox in the same transaction as the delay. It publishes the snapshot through `flight.events` with routing key `flight.estimates-changed`. Partner consumes `partner.flight-estimates-changed`, validates the snapshot and prepares the required partner messages in one transaction. The existing `(source_message_id, type)` uniqueness and lookup prevent redelivery from preparing another ED or EA for that event. Preparation uses the captured times, never a later flight lookup.
+
+The existing Partner publisher sends ED/EA as persistent UTF-8 `text/plain` bodies through `partner.messages` with routing keys `mvt.ed` and `mvt.ea`. Each body has exactly three LF-separated lines: `MVT`, `flightNumber/dd.aircraftRegistration.airport`, and `EDHHmm` or `EAHHmm`. The day is the scheduled departure day, and HHmm is UTC. ED uses the departure airport; EA uses the arrival airport. Reasons and descriptions are not included. AMQP `message_id`, `type` and `timestamp` properties identify the message; headers `createdAt` (the original ISO timestamp) and `formatVersion` carry its precise creation time and version. FLM retains its existing JSON envelope and routing key.
+
+Both services reuse their pending-message storage, broker confirmations and scheduled recovery. Failed sends remain pending across restarts, with original IDs and contents retained. A crash after broker acceptance but before recording publication can cause redelivery: the transport is at-least-once, and the exact external-delivery interpretation remains an open requirement (Q11). Recovery does not impose a new ordering guarantee between ED/EA or successive changes.
+
+Each internal integration message declares its own `VERSION` constant, used for creation in Flight and validation in Partner's corresponding local contract. Each outgoing formatter declares its own `FORMAT_VERSION`. Internal JSON contracts and external FLM/ED/EA formats evolve independently; all currently use version 1.
 
 ## ULD bookings
 
@@ -145,6 +208,7 @@ Flight and Partner use the same incoming recovery policy after the configured sh
 | --- | --- | --- |
 | Flight / `FlightMessageRecoverer` | `flight.ssm` | `flight.ssm.retry` |
 | Partner / `PartnerMessageRecoverer` | `partner.flight-created` | `partner.flight-created.retry` |
+| Partner / `PartnerMessageRecoverer` | `partner.flight-estimates-changed` | `partner.flight-estimates-changed.retry` |
 
 ## Checks
 

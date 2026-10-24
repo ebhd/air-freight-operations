@@ -1,6 +1,6 @@
 package be.kdg.airfreight.flight.infrastructure.persistence.jpa;
 
-import be.kdg.airfreight.flight.infrastructure.messaging.OutboxMessage;
+import be.kdg.airfreight.flight.infrastructure.messaging.outbox.OutboxMessage;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;

@@ -2,10 +2,10 @@ package be.kdg.airfreight.flight.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import be.kdg.airfreight.flight.domain.Flight;
-import be.kdg.airfreight.flight.domain.FlightKey;
-import be.kdg.airfreight.flight.domain.FlightSchedule;
 import be.kdg.airfreight.flight.domain.events.FlightCreated;
+import be.kdg.airfreight.flight.domain.flight.Flight;
+import be.kdg.airfreight.flight.domain.flight.FlightKey;
+import be.kdg.airfreight.flight.domain.flight.FlightSchedule;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -145,7 +145,7 @@ class FlightSchedulingServiceTest {
     }
 
     private static final class InMemoryFlights
-            implements be.kdg.airfreight.flight.domain.FlightRepository {
+            implements be.kdg.airfreight.flight.domain.flight.FlightRepository {
         private final Map<FlightKey, Flight> flights = new HashMap<>();
 
         @Override
