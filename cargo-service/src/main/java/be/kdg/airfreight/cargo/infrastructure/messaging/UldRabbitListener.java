@@ -27,6 +27,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Slf4j
 class UldRabbitListener {
     private static final int MAX_MESSAGE_ID_LENGTH = 255;
+    private static final int SUPPORTED_VERSION = 1;
 
     private final BookUldService bookUldService;
     private final RejectedMessageStore rejectedMessageStore;
@@ -67,6 +68,17 @@ class UldRabbitListener {
         }
         if (rejectedMessageStore.contains(messageId)) {
             log.info("Ignored redelivery of rejected ULD message {}", messageId);
+            return;
+        }
+        // a missing version counts as unknown so we never guess the field layout
+        if (!Objects.equals(uldMessage.version(), SUPPORTED_VERSION)) {
+            rejectedMessageStore.store(
+                    messageId,
+                    payload,
+                    "Message version must be "
+                            + SUPPORTED_VERSION
+                            + ", was "
+                            + uldMessage.version());
             return;
         }
         Instant firstReceivedAt = messageReceipts.firstReceivedAt(messageId, Instant.now());
