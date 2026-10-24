@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import be.kdg.airfreight.cargo.domain.AirportCode;
 import be.kdg.airfreight.cargo.domain.CargoPlan;
 import be.kdg.airfreight.cargo.domain.CargoPlanRepository;
+import be.kdg.airfreight.cargo.domain.CargoPlanState;
 import be.kdg.airfreight.cargo.domain.FlightInformation;
 import be.kdg.airfreight.cargo.domain.FlightKey;
 import be.kdg.airfreight.cargo.domain.FlightLookupUnavailableException;
@@ -42,7 +43,10 @@ class CargoPlanQueryServiceTest {
         UldBooking second = booking("PMC00001KL", "ATH");
         when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(flight));
         when(cargoPlans.findByFlightKey(KEY))
-                .thenReturn(Optional.of(CargoPlan.restore(KEY, List.of(first, second))));
+                .thenReturn(
+                        Optional.of(
+                                CargoPlan.restore(
+                                        KEY, CargoPlanState.DRAFT, List.of(first, second))));
 
         CargoPlanView view = service.getCargoPlan(KEY);
 
@@ -68,7 +72,9 @@ class CargoPlanQueryServiceTest {
         UldBooking booking = booking("AKE12345KL", "AMS");
         when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(flight(status)));
         when(cargoPlans.findByFlightKey(KEY))
-                .thenReturn(Optional.of(CargoPlan.restore(KEY, List.of(booking))));
+                .thenReturn(
+                        Optional.of(
+                                CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of(booking))));
 
         CargoPlanView view = service.getCargoPlan(KEY);
 
@@ -102,7 +108,8 @@ class CargoPlanQueryServiceTest {
                 new AirportCode("AMS"),
                 status,
                 Instant.parse("2026-10-19T08:00:00Z"),
-                Instant.parse("2026-10-19T10:00:00Z"));
+                Instant.parse("2026-10-19T10:00:00Z"),
+                Instant.parse("2026-10-19T08:00:00Z"));
     }
 
     private static UldBooking booking(String uldCode, String destination) {

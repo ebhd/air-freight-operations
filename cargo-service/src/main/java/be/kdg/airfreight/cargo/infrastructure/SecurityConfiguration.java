@@ -22,6 +22,8 @@ public class SecurityConfiguration {
                                         .anyRequest()
                                         .authenticated())
                 .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()))
+                // only a bearer token is accepted and a browser never adds it by itself so no csrf
+                .csrf(csrf -> csrf.disable())
                 .build();
     }
 }

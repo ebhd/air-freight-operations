@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -14,10 +15,13 @@ import static org.mockito.Mockito.when;
 import be.kdg.airfreight.cargo.application.BookUldService;
 import be.kdg.airfreight.cargo.application.ProcessedMessageRepository;
 import be.kdg.airfreight.cargo.domain.AirportCode;
+import be.kdg.airfreight.cargo.domain.CargoPlan;
 import be.kdg.airfreight.cargo.domain.CargoPlanRepository;
+import be.kdg.airfreight.cargo.domain.FlightInformation;
 import be.kdg.airfreight.cargo.domain.FlightKey;
 import be.kdg.airfreight.cargo.domain.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.FlightRepository;
+import be.kdg.airfreight.cargo.domain.FlightStatus;
 import be.kdg.airfreight.cargo.infrastructure.persistence.MessageReceipts;
 import be.kdg.airfreight.cargo.infrastructure.persistence.RejectedMessageStore;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +29,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +38,9 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import tools.jackson.databind.json.JsonMapper;
 
 class UldRabbitListenerTest {
@@ -110,6 +118,40 @@ class UldRabbitListenerTest {
 
         assertThatThrownBy(() -> listener.receive(message(payload)))
                 .isInstanceOf(FlightLookupUnavailableException.class);
+
+        verify(rejectedMessages, never()).store(any(), any(), any());
+    }
+
+    static Stream<DataAccessException> concurrentPlanChanges() {
+        return Stream.of(
+                // a position change committed first so the plan version moved on
+                new OptimisticLockingFailureException("cargo plan version changed"),
+                // another first booking created the plan row first
+                new DataIntegrityViolationException("duplicate key on cargo_plans"));
+    }
+
+    // the retry reads the plan again so it succeeds and the message is never rejected
+    @ParameterizedTest
+    @MethodSource("concurrentPlanChanges")
+    void concurrentPlanChangeIsRetriedNotRejected(DataAccessException conflict) {
+        FlightKey flightKey =
+                new FlightKey("HJ221", LocalDate.of(2026, 10, 19), new AirportCode("BRU"));
+        Instant std = Instant.parse("2026-10-19T08:00:00Z");
+        when(flights.findByFlightKey(flightKey))
+                .thenReturn(
+                        Optional.of(
+                                new FlightInformation(
+                                        flightKey,
+                                        new AirportCode("AMS"),
+                                        FlightStatus.PLANNED,
+                                        std,
+                                        std.plusSeconds(7200),
+                                        std)));
+        when(cargoPlans.findByFlightKey(flightKey)).thenReturn(Optional.empty());
+        doThrow(conflict).when(cargoPlans).save(any(CargoPlan.class));
+        String payload = validMessageWith("uldCode", "AKE12345KL");
+
+        assertThatThrownBy(() -> listener.receive(message(payload))).isSameAs(conflict);
 
         verify(rejectedMessages, never()).store(any(), any(), any());
     }
