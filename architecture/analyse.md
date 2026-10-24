@@ -212,26 +212,36 @@ classDiagram
         FINALIZED
     }
     class FloorPlan {
+        <<Later>>
         positions
         sidesAndRoutes
         cargoDoor
     }
     class LoadCheck {
-        <<interface>>
+        <<interface, later>>
         evaluate(bookings, context)
     }
     class LateralBalanceCheck
-    class OffloadingCheck
+    class OffloadingCheck {
+        <<DomainService>>
+        evaluate(bookings, arrivalAirport)
+    }
+    class OffloadingResult {
+        <<ValueObject>>
+        unloadingOrder
+        blockedPositions
+        passed()
+    }
     class AllCargoLoadedCheck
     class LoadCheckResult {
-        <<ValueObject>>
+        <<ValueObject, later>>
         checkName
         outcome
         failureReason
         hardOrSoft
     }
     class LoadCheckReport {
-        <<ValueObject>>
+        <<ValueObject, later>>
         results
         unpositionedCargo
     }
@@ -248,6 +258,8 @@ classDiagram
     UldBooking --> "0..1" LoadingPosition : optional placement
     CargoPlan ..> FloorPlan : validates placements
     CargoPlan ..> LoadCheck : runs all checks
+    CargoPlan ..> OffloadingCheck : runs
+    OffloadingCheck ..> OffloadingResult : returns
     LoadCheck <|.. LateralBalanceCheck
     LoadCheck <|.. OffloadingCheck
     LoadCheck <|.. AllCargoLoadedCheck
@@ -260,9 +272,9 @@ classDiagram
 | --- | --- |
 | Aggregate root | `CargoPlan` (owns bookings) |
 | Entity | `UldBooking` |
-| Value objects | `FlightKey`, `UldCode`, `Weight`, `AirportCode`, `LoadingPosition`, `LoadingWindow`, `LoadingContext`, `LoadCheckResult`, `LoadCheckReport` |
+| Value objects | `FlightKey`, `UldCode`, `Weight`, `AirportCode`, `LoadingPosition`, `LoadingWindow`, `LoadingContext`, `OffloadingResult`, `LoadCheckResult` and `LoadCheckReport` (later) |
 | Policy | `LoadingWindowPolicy` (configurable offsets) |
-| Domain checks | `LateralBalanceCheck`, `OffloadingCheck`, `AllCargoLoadedCheck` |
+| Domain checks | `LateralBalanceCheck`, `OffloadingCheck` (domain service), `AllCargoLoadedCheck` |
 | Domain event | `LoadFinalized` |
 | Repository | `CargoPlanRepository` |
 | Actors | Load planner |
@@ -276,7 +288,9 @@ Invariants on `CargoPlan`:
 
 Every change to a cargo plan (booking, position, later finalization) raises the version of its `cargo_plans` row, and Hibernate checks that version at commit (optimistic locking). Of two overlapping changes the second is rolled back and the API answers 409; a unique constraint on (flight, position) also guards invariant 1 in the database. A ULD with a position moves to a free position in one step; swapping two ULDs takes two steps (team reading of Q16).
 
-`LoadingPosition` is an enum of the 34 main-deck positions of the Boeing 747-400 freighter with row and side; with one aircraft type it is the floor plan's position list. A second aircraft type would introduce a `FloorPlan` per type.
+`LoadingPosition` is an enum of the 34 main-deck positions of the Boeing 747-400 freighter with row and side; with one aircraft type it is the floor plan's position list, and `OffloadingCheck` derives the routes from it. A second aircraft type would introduce a `FloorPlan` per type.
+
+Marked *later* in the diagram: `LoadCheck`, `LoadCheckResult` and `LoadCheckReport` come with the full load report (#21) once a second check exists; `OffloadingCheck` then implements `LoadCheck`. `FloorPlan` only comes with a second aircraft type.
 
 Loading period: **STD - 12 hours → current ETD - 20 minutes**
 
@@ -295,6 +309,17 @@ Loading period: **STD - 12 hours → current ETD - 20 minutes**
 
 - All checks run.
 - hard checks inspect positioned cargo only.
+
+Offloading (#23, #24):
+
+- `OffloadingCheck` is a package-private domain service: only domain classes can create it, so in production only `CargoPlan` runs it (Check Load in #21, finalization in #26). It calls no guard; the action that runs it calls `requireLoadingAllowed` first.
+- Routes follow the order of `LoadingPosition`. A paired position walks along its own side to row R: toward the tail in front of row R, toward the nose behind it. Left cargo leaves through RL; right cargo goes to RR and crosses to RL. A route never switches sides.
+- The check simulates unloading on its own copy of the positions. In passes from nose to tail it removes every ULD for the arrival airport whose route is empty at that moment, until a pass removes nothing. Cargo for other airports never moves. The removal order is a legal unloading order (published example 2: RR, then UR); what remains is blocked. The cargo plan itself never changes.
+- A route must be empty, not only free of other-airport cargo, so destination cargo on it leaves first. For paired positions this gives the same pass or fail as the case's wording, because the route of a position on my route is the rest of my route.
+- Without destination cargo aboard the check passes (team reading).
+- A1, A2, B1 and X have no own route and maneuver first (#24). A1, A2 and B1 need both CL and CR empty; X needs both UL and UR empty. Destination cargo there may leave first in an earlier pass. Then one clear side route is enough: the maneuvering position of that side plus its ordinary route, for example B1 right via CR, DR … PR, RR, RL and X left via UL, TL, SL, RL. The chosen side is not reported.
+- A1, A2 and B1 do not block each other (team reading of Q16, taken from the #24 issue text; open question for the coach).
+- Single and paired positions form one Offloading check: the same simulation, only the condition to leave differs.
 
 ### Lifecycle and finalization handoff
 
