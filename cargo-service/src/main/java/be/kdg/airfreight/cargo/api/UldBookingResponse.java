@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.api;
 
+import be.kdg.airfreight.cargo.domain.LoadingPosition;
 import be.kdg.airfreight.cargo.domain.UldBooking;
 import be.kdg.airfreight.cargo.domain.Weight;
 import java.math.BigDecimal;
@@ -16,7 +17,7 @@ public record UldBookingResponse(
                 new WeightValue(
                         new BigDecimal(weight.value().toPlainString()), weight.unit().name()),
                 booking.getDestination().value(),
-                // stays null until issue 20 adds positions
-                null);
+                // null while the uld has no position
+                booking.getPosition().map(LoadingPosition::name).orElse(null));
     }
 }

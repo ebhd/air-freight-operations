@@ -3,24 +3,20 @@ import { whenSignedIn } from './auth.js';
 import { requiredElement } from './dom.js';
 import type { FlightOverview } from './flight-overview.js';
 import { loadLoadingWindow, renderLoadingWindow } from './loading-window.js';
+import {
+    changePosition,
+    loadPositions,
+    renderPositionSelect,
+    takenPositions,
+    type LoadingPositionResponse,
+} from './positions.js';
 import { formatBrusselsDateTime } from './time.js';
+import type { UldBookingResponse } from './uld-booking.js';
 
 // the cargo plan of one flight as sent by CargoPlanResponse
 type CargoPlanResponse = {
     flight: FlightOverview;
     bookings: UldBookingResponse[];
-};
-
-type UldBookingResponse = {
-    uldCode: string;
-    weight: WeightValue;
-    destination: string;
-    position: string | null;
-};
-
-type WeightValue = {
-    value: number;
-    unit: string;
 };
 
 type FlightKey = {
@@ -71,10 +67,11 @@ async function loadCargoPlan(): Promise<void> {
     }
     tableStatus.textContent = 'Loading…';
     const path = cargoPlanPath(flightKey);
-    // both or nothing so the page never shows half a plan
-    const [cargoPlan, loadingWindow] = await Promise.all([
+    // all or nothing so the page never shows half a plan
+    const [cargoPlan, loadingWindow, positions] = await Promise.all([
         getJson<CargoPlanResponse>(path),
         loadLoadingWindow(path),
+        loadPositions(),
     ]);
     if (!cargoPlan.ok) {
         renderError(cargoPlan.status, cargoPlan.message);
@@ -84,9 +81,15 @@ async function loadCargoPlan(): Promise<void> {
         renderError(loadingWindow.status, loadingWindow.message);
         return;
     }
+    if (!positions.ok) {
+        renderError(positions.status, positions.message);
+        return;
+    }
     renderFlight(cargoPlan.data.flight);
     renderLoadingWindow(windowBlock, loadingWindow.data);
-    renderBookings(cargoPlan.data.bookings);
+    // the server still checks every change and roles come with #2
+    const editablePath = loadingWindow.data.loadingAllowed ? path : null;
+    renderBookings(cargoPlan.data.bookings, positions.data, editablePath);
 }
 
 function renderFlight(flight: FlightOverview): void {
@@ -105,12 +108,20 @@ function setText(selector: string, text: string): void {
     requiredElement(selector, HTMLElement).textContent = text;
 }
 
-function renderBookings(bookings: UldBookingResponse[]): void {
-    rows.replaceChildren(...bookings.map(bookingRow));
+// editablePath is the plan path while loading is allowed and null otherwise
+function renderBookings(
+    bookings: UldBookingResponse[],
+    positions: LoadingPositionResponse[],
+    editablePath: string | null,
+): void {
+    const taken = takenPositions(bookings);
+    rows.replaceChildren(
+        ...bookings.map((booking) => bookingRow(booking, positionContent(booking, positions, taken, editablePath))),
+    );
     tableStatus.textContent = bookings.length > 0 ? '' : 'No ULDs booked for this flight yet.';
 }
 
-function bookingRow(booking: UldBookingResponse): HTMLTableRowElement {
+function bookingRow(booking: UldBookingResponse, position: string | HTMLElement): HTMLTableRowElement {
     const row = document.createElement('tr');
     row.className = '*:border-b *:border-slate-300 *:px-3 *:py-2';
     row.append(
@@ -118,16 +129,41 @@ function bookingRow(booking: UldBookingResponse): HTMLTableRowElement {
         cell(weightFormat.format(booking.weight.value)),
         cell(booking.weight.unit),
         cell(booking.destination),
-        // a booking without a position is shown too
-        cell(booking.position ?? 'No position'),
+        cell(position),
     );
     return row;
 }
 
+// a dropdown while loading is allowed and the plain position otherwise
+function positionContent(
+    booking: UldBookingResponse,
+    positions: LoadingPositionResponse[],
+    taken: Map<string, string>,
+    editablePath: string | null,
+): string | HTMLSelectElement {
+    if (editablePath === null) {
+        // a booking without a position is shown too
+        return booking.position ?? 'No position';
+    }
+    const select = renderPositionSelect(booking, positions, taken);
+    select.addEventListener('change', () => savePosition(editablePath, booking.uldCode, select));
+    return select;
+}
+
+async function savePosition(cargoPlanPath: string, uldCode: string, select: HTMLSelectElement): Promise<void> {
+    select.disabled = true;
+    const result = await changePosition(cargoPlanPath, uldCode, select.value);
+    // reload after success and after a refusal so the page shows what the server stored
+    await loadCargoPlan();
+    if (!result.ok) {
+        showError(`Position of ${uldCode} not changed: ${result.message}`);
+    }
+}
+
 // append adds text as plain text and never as html
-function cell(text: string): HTMLTableCellElement {
+function cell(content: string | HTMLElement): HTMLTableCellElement {
     const td = document.createElement('td');
-    td.append(text);
+    td.append(content);
     return td;
 }
 

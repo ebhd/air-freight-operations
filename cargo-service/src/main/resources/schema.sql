@@ -1,3 +1,12 @@
+-- every change to a plan raises the version so the second of two overlapping changes fails
+CREATE TABLE IF NOT EXISTS cargo_plans (
+    flight_number VARCHAR(32) NOT NULL,
+    scheduled_departure_date DATE NOT NULL,
+    departure_airport_code CHAR(3) NOT NULL,
+    version BIGINT NOT NULL,
+    PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code)
+);
+
 CREATE TABLE IF NOT EXISTS uld_bookings (
     flight_number VARCHAR(32) NOT NULL,
     scheduled_departure_date DATE NOT NULL,
@@ -6,7 +15,11 @@ CREATE TABLE IF NOT EXISTS uld_bookings (
     weight_value NUMERIC NOT NULL,
     weight_unit VARCHAR(2) NOT NULL,
     destination_airport_code CHAR(3) NOT NULL,
-    PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code, uld_code)
+    loading_position VARCHAR(2),
+    PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code, uld_code),
+    -- nulls never collide so any number of bookings can stay without a position
+    CONSTRAINT uld_bookings_one_uld_per_position
+        UNIQUE (flight_number, scheduled_departure_date, departure_airport_code, loading_position)
 );
 
 CREATE TABLE IF NOT EXISTS processed_messages (

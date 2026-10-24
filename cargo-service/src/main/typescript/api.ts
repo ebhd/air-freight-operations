@@ -9,17 +9,40 @@ type ProblemDetail = {
 };
 
 export async function getJson<T>(path: string): Promise<ApiResult<T>> {
+    const result = await request(path, {});
+    if (!result.ok) {
+        return result;
+    }
+    // typescript does not check json at runtime so the requested type must match the java response
+    return { ok: true, data: (await result.data.json()) as T };
+}
+
+// a 204 answer has no body so success carries null
+export async function sendJson(method: 'PUT' | 'DELETE', path: string, body?: object): Promise<ApiResult<null>> {
+    const init: RequestInit = { method };
+    if (body !== undefined) {
+        init.headers = { 'Content-Type': 'application/json' };
+        init.body = JSON.stringify(body);
+    }
+    const result = await request(path, init);
+    if (!result.ok) {
+        return result;
+    }
+    return { ok: true, data: null };
+}
+
+// adds the token and turns every failed request into a failure with the message to show
+async function request(path: string, init: RequestInit): Promise<ApiResult<Response>> {
+    const headers = new Headers(init.headers);
+    headers.set('Authorization', `Bearer ${getAccessToken()}`);
     let response: Response;
     try {
-        response = await fetch(path, {
-            headers: { Authorization: `Bearer ${getAccessToken()}` },
-        });
+        response = await fetch(path, { ...init, headers });
     } catch {
         return { ok: false, status: null, message: 'Cargo service is unreachable.' };
     }
     if (response.ok) {
-        // typescript does not check json at runtime so the requested type must match the java response
-        return { ok: true, data: (await response.json()) as T };
+        return { ok: true, data: response };
     }
     if (response.status === 401) {
         signOut();

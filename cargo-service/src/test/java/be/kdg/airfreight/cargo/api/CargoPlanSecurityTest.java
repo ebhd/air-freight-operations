@@ -1,20 +1,28 @@
 package be.kdg.airfreight.cargo.api;
 
+import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import be.kdg.airfreight.cargo.application.CargoPlanQueryService;
+import be.kdg.airfreight.cargo.application.UldPositionService;
 import be.kdg.airfreight.cargo.domain.AirportCode;
 import be.kdg.airfreight.cargo.domain.CargoPlanRepository;
 import be.kdg.airfreight.cargo.domain.FlightInformation;
 import be.kdg.airfreight.cargo.domain.FlightKey;
 import be.kdg.airfreight.cargo.domain.FlightRepository;
 import be.kdg.airfreight.cargo.domain.FlightStatus;
+import be.kdg.airfreight.cargo.domain.LoadingPosition;
+import be.kdg.airfreight.cargo.domain.UldCode;
 import be.kdg.airfreight.cargo.infrastructure.SecurityConfiguration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -26,7 +34,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -41,11 +52,15 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 @ContextConfiguration(classes = CargoPlanSecurityTest.Config.class)
 class CargoPlanSecurityTest {
     private static final String URL = "/api/cargo-plans/HJ221/2026-10-19/BRU";
+    private static final String POSITION_URL = URL + "/bookings/AKE12345KL/position";
+    private static final String BODY = "{\"position\":\"RL\"}";
     private static final FlightKey KEY =
             new FlightKey("HJ221", LocalDate.of(2026, 10, 19), new AirportCode("BRU"));
 
     @Autowired private WebApplicationContext context;
     @Autowired private FlightRepository flights;
+    @Autowired private UldPositionService uldPositionService;
+    @Autowired private JwtDecoder jwtDecoder;
     private MockMvc mvc;
 
     @BeforeEach
@@ -77,16 +92,65 @@ class CargoPlanSecurityTest {
                 .andExpect(jsonPath("$.bookings").isEmpty());
     }
 
+    // no csrf check so a write without a token is refused with 401 like a read
+    @Test
+    void positionChangesWithoutTokenAreRefused() throws Exception {
+        mvc.perform(put(POSITION_URL).contentType(MediaType.APPLICATION_JSON).content(BODY))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(delete(POSITION_URL)).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(uldPositionService);
+    }
+
+    // a real bearer header like the page sends so the token goes through the jwt decoder
+    @Test
+    void signedInUserReachesThePositionEndpoints() throws Exception {
+        when(jwtDecoder.decode("token"))
+                .thenReturn(
+                        Jwt.withTokenValue("token")
+                                .header("alg", "none")
+                                .subject("load-planner")
+                                .build());
+
+        mvc.perform(
+                        put(POSITION_URL)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer token")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(BODY))
+                .andExpect(status().isNoContent());
+        mvc.perform(delete(POSITION_URL).header(HttpHeaders.AUTHORIZATION, "Bearer token"))
+                .andExpect(status().isNoContent());
+
+        verify(uldPositionService)
+                .assignPosition(KEY, new UldCode("AKE12345KL"), LoadingPosition.RL);
+        verify(uldPositionService).clearPosition(KEY, new UldCode("AKE12345KL"));
+    }
+
+    @Test
+    void loadingPositionsNeedTokenAndAreListed() throws Exception {
+        mvc.perform(get("/api/loading-positions")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/loading-positions").with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(34)));
+    }
+
     @Configuration
     @EnableWebMvc
     @EnableWebSecurity
     @Import({
         SecurityConfiguration.class,
         CargoPlanController.class,
+        LoadingPositionController.class,
         CargoApiExceptionHandler.class,
         CargoPlanQueryService.class
     })
     static class Config {
+        // roles come with issue 2 so any signed in user reaches the controller for now
+        @Bean
+        UldPositionService uldPositionService() {
+            return mock(UldPositionService.class);
+        }
+
         @Bean
         FlightRepository flightRepository() {
             return mock(FlightRepository.class);

@@ -1,22 +1,28 @@
 package be.kdg.airfreight.cargo.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import be.kdg.airfreight.cargo.domain.AirportCode;
 import be.kdg.airfreight.cargo.domain.CargoPlan;
+import be.kdg.airfreight.cargo.domain.CargoPlanState;
 import be.kdg.airfreight.cargo.domain.FlightKey;
+import be.kdg.airfreight.cargo.domain.LoadingPosition;
 import be.kdg.airfreight.cargo.domain.UldBooking;
 import be.kdg.airfreight.cargo.domain.UldCode;
 import be.kdg.airfreight.cargo.domain.Weight;
 import be.kdg.airfreight.cargo.domain.WeightUnit;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -37,6 +43,7 @@ class DbCargoPlanRepositoryIT {
 
     @Autowired private DbCargoPlanRepository repository;
     @Autowired private TestEntityManager entityManager;
+    @Autowired private JdbcClient jdbc;
 
     @Test
     void findsOnlyTheBookingsOfThatFlight() {
@@ -68,6 +75,68 @@ class DbCargoPlanRepositoryIT {
     @Test
     void flightWithoutBookingsHasNoStoredPlan() {
         assertThat(repository.findByFlightKey(KEY)).isEmpty();
+    }
+
+    // the context starts with ddl-auto validate so the entities match the schema file
+    @Test
+    void storesAndRestoresPositions() {
+        repository.save(
+                CargoPlan.restore(
+                        KEY,
+                        CargoPlanState.DRAFT,
+                        List.of(
+                                booking("AKE12345KL", LoadingPosition.RL),
+                                booking("PMC00001KL", null))));
+        entityManager.flush();
+        entityManager.clear();
+
+        CargoPlan stored = repository.findByFlightKey(KEY).orElseThrow();
+
+        assertThat(stored.findBooking(new UldCode("AKE12345KL")).orElseThrow().getPosition())
+                .contains(LoadingPosition.RL);
+        assertThat(stored.findBooking(new UldCode("PMC00001KL")).orElseThrow().getPosition())
+                .isEmpty();
+        assertThat(
+                        jdbc.sql(
+                                        "SELECT loading_position FROM uld_bookings"
+                                                + " WHERE uld_code = 'AKE12345KL'")
+                                .query(String.class)
+                                .single())
+                .isEqualTo("RL");
+    }
+
+    @Test
+    void databaseRefusesTwoUldsOnOnePosition() {
+        repository.save(
+                CargoPlan.restore(
+                        KEY,
+                        CargoPlanState.DRAFT,
+                        List.of(
+                                booking("AKE12345KL", LoadingPosition.CL),
+                                booking("PMC00001KL", null),
+                                booking("PMC00002KL", null))));
+        // the same position on another flight is fine
+        repository.save(
+                CargoPlan.restore(
+                        new FlightKey("HJ222", DAY, BRU),
+                        CargoPlanState.DRAFT,
+                        List.of(booking("AKE12345KL", LoadingPosition.CL))));
+        // two bookings without a position are fine too
+        entityManager.flush();
+
+        assertThatThrownBy(
+                        () ->
+                                jdbc.sql(
+                                                "UPDATE uld_bookings SET loading_position = 'CL'"
+                                                        + " WHERE flight_number = 'HJ221'"
+                                                        + " AND uld_code = 'PMC00001KL'")
+                                        .update())
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("uld_bookings_one_uld_per_position");
+    }
+
+    private static UldBooking booking(String uldCode, LoadingPosition position) {
+        return new UldBooking(new UldCode(uldCode), weight("1", WeightUnit.KG), AMS, position);
     }
 
     private void saveOneBooking(FlightKey flightKey, String uldCode) {
