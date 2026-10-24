@@ -53,11 +53,23 @@ final class OffloadingCheck {
     }
 
     private static boolean canLeave(LoadingPosition position, Set<LoadingPosition> occupied) {
+        if (position == LoadingPosition.X) {
+            return canManeuver(LoadingPosition.UL, LoadingPosition.UR, occupied);
+        }
         if (position.side() == LoadingPosition.Side.NONE) {
-            // single positions wait for the maneuvering rule of issue 24 so they stay blocked
-            return false;
+            // a1 a2 and b1 do not block each other because the case sets no such rule
+            return canManeuver(LoadingPosition.CL, LoadingPosition.CR, occupied);
         }
         return isClear(routeToDoor(position), occupied);
+    }
+
+    // both maneuvering positions must be empty and then one side route is enough
+    private static boolean canManeuver(
+            LoadingPosition left, LoadingPosition right, Set<LoadingPosition> occupied) {
+        if (occupied.contains(left) || occupied.contains(right)) {
+            return false;
+        }
+        return isClear(routeToDoor(left), occupied) || isClear(routeToDoor(right), occupied);
     }
 
     // the route must be empty and not only free of other airports so the order is possible
