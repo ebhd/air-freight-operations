@@ -7,8 +7,8 @@
     "types": ["vite/client"],
     "strict": true,
     "noUnusedLocals": true,
-    "rootDir": "src/main/typescript",
+    "rootDir": "src",
     "noEmit": true
   },
-  "include": ["src/main/typescript"]
+  "include": ["src/main/typescript", "src/test/typescript"]
 }

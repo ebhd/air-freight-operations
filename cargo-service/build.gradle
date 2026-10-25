@@ -40,6 +40,8 @@ tasks.register('buildFrontend', NpmTask) {
     dependsOn tasks.named('npmInstall')
     args = ['run', 'build']
     inputs.dir('src/main/typescript')
+    // tsc also type checks the page tests
+    inputs.dir('src/test/typescript')
     inputs.files('tsconfig.json', 'vite.config.ts', 'package.json', 'package-lock.json')
     inputs.files(fileTree(projectDir) { include '.env*' })
     ['VITE_KEYCLOAK_URL', 'VITE_KEYCLOAK_REALM', 'VITE_KEYCLOAK_CLIENT_ID'].each { setting ->
@@ -64,5 +66,14 @@ tasks.named('processResources') {
     from(tasks.named('buildFrontend')) { into 'static/js' }
     from(tasks.named('compileTailwindCss')) { into 'static/css' }
 }
+
+// vitest runs the page module tests in node without a browser
+tasks.register('testFrontend', NpmTask) {
+    dependsOn tasks.named('npmInstall')
+    args = ['run', 'test']
+}
+
+// so the gradle test task and the ci test job also run the page tests
+tasks.named('test') { dependsOn tasks.named('testFrontend') }
 
 apply from: rootProject.file('gradle/quality.gradle')

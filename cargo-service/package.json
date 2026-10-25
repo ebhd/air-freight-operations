@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && vite build"
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run"
   },
   "dependencies": {
     "keycloak-js": "26.2.4"
@@ -12,7 +13,8 @@
     "@tailwindcss/cli": "4.3.3",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2",
-    "vite": "7.3.7"
+    "vite": "7.3.7",
+    "vitest": "5.0.3"
   },
   "allowScripts": {
     "@parcel/watcher": false,

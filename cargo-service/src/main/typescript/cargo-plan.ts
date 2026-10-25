@@ -11,6 +11,7 @@ import {
     takenPositions,
     type LoadingPositionResponse,
 } from './positions.js';
+import { positionNotChangedText } from './refusal-text.js';
 import { formatBrusselsDateTime } from './time.js';
 import type { UldBookingResponse } from './uld-booking.js';
 
@@ -156,7 +157,7 @@ async function savePosition(cargoPlanPath: string, uldCode: string, select: HTML
     // reload after success and after a refusal so the page shows what the server stored
     await loadCargoPlan();
     if (!result.ok) {
-        showError(`Position of ${uldCode} not changed: ${result.message}`);
+        showError(positionNotChangedText(uldCode, result));
     }
 }
 
