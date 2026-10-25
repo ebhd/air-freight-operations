@@ -38,6 +38,14 @@ describe('positionNotChangedText', () => {
         );
     });
 
+    it('names the load planner role when the server refuses the role', () => {
+        const failure: ApiFailure = { ok: false, status: 403, message: 'You are not allowed to do this.' };
+
+        expect(positionNotChangedText('AKE12345KL', failure)).toBe(
+            'Position of AKE12345KL not changed: Only a load planner can change positions.',
+        );
+    });
+
     it('shows the server text for a conflict that is not a loading refusal', () => {
         const failure: ApiFailure = {
             ok: false,
