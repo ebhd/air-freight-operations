@@ -149,7 +149,8 @@ Keycloak admin console. Configuration persists in MySQL across container recreat
   realm roles to Spring authorities. Both planners can read APIs; Cargo changes
   require `load-planner` and Flight changes require `flight-planner`. The Cargo
   page also hides position controls for flight planners. APIs are stateless;
-  page resources and health endpoints are public.
+  page resources and health endpoints are public. Cargo also lets `/error`
+  through and refuses every other path (401 without a token, 403 with one).
 - Cargo's outgoing token manager uses a fixed `cargo-service` identity, sharing
   the cached service token across HTTP users and background message processing.
 - Issuer `http://localhost:8180/realms/air-freight`. Docker services fetch signing

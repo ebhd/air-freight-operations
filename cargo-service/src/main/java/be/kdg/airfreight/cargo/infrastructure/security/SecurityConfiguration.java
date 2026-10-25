@@ -3,7 +3,6 @@ package be.kdg.airfreight.cargo.infrastructure.security;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -19,8 +18,23 @@ class SecurityConfiguration {
                                         .hasAnyRole("flight-planner", "load-planner")
                                         .requestMatchers("/api/**")
                                         .hasRole("load-planner")
+                                        // pages and health hold no planner data
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/",
+                                                "/*.html",
+                                                "/js/**",
+                                                "/css/**",
+                                                "/favicon.ico",
+                                                "/actuator/health",
+                                                "/actuator/health/**")
+                                        .permitAll()
+                                        // errors forward here so callers get the real status
+                                        .requestMatchers("/error")
+                                        .permitAll()
+                                        // a new path stays closed until it gets its own rule
                                         .anyRequest()
-                                        .permitAll())
+                                        .denyAll())
                 .oauth2ResourceServer(
                         server ->
                                 server.jwt(
@@ -30,7 +44,6 @@ class SecurityConfiguration {
                 .sessionManagement(
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults())
                 .build();
     }
 
