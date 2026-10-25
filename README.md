@@ -4,12 +4,12 @@ Java 22 · Spring Boot 4.1.1 · Gradle 9.7.1 multi-project build.
 
 | Service | HTTP port | PostgreSQL database |
 | --- | --- | --- |
-| `flight-service` | 8080 | `flight` |
+| `flight/flight-service` | 8080 | `flight` |
 | `cargo-service` | 8081 | `cargo` |
 | `partner-communication-service` | 8082 | `partner_communication` |
 | `simulator`  | 8083 | None |
 
-The three business services use `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks, bearer-token authentication, Flight's US-3 SSM ingestion and a local SSM and ULD simulator (see [Local development](#local-development)). Flight exposes a flight lookup by key and a day overview (`GET /api/flights?date=`), which Cargo calls with a service token. Cargo serves the day overview to the load planner on its own `GET /api/flights?date=`, which hides departed and landed flights unless `includeDeparted=true`, and answers 503 when Flight is unreachable. `GET /api/cargo-plans/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}` returns one flight's data and status from Flight with all its ULD bookings and their loading position (`null` without one), also after departure: 404 for a flight Flight does not know, 400 for an invalid key, 503 when Flight is unreachable. `GET /api/cargo-plans/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/loading-window` returns the flight's loading window and whether loading is allowed now; see [Loading window](#loading-window). The load planner puts booked ULDs on the 34 main-deck positions; see [Loading positions](#loading-positions). Cargo also serves the load planner's "Flights to load" page at `http://localhost:8081/`, which links to each flight's "Cargo plan" page (`cargo-plan.html`); both pages are written in TypeScript with Tailwind CSS and compiled by the Gradle build (see [Cargo frontend](#cargo-frontend)). Cargo books ULDs received on RabbitMQ onto planned flights; see [ULD bookings](#uld-bookings). Flight also provides the [delay management API](#delay-management). Flight uses a plain domain model with separate JPA entities and a database adapter. Other business workflows and Flight's web UI are not implemented.
+The three business services use `domain`, `application`, `infrastructure` and `api` packages. Current scope: infrastructure connectivity, health checks, bearer-token authentication, Flight's US-3 SSM ingestion and a local SSM and ULD simulator (see [Local development](#local-development)). Flight exposes a flight lookup by key and a day overview (`GET /api/flights?date=`), which Cargo calls with a service token. Cargo serves the day overview to the load planner on its own `GET /api/flights?date=`, which hides departed and landed flights unless `includeDeparted=true`, and answers 503 when Flight is unreachable. `GET /api/cargo-plans/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}` returns one flight's data and status from Flight with all its ULD bookings and their loading position (`null` without one), also after departure: 404 for a flight Flight does not know, 400 for an invalid key, 503 when Flight is unreachable. `GET /api/cargo-plans/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/loading-window` returns the flight's loading window and whether loading is allowed now; see [Loading window](#loading-window). The load planner puts booked ULDs on the 34 main-deck positions; see [Loading positions](#loading-positions). Cargo also serves the load planner's "Flights to load" page at `http://localhost:8081/`, which links to each flight's "Cargo plan" page (`cargo-plan.html`); both pages are written in TypeScript with Tailwind CSS and compiled by the Gradle build (see [Cargo frontend](#cargo-frontend)). Cargo books ULDs received on RabbitMQ onto planned flights; see [ULD bookings](#uld-bookings). Flight also provides the [delay management API](#delay-management). Flight uses a plain domain model with separate JPA entities and a database adapter. Flight serves a read-only overview at `http://localhost:8080/`; see [Flight frontend](#flight-frontend). Flight details include delay management; actual-time registration and other business workflows are not implemented.
 
 ## Flight Service packages
 
@@ -102,6 +102,51 @@ Page HTML lives in `cargo-service/src/main/resources/static/`, TypeScript module
 
 For manual SSM and ULD submission, start Flight Service and Cargo Service and run `./gradlew :simulator:bootRun`. Then send the requests in [simulator/http/ssm.http](simulator/http/ssm.http) and [simulator/http/uld.http](simulator/http/uld.http). The simulator listens on 127.0.0.1:8083, has no database and is not part of the Compose deployment.
 
+### Flight frontend
+
+Flight serves its read-only overview at `http://localhost:8080/`. Both planner roles
+can sign in with Keycloak using the `flight-frontend` client. The page starts with
+today's UTC scheduled departure date and lets the user select another day. All
+flight states are included. Times include dates and use Europe/Brussels; estimates
+appear below scheduled times only when they differ. Each flight number opens
+`html/flight-details.html` with the complete flight key. The detail page shows
+scheduled and changed estimated times, state, airport codes and all delays. Both
+planner roles can read it; flight planners can add delays, edit minutes and
+description, and delete delays within the flight-state rules. The reason dropdown
+uses `/api/delay-reasons`; editing preserves the existing reason and type. Saved
+changes refresh the displayed delays and estimates. Server refusals appear on the
+page without clearing the user's input. Returning to the overview preserves the
+selected scheduled departure date.
+
+The layout follows the teacher's separate frontend project. The TypeScript follows
+the teacher's frontend split: `domain` contains response types, `infrastructure`
+handles authentication and REST, and `presenter` handles the page, messages and
+user controls. Flight's frontend source lives in `flight/flight-frontend/`, with
+the page at `flight/flight-frontend/index.html`, TypeScript in
+`flight/flight-frontend/src/ts/` and Tailwind CSS in
+`flight/flight-frontend/src/css/`. The frontend is a nested Gradle subproject
+with its own Node/Vite build and local development proxy for `/api` requests.
+Vite writes the compiled page into its `dist/` directory; the Flight service's
+`installWebApp` task copies that bundle into
+`flight/flight-service/src/main/resources/static/`, which Spring Boot serves
+from the Flight Service JAR. Flight's resource processing depends on
+`:flight:flight-service:installWebApp`, so `bootJar`, `bootRun` and service
+checks build and install the frontend first. Compose maps
+`FLIGHT_FRONTEND_CLIENT_ID` to Flight's `VITE_KEYCLOAK_CLIENT_ID` build
+argument. Rebuild the frontend after changing its Keycloak build settings.
+
+For frontend development, keep the backend running on port 8080 and run
+`./gradlew :flight:flight-frontend:npm_run_dev` from the repository root. Vite serves
+the page at `http://localhost:5173`, updates it as sources change and proxies
+`/api` to the backend. Port 5173 must be available; Vite refuses to choose another
+port. Add `http://localhost:5173/*` to the `flight-frontend` client's valid redirect
+URIs in Keycloak before using this mode. To inspect a production build, stop the
+dev server, run `./gradlew :flight:flight-frontend:build`, then run
+`./gradlew :flight:flight-frontend:npm_run_preview`. Preview also uses port 5173
+and the API proxy, so it uses the same Keycloak redirect setting. It serves the
+existing `dist/` files; source edits require another build. Dev and preview cannot
+run on port 5173 at the same time. Use Ctrl+C in the server terminal to stop either.
+
 ## Delay management
 
 The day overview (`GET /api/flights?date=`) uses `FlightOverviewResponse`: flight number, scheduled departure date, both airport codes, status, scheduled departure/arrival and estimated departure/arrival. Flight lookup by key and the add-delay response use the full `FlightResponse`, which additionally includes `delays`. Each delay exposes its `id`, `type`, `minutes`, `reasonCode` and `description`. All API timestamps are UTC instants. ETD is STD plus departure delays; ETA is STA plus departure and arrival delays. Scheduled times and the flight key remain fixed.
@@ -119,7 +164,7 @@ Every delay requires 1–720 whole minutes, an existing reason code and a nonbla
 
 `data.sql` seeds two temporary IATA reasons: `63` for late crew boarding/departure procedures (excluding connection and standby), and `71` for departure-station weather. Their meanings follow [EUROCONTROL's published IATA reference](https://www.eurocontrol.int/sites/default/files/content/documents/official-documents/facts-and-figures/coda-reports/coda-digest-quarter2-2013.pdf). Startup inserts missing rows without overwriting existing catalogue labels. Selection of a complete catalogue/version remains open.
 
-Errors use `ProblemDetail`: 400 for invalid input (including missing fields, malformed JSON, invalid path values and unknown reason codes), 404 for an unknown flight or a delay absent from the selected flight, and 409 for a delay change refused by flight state. A plain controller advice translates application/domain exceptions; Spring MVC handles framework errors using its built-in ProblemDetail support. Anonymous API requests receive 401 and writes by a load planner receive 403. The flight-details UI remains outstanding.
+Errors use `ProblemDetail`: 400 for invalid input (including missing fields, malformed JSON, invalid path values and unknown reason codes), 404 for an unknown flight or a delay absent from the selected flight, and 409 for a delay change refused by flight state. A plain controller advice translates application/domain exceptions; Spring MVC handles framework errors using its built-in ProblemDetail support. Anonymous API requests receive 401 and writes by a load planner receive 403. The flight-details UI supports these delay operations. Actual-time registration is not implemented.
 
 ### Estimated-time notifications
 
@@ -210,13 +255,13 @@ the secrets for `cargo-service` and `flight-service`. Store Cargo's secret as
 `CARGO_SERVICE_CLIENT_SECRET` in your local `.env`, and both backend secrets in
 the private HTTP environment file described below. Restart Cargo after changing
 its secret. The export is imported manually; it does not update existing realms
-automatically. The `flight-frontend` client is prepared for the future Flight UI.
+automatically. The `flight-frontend` client is used by the Flight overview.
 
 - Realm `air-freight`; planner users and realm roles `flight-planner` and
   `load-planner` (development user password `password`).
 - Confidential backend clients `flight-service` and `cargo-service`. Cargo
   reads Flight using client credentials and `CARGO_SERVICE_CLIENT_SECRET`.
-- Public frontend client `cargo-frontend` uses authorization code with
+- Public frontend clients `cargo-frontend` and `flight-frontend` use authorization code with
   PKCE through `keycloak-js`. Keycloak provides the login page; tokens stay in
   memory and are refreshed before API requests. Sign-out ends the Keycloak session.
 - Flight and Cargo validate the token issuer and their own audience and map
@@ -235,8 +280,8 @@ The private file is ignored by Git. Select the `dev` environment in `http/local.
 and run the token request for the target service before its authenticated requests.
 
 The root `.env.example` lists `CARGO_FRONTEND_CLIENT_ID` and `FLIGHT_FRONTEND_CLIENT_ID`
-separately. Compose passes Cargo's value as the `VITE_KEYCLOAK_CLIENT_ID` build argument.
-The Flight value is reserved for its future frontend and is not consumed yet.
+separately. Compose passes each frontend's value as its service image's
+`VITE_KEYCLOAK_CLIENT_ID` build argument.
 
 ## Incoming message recovery
 

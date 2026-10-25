@@ -20,4 +20,28 @@ dependencies {
     testRuntimeOnly 'com.h2database:h2'
 }
 
+tasks.named('processResources') {
+    dependsOn('installWebApp')
+}
+
+def webAppDir = 'src/main/resources/static'
+
+tasks.register('installWebApp', Copy) {
+    group = 'build'
+    description = 'Installs the frontend bundle in resources/static'
+    dependsOn(':flight:flight-frontend:build')
+    from('../flight-frontend/dist')
+    into(webAppDir)
+}
+
+tasks.register('cleanWebApp', Delete) {
+    group = 'build'
+    description = 'Cleans the frontend bundle from resources/static'
+    delete(webAppDir)
+}
+
+tasks.named('clean') {
+    dependsOn('cleanWebApp')
+}
+
 apply from: rootProject.file('gradle/quality.gradle')

@@ -1,0 +1,26 @@
+plugins {
+    id 'com.github.node-gradle.node'
+    id 'base'
+}
+
+description = 'Flight Operations frontend'
+
+node {
+    download = true
+    version = '24.22.1'
+    npmInstallCommand = 'ci'
+}
+
+tasks.register('cleanFrontend', Delete) {
+    group = 'build'
+    description = 'Cleans the Vite distribution folder'
+    delete('dist')
+}
+
+tasks.named('build') {
+    dependsOn('npm_run_build')
+}
+
+tasks.named('clean') {
+    dependsOn('cleanFrontend')
+}

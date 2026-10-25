@@ -10,8 +10,10 @@ desktop.ini
 # Gradle output
 .gradle/
 **/build/
+**/dist/
 **/bin/
 node_modules/
+flight/flight-service/src/main/resources/static/**
 http-client.private.env.json
 http-requests/
 
@@ -20,3 +22,4 @@ http-requests/
 .env.*
 !.env.example
 *.log
+**/node_modules.previous/
