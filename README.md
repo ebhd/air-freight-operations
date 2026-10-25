@@ -66,7 +66,7 @@ Configuration lives in each service's `application.properties`; standard Spring 
 
 ### Cargo frontend
 
-Page HTML lives in `cargo-service/src/main/resources/static/`, TypeScript modules in `cargo-service/src/main/typescript/` and the Tailwind CSS input in `cargo-service/src/main/css/app.css`. Gradle's `processResources` (part of `bootJar`, `bootRun` and `check`) type-checks TypeScript, bundles the page modules and `keycloak-js` with Vite, and runs the Tailwind CLI. The JAR contains the page entry scripts and shared chunks under `static/js/`, and `static/css/app.css`. The Gradle Node plugin downloads the pinned Node version and runs `npm ci` in `cargo-service/`, so no Node installation is needed, also not in Docker or CI. A TypeScript type error fails the build. Vitest unit-tests the page modules that need no browser (`cargo-service/src/test/typescript/`); `:cargo-service:test`, and so `check` and the CI test job, runs them. Compiled files are not committed; edit the sources. Frontend Keycloak settings are build-time values: `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM` and `VITE_KEYCLOAK_CLIENT_ID`. Docker Compose passes them from `.env` to the Cargo image build.
+Page HTML lives in `cargo-service/src/main/resources/static/`, TypeScript modules in `cargo-service/src/main/typescript/` and the Tailwind CSS input in `cargo-service/src/main/css/app.css`. Gradle's `processResources` (part of `bootJar`, `bootRun` and `check`) type-checks TypeScript, bundles the page modules and `keycloak-js` with Vite, and runs the Tailwind CLI. The JAR contains the page entry scripts and shared chunks under `static/js/`, and `static/css/app.css`. The Gradle Node plugin downloads the pinned Node version and runs `npm ci` in `cargo-service/`, so no Node installation is needed, also not in Docker or CI. A TypeScript type error fails the build. Vitest unit-tests the page modules that need no browser (`cargo-service/src/test/typescript/`); `:cargo-service:test`, and so `check` and the CI test job, runs them. Compiled files are not committed; edit the sources. Frontend Keycloak settings are build-time values: `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM` and `VITE_KEYCLOAK_CLIENT_ID`. Docker Compose passes the URL and realm from `.env` and maps `CARGO_FRONTEND_CLIENT_ID` to the Cargo image's `VITE_KEYCLOAK_CLIENT_ID` build argument.
 
 For manual SSM and ULD submission, start Flight Service and Cargo Service and run `./gradlew :simulator:bootRun`. Then send the requests in [simulator/http/ssm.http](simulator/http/ssm.http) and [simulator/http/uld.http](simulator/http/uld.http). The simulator listens on 127.0.0.1:8083, has no database and is not part of the Compose deployment.
 
@@ -138,11 +138,22 @@ The main deck of the Boeing 747-400 freighter has 34 positions, nose to tail: `A
 Configure the realm, roles, users, clients and audience mappers through the
 Keycloak admin console. Configuration persists in MySQL across container recreation.
 
+For a new local setup, import [the shared realm export](infrastructure/keycloak/air-freight-realm.json)
+through **Manage realms → Create realm → Browse**. It includes the clients, roles,
+audience mappers and Cargo service account with its `load-planner` role. The export
+has masked client secrets and no human users. Create the two planner users below
+and assign each its matching realm role. In **Clients → Credentials**, regenerate
+the secrets for `cargo-service` and `flight-service`. Store Cargo's secret as
+`CARGO_SERVICE_CLIENT_SECRET` in your local `.env`, and both backend secrets in
+the private HTTP environment file described below. Restart Cargo after changing
+its secret. The export is imported manually; it does not update existing realms
+automatically. The `flight-frontend` client is prepared for the future Flight UI.
+
 - Realm `air-freight`; planner users and realm roles `flight-planner` and
   `load-planner` (development user password `password`).
 - Confidential backend clients `flight-service` and `cargo-service`. Cargo
   reads Flight using client credentials and `CARGO_SERVICE_CLIENT_SECRET`.
-- Public frontend client `air-freight-frontend` uses authorization code with
+- Public frontend client `cargo-frontend` uses authorization code with
   PKCE through `keycloak-js`. Keycloak provides the login page; tokens stay in
   memory and are refreshed before API requests. Sign-out ends the Keycloak session.
 - Flight and Cargo validate the token issuer and their own audience and map
@@ -155,9 +166,14 @@ Keycloak admin console. Configuration persists in MySQL across container recreat
 - Issuer `http://localhost:8180/realms/air-freight`. Docker services fetch signing
   keys and Cargo's service token through `http://keycloak:8080`.
 
-Select the `dev` environment in `http/local.http` and run the token request for
-the target service before its authenticated requests. Store client secrets in
-the ignored `http/http-client.private.env.json`.
+Copy `http/http-client.private.env.example.json` to `http/http-client.private.env.json`
+and replace the placeholders with your local client secrets and planner passwords.
+The private file is ignored by Git. Select the `dev` environment in `http/local.http`
+and run the token request for the target service before its authenticated requests.
+
+The root `.env.example` lists `CARGO_FRONTEND_CLIENT_ID` and `FLIGHT_FRONTEND_CLIENT_ID`
+separately. Compose passes Cargo's value as the `VITE_KEYCLOAK_CLIENT_ID` build argument.
+The Flight value is reserved for its future frontend and is not consumed yet.
 
 ## Incoming message recovery
 

@@ -3,7 +3,7 @@ import Keycloak from 'keycloak-js';
 const keycloak = new Keycloak({
     url: import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8180',
     realm: import.meta.env.VITE_KEYCLOAK_REALM ?? 'air-freight',
-    clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'air-freight-frontend',
+    clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'cargo-frontend',
 });
 
 const loggedIn = keycloak.init({
