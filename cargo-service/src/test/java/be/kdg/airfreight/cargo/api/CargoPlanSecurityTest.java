@@ -1,6 +1,7 @@
 package be.kdg.airfreight.cargo.api;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -23,20 +24,23 @@ import be.kdg.airfreight.cargo.domain.FlightRepository;
 import be.kdg.airfreight.cargo.domain.FlightStatus;
 import be.kdg.airfreight.cargo.domain.LoadingPosition;
 import be.kdg.airfreight.cargo.domain.UldCode;
-import be.kdg.airfreight.cargo.infrastructure.SecurityConfiguration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ContextConfiguration;
@@ -65,6 +69,7 @@ class CargoPlanSecurityTest {
 
     @BeforeEach
     void setUp() {
+        clearInvocations(uldPositionService);
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
         when(flights.findByFlightKey(KEY))
                 .thenReturn(
@@ -84,8 +89,12 @@ class CargoPlanSecurityTest {
     }
 
     @Test
-    void signedInUserReadsTheCargoPlan() throws Exception {
-        mvc.perform(get(URL).with(jwt()))
+    void loadPlannerReadsTheCargoPlan() throws Exception {
+        mvc.perform(
+                        get(URL).with(
+                                        jwt().authorities(
+                                                        new SimpleGrantedAuthority(
+                                                                "ROLE_load-planner"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.flight.flightNumber").value("HJ221"))
                 .andExpect(jsonPath("$.flight.status").value("PLANNED"))
@@ -104,12 +113,14 @@ class CargoPlanSecurityTest {
 
     // a real bearer header like the page sends so the token goes through the jwt decoder
     @Test
-    void signedInUserReachesThePositionEndpoints() throws Exception {
+    void loadPlannerReachesThePositionEndpoints() throws Exception {
         when(jwtDecoder.decode("token"))
                 .thenReturn(
                         Jwt.withTokenValue("token")
                                 .header("alg", "none")
                                 .subject("load-planner")
+                                .claim("preferred_username", "load-planner")
+                                .claim("realm_access", Map.of("roles", List.of("load-planner")))
                                 .build());
 
         mvc.perform(
@@ -127,9 +138,41 @@ class CargoPlanSecurityTest {
     }
 
     @Test
+    void flightPlannerReadsButCannotChangePositions() throws Exception {
+        var flightPlanner = jwt().authorities(new SimpleGrantedAuthority("ROLE_flight-planner"));
+        mvc.perform(get(URL).with(flightPlanner)).andExpect(status().isOk());
+        mvc.perform(
+                        put(POSITION_URL)
+                                .with(flightPlanner)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(BODY))
+                .andExpect(status().isForbidden());
+        mvc.perform(delete(POSITION_URL).with(flightPlanner)).andExpect(status().isForbidden());
+        verifyNoInteractions(uldPositionService);
+    }
+
+    @Test
+    void authenticatedUserWithoutPlannerRoleCannotReadOrChangeCargo() throws Exception {
+        mvc.perform(get(URL).with(jwt())).andExpect(status().isForbidden());
+        mvc.perform(
+                        put(POSITION_URL)
+                                .with(jwt())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(BODY))
+                .andExpect(status().isForbidden());
+        mvc.perform(delete(POSITION_URL).with(jwt())).andExpect(status().isForbidden());
+        verifyNoInteractions(uldPositionService);
+    }
+
+    @Test
     void loadingPositionsNeedTokenAndAreListed() throws Exception {
         mvc.perform(get("/api/loading-positions")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/loading-positions").with(jwt()))
+        mvc.perform(
+                        get("/api/loading-positions")
+                                .with(
+                                        jwt().authorities(
+                                                        new SimpleGrantedAuthority(
+                                                                "ROLE_load-planner"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(34)));
     }
@@ -137,15 +180,14 @@ class CargoPlanSecurityTest {
     @Configuration
     @EnableWebMvc
     @EnableWebSecurity
+    @ComponentScan("be.kdg.airfreight.cargo.infrastructure.security")
     @Import({
-        SecurityConfiguration.class,
         CargoPlanController.class,
         LoadingPositionController.class,
         CargoApiExceptionHandler.class,
         CargoPlanQueryService.class
     })
     static class Config {
-        // roles come with issue 2 so any signed in user reaches the controller for now
         @Bean
         UldPositionService uldPositionService() {
             return mock(UldPositionService.class);

@@ -1,7 +1,7 @@
 import { clearError, getJson, showError } from './api.js';
-import { whenSignedIn } from './auth.js';
 import { requiredElement } from './dom.js';
 import type { FlightOverview } from './flight-overview.js';
+import { initializePage } from './page.js';
 import { formatBrusselsDateTime, utcToday } from './time.js';
 
 const dateInput = requiredElement('#date', HTMLInputElement);
@@ -83,4 +83,4 @@ function cargoPlanUrl(flight: FlightOverview): string {
 dateInput.value = utcToday();
 dateInput.addEventListener('change', loadFlights);
 includeDepartedInput.addEventListener('change', loadFlights);
-whenSignedIn(loadFlights);
+void initializePage(loadFlights);

@@ -1,5 +1,8 @@
 FROM eclipse-temurin:22-jdk AS builder
 WORKDIR /src
+ARG VITE_KEYCLOAK_URL=http://localhost:8180
+ARG VITE_KEYCLOAK_REALM=air-freight
+ARG VITE_KEYCLOAK_CLIENT_ID=cargo-frontend
 COPY . .
 RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon :cargo-service:bootJar
 

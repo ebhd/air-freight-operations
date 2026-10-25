@@ -45,7 +45,8 @@ Flight and Delay stay in the same domain package. Flight creates delays from sup
 
 ## Run
 
-Requires Docker with Compose:
+Requires Docker with Compose. First start Keycloak, configure the realm through its admin console and set Cargo's
+generated client secret in `.env`. Then start the applications:
 
 ```sh
 docker compose up -d --build --wait
@@ -65,7 +66,10 @@ docker compose exec app-postgres psql -U user -d postgres -c 'DROP DATABASE carg
 docker compose up -d --build --wait cargo-service
 ```
 
-Or reset everything with `docker compose down -v` (also flights and the Keycloak realm), then start again and recreate flights and bookings with the simulators.
+Or reset everything with `docker compose down -v` (also flights and the Keycloak
+realm). Reconfigure Keycloak through its admin console, update the generated
+client secrets in your local configuration, then start the applications and
+recreate flights and bookings with the simulators.
 
 ## Local development
 
@@ -83,13 +87,18 @@ docker compose up -d --wait app-postgres app-rabbitmq keycloak
 | RabbitMQ management | `http://localhost:15672` | `user` / `password` |
 | Keycloak | `http://localhost:8180` | `admin` / `admin` |
 
-Development only: demo credentials and Keycloak `start-dev` with persistent file storage.
+Development only: demo infrastructure credentials and Keycloak `start-dev`.
+Keycloak stores its configuration in a separate MySQL 8.4.13 database, available at
+`localhost:3307` (`keycloak` / `password`). Configure the realm and clients through
+the admin console before running the applications. For an
+IDE run, set `CARGO_SERVICE_CLIENT_SECRET` in Cargo's run configuration; `.env`
+is read by Docker Compose only.
 
 Configuration lives in each service's `application.properties`; standard Spring environment variables override it. Compose sets container hostnames and Cargo's `FLIGHT_API_URL`.
 
 ### Cargo frontend
 
-Page HTML lives in `cargo-service/src/main/resources/static/`, TypeScript modules in `cargo-service/src/main/typescript/` and the Tailwind CSS input in `cargo-service/src/main/css/app.css`. Gradle's `processResources` (part of `bootJar`, `bootRun` and `check`) runs `tsc` and the Tailwind CLI and puts the output in the JAR as `static/js/*.js` and `static/css/app.css`. The Gradle Node plugin downloads the pinned Node version and runs `npm ci` in `cargo-service/`, so no Node installation is needed, also not in Docker or CI. A TypeScript type error fails the build. Compiled files are not committed; edit the sources.
+Page HTML lives in `cargo-service/src/main/resources/static/`, TypeScript modules in `cargo-service/src/main/typescript/` and the Tailwind CSS input in `cargo-service/src/main/css/app.css`. Gradle's `processResources` (part of `bootJar`, `bootRun` and `check`) type-checks TypeScript, bundles the page modules and `keycloak-js` with Vite, and runs the Tailwind CLI. The JAR contains the page entry scripts and shared chunks under `static/js/`, and `static/css/app.css`. The Gradle Node plugin downloads the pinned Node version and runs `npm ci` in `cargo-service/`, so no Node installation is needed, also not in Docker or CI. A TypeScript type error fails the build. Compiled files are not committed; edit the sources. Frontend Keycloak settings are build-time values: `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM` and `VITE_KEYCLOAK_CLIENT_ID`. Docker Compose passes the URL and realm from `.env` and maps `CARGO_FRONTEND_CLIENT_ID` to the Cargo image's `VITE_KEYCLOAK_CLIENT_ID` build argument.
 
 For manual SSM and ULD submission, start Flight Service and Cargo Service and run `./gradlew :simulator:bootRun`. Then send the requests in [simulator/http/ssm.http](simulator/http/ssm.http) and [simulator/http/uld.http](simulator/http/uld.http). The simulator listens on 127.0.0.1:8083, has no database and is not part of the Compose deployment.
 
@@ -97,7 +106,7 @@ For manual SSM and ULD submission, start Flight Service and Cargo Service and ru
 
 The day overview (`GET /api/flights?date=`) uses `FlightOverviewResponse`: flight number, scheduled departure date, both airport codes, status, scheduled departure/arrival and estimated departure/arrival. Flight lookup by key and the add-delay response use the full `FlightResponse`, which additionally includes `delays`. Each delay exposes its `id`, `type`, `minutes`, `reasonCode` and `description`. All API timestamps are UTC instants. ETD is STD plus departure delays; ETA is STA plus departure and arrival delays. Scheduled times and the flight key remain fixed.
 
-Let `{flight}` be `/api/flights/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}`. These endpoints require a bearer token:
+Let `{flight}` be `/api/flights/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}`. These endpoints require a bearer token. Both planner roles may read flights and delay reasons; adding, editing and removing delays requires `flight-planner`:
 
 | Method | Path | Body / result |
 | --- | --- | --- |
@@ -110,7 +119,7 @@ Every delay requires 1–720 whole minutes, an existing reason code and a nonbla
 
 `data.sql` seeds two temporary IATA reasons: `63` for late crew boarding/departure procedures (excluding connection and standby), and `71` for departure-station weather. Their meanings follow [EUROCONTROL's published IATA reference](https://www.eurocontrol.int/sites/default/files/content/documents/official-documents/facts-and-figures/coda-reports/coda-digest-quarter2-2013.pdf). Startup inserts missing rows without overwriting existing catalogue labels. Selection of a complete catalogue/version remains open.
 
-Errors use `ProblemDetail`: 400 for invalid input (including missing fields, malformed JSON, invalid path values and unknown reason codes), 404 for an unknown flight or a delay absent from the selected flight, and 409 for a delay change refused by flight state. A plain controller advice translates application/domain exceptions; Spring MVC handles framework errors using its built-in ProblemDetail support. Operation-specific role checks and the flight-details UI remain outstanding.
+Errors use `ProblemDetail`: 400 for invalid input (including missing fields, malformed JSON, invalid path values and unknown reason codes), 404 for an unknown flight or a delay absent from the selected flight, and 409 for a delay change refused by flight state. A plain controller advice translates application/domain exceptions; Spring MVC handles framework errors using its built-in ProblemDetail support. Anonymous API requests receive 401 and writes by a load planner receive 403. The flight-details UI remains outstanding.
 
 ### Estimated-time notifications
 
@@ -183,22 +192,51 @@ The main deck of the Boeing 747-400 freighter has 34 positions, nose to tail: `A
 - One ULD per position and one position per ULD. Changes need a planned flight, an open loading window and an unfinalized plan ([Loading window](#loading-window)).
 - 400: unknown or missing position, invalid flight key or ULD code. 404: unknown flight, or the ULD is not booked on it. 409: position taken by another ULD, loading not allowed (with `refusal`), or another change to the same cargo plan committed first ("Reload and try again"). 503: Flight is unreachable.
 - Concurrency: every change to a cargo plan raises `cargo_plans.version` and Hibernate checks it at commit (optimistic locking), so the second of two overlapping changes is rolled back with 409. A unique constraint on (flight, `loading_position`) also stops two ULDs on one position in the database.
-- Role checks come with #2: until then every signed-in user can change positions. A `PUT` or `DELETE` without a token gets 401 (CSRF protection is off: the API only accepts bearer tokens, no cookies); with a bearer token it gets through.
+- Both planner roles can read Cargo data. Only `load-planner` can change positions: a `PUT` or `DELETE` without a valid token gets 401, while a flight planner gets 403. Loading conditions are still checked for an authorized load planner. CSRF protection is off because the stateless API accepts bearer tokens.
 - A ULD code containing `/` cannot be addressed in the URL path (known limitation, Q15).
 - The cargo page shows a dropdown per booking while loading is allowed and the plain position otherwise.
 
 ## Authentication
 
-- Realm: `air-freight`; public client: `air-freight-dev` (password grant, web origin `http://localhost:8081`). Access tokens last 30 minutes in this development realm.
-- Users and corresponding realm roles: `flight-planner`, `load-planner`; password: `password`.
-- Flight/Cargo `/api/status` requires a bearer token; health endpoints are public.
-- Confidential client `cargo-service` (client-credentials grant, development secret `cargo-service-secret`): Cargo uses its service token to call `GET /api/flights/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}` on Flight. Compose sets Cargo's token URL to `http://keycloak:8080/...`.
-- Keycloak imports the realm only when it does not exist yet. After a realm change, recreate it: `docker compose down` and `docker volume rm air-freight-operations_keycloak-data`. The web origin and token lifespan for the Cargo page (#12) are such a change.
-- Issuer: `http://localhost:8180/realms/air-freight`. Inside Docker, signing keys are fetched from `http://keycloak:8080/realms/air-freight/protocol/openid-connect/certs`.
-- Cargo's page uses a development sign-in until browser login (#1) exists: it sends username and password to Keycloak's token endpoint (password grant) and keeps the access token in the tab's `sessionStorage`. Page files (`/`, `*.html`, `/css/**`, `/js/**`) load without a token; every `/api` request needs one. #1 replaces this with Keycloak's login page.
-- Operation-specific role checks are not implemented.
+Configure the realm, roles, users, clients and audience mappers through the
+Keycloak admin console. Configuration persists in MySQL across container recreation.
 
-Run the token request in `http/local.http` before its authenticated requests.
+For a new local setup, import [the shared realm export](infrastructure/keycloak/air-freight-realm.json)
+through **Manage realms → Create realm → Browse**. It includes the clients, roles,
+audience mappers and Cargo service account with its `load-planner` role. The export
+has masked client secrets and no human users. Create the two planner users below
+and assign each its matching realm role. In **Clients → Credentials**, regenerate
+the secrets for `cargo-service` and `flight-service`. Store Cargo's secret as
+`CARGO_SERVICE_CLIENT_SECRET` in your local `.env`, and both backend secrets in
+the private HTTP environment file described below. Restart Cargo after changing
+its secret. The export is imported manually; it does not update existing realms
+automatically. The `flight-frontend` client is prepared for the future Flight UI.
+
+- Realm `air-freight`; planner users and realm roles `flight-planner` and
+  `load-planner` (development user password `password`).
+- Confidential backend clients `flight-service` and `cargo-service`. Cargo
+  reads Flight using client credentials and `CARGO_SERVICE_CLIENT_SECRET`.
+- Public frontend client `cargo-frontend` uses authorization code with
+  PKCE through `keycloak-js`. Keycloak provides the login page; tokens stay in
+  memory and are refreshed before API requests. Sign-out ends the Keycloak session.
+- Flight and Cargo validate the token issuer and their own audience and map
+  realm roles to Spring authorities. Both planners can read APIs; Cargo changes
+  require `load-planner` and Flight changes require `flight-planner`. The Cargo
+  page also hides position controls for flight planners. APIs are stateless;
+  page resources and health endpoints are public.
+- Cargo's outgoing token manager uses a fixed `cargo-service` identity, sharing
+  the cached service token across HTTP users and background message processing.
+- Issuer `http://localhost:8180/realms/air-freight`. Docker services fetch signing
+  keys and Cargo's service token through `http://keycloak:8080`.
+
+Copy `http/http-client.private.env.example.json` to `http/http-client.private.env.json`
+and replace the placeholders with your local client secrets and planner passwords.
+The private file is ignored by Git. Select the `dev` environment in `http/local.http`
+and run the token request for the target service before its authenticated requests.
+
+The root `.env.example` lists `CARGO_FRONTEND_CLIENT_ID` and `FLIGHT_FRONTEND_CLIENT_ID`
+separately. Compose passes Cargo's value as the `VITE_KEYCLOAK_CLIENT_ID` build argument.
+The Flight value is reserved for its future frontend and is not consumed yet.
 
 ## Incoming message recovery
 

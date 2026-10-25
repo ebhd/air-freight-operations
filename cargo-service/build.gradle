@@ -1,4 +1,5 @@
 import com.github.gradle.node.npm.task.NpxTask
+import com.github.gradle.node.npm.task.NpmTask
 
 plugins {
     id 'java'
@@ -35,14 +36,16 @@ node {
     npmInstallCommand = 'ci'
 }
 
-// tsconfig.json tells tsc to write the javascript into build/generated/typescript
-tasks.register('compileTypeScript', NpxTask) {
+tasks.register('buildFrontend', NpmTask) {
     dependsOn tasks.named('npmInstall')
-    command = 'tsc'
-    args = ['--project', 'tsconfig.json']
+    args = ['run', 'build']
     inputs.dir('src/main/typescript')
-    inputs.files('tsconfig.json', 'package-lock.json')
-    outputs.dir('build/generated/typescript')
+    inputs.files('tsconfig.json', 'vite.config.ts', 'package.json', 'package-lock.json')
+    inputs.files(fileTree(projectDir) { include '.env*' })
+    ['VITE_KEYCLOAK_URL', 'VITE_KEYCLOAK_REALM', 'VITE_KEYCLOAK_CLIENT_ID'].each { setting ->
+        inputs.property(setting, providers.environmentVariable(setting).orElse(''))
+    }
+    outputs.dir('build/generated/javascript')
 }
 
 // tailwind keeps only the classes it finds in the html pages and the typescript
@@ -57,7 +60,8 @@ tasks.register('compileTailwindCss', NpxTask) {
 }
 
 tasks.named('processResources') {
-    from(tasks.named('compileTypeScript')) { into 'static/js' }
+    doFirst { delete layout.buildDirectory.dir('resources/main/static/js') }
+    from(tasks.named('buildFrontend')) { into 'static/js' }
     from(tasks.named('compileTailwindCss')) { into 'static/css' }
 }
 

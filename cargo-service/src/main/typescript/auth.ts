@@ -1,85 +1,42 @@
-import { requiredElement } from './dom.js';
+import Keycloak from 'keycloak-js';
 
-// development sign-in with the keycloak password grant until #1 replaces it
-const TOKEN_URL = 'http://localhost:8180/realms/air-freight/protocol/openid-connect/token';
-const CLIENT_ID = 'air-freight-dev';
+const keycloak = new Keycloak({
+    url: import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8180',
+    realm: import.meta.env.VITE_KEYCLOAK_REALM ?? 'air-freight',
+    clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'cargo-frontend',
+});
 
-const TOKEN_KEY = 'accessToken';
+const loggedIn = keycloak.init({
+    onLoad: 'login-required',
+    pkceMethod: 'S256',
+    checkLoginIframe: false,
+});
 
-// keycloak sends more fields but the page only needs the token
-type TokenResponse = {
-    access_token: string;
-};
+export class AuthenticationError extends Error {}
 
-type SignInResult = { ok: true } | { ok: false; message: string };
-
-export function getAccessToken(): string | null {
-    return sessionStorage.getItem(TOKEN_KEY);
+export async function userName(): Promise<string> {
+    await loggedIn;
+    return keycloak.tokenParsed?.preferred_username ?? '';
 }
 
-async function signIn(username: string, password: string): Promise<SignInResult> {
-    let response: Response;
-    try {
-        response = await fetch(TOKEN_URL, {
-            method: 'POST',
-            body: new URLSearchParams({
-                client_id: CLIENT_ID,
-                grant_type: 'password',
-                username,
-                password,
-            }),
-        });
-    } catch {
-        return { ok: false, message: 'Keycloak is unreachable.' };
-    }
-    if (response.status === 401) {
-        return { ok: false, message: 'Wrong username or password.' };
-    }
-    if (!response.ok) {
-        return { ok: false, message: `Sign-in failed (HTTP ${response.status})` };
-    }
-    const token = (await response.json()) as TokenResponse;
-    sessionStorage.setItem(TOKEN_KEY, token.access_token);
-    return { ok: true };
+export function hasRole(role: string): boolean {
+    return keycloak.hasRealmRole(role);
 }
 
-export function signOut(): void {
-    sessionStorage.removeItem(TOKEN_KEY);
-    showSignedIn(false);
-}
-
-export function whenSignedIn(onSignedIn: () => void): void {
-    const form = requiredElement('#sign-in', HTMLFormElement);
-    const username = requiredElement('#sign-in [name="username"]', HTMLInputElement);
-    const password = requiredElement('#sign-in [name="password"]', HTMLInputElement);
-    const formError = requiredElement('#sign-in-error', HTMLElement);
-
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        formError.hidden = true;
-        const result = await signIn(username.value, password.value);
-        if (!result.ok) {
-            formError.textContent = result.message;
-            formError.hidden = false;
-            return;
-        }
-        form.reset();
-        showSignedIn(true);
-        onSignedIn();
+export async function logout(): Promise<void> {
+    await keycloak.logout({
+        redirectUri: window.location.origin + window.location.pathname + window.location.search,
     });
-    requiredElement('#sign-out', HTMLButtonElement).addEventListener('click', signOut);
-
-    if (getAccessToken()) {
-        showSignedIn(true);
-        onSignedIn();
-    } else {
-        showSignedIn(false);
-    }
 }
 
-// the form and the page content are never visible together
-function showSignedIn(signedIn: boolean): void {
-    requiredElement('#sign-in', HTMLFormElement).hidden = signedIn;
-    requiredElement('#content', HTMLElement).hidden = !signedIn;
-    requiredElement('#sign-out', HTMLButtonElement).hidden = !signedIn;
+export async function authorizedFetch(url: string, init: RequestInit = {}): Promise<Response> {
+    await loggedIn;
+    try {
+        await keycloak.updateToken(30);
+    } catch {
+        throw new AuthenticationError('Your sign-in could not be renewed. Reload the page to sign in again.');
+    }
+    const headers = new Headers(init.headers);
+    headers.set('Authorization', `Bearer ${keycloak.token}`);
+    return fetch(url, { ...init, headers });
 }

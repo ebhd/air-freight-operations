@@ -6,3 +6,6 @@ ai
 .idea
 **/node_modules
 .husky
+**/.env
+**/.env.*
+**/http-client.private.env.json

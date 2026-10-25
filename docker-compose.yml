@@ -40,6 +40,10 @@ services:
     build:
       context: .
       dockerfile: cargo-service/Dockerfile
+      args:
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost:8180}
+        VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-air-freight}
+        VITE_KEYCLOAK_CLIENT_ID: ${CARGO_FRONTEND_CLIENT_ID:-cargo-frontend}
     ports:
       - "127.0.0.1:8081:8081"
     environment:
@@ -57,6 +61,7 @@ services:
       CARGO_LOADINGWINDOW_OPENSBEFORESTD:
       CARGO_LOADINGWINDOW_CLOSESBEFOREETD:
       SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_FLIGHT_TOKENURI: http://keycloak:8080/realms/air-freight/protocol/openid-connect/token
+      CARGO_SERVICE_CLIENT_SECRET:
     depends_on:
       keycloak:
         condition: service_healthy
@@ -127,6 +132,7 @@ services:
       retries: 12
 
   keycloak:
+    restart: unless-stopped
     healthcheck:
       test:
         - CMD
@@ -135,23 +141,54 @@ services:
         - "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3; grep -q ' 200 ' <&3"
       interval: 5s
       timeout: 5s
-      start_period: 60s
+      start_period: 180s
       retries: 12
     image: quay.io/keycloak/keycloak:26.7.4
     environment:
       KC_HEALTH_ENABLED: "true"
-      KC_DB: dev-file
+      KC_DB: mysql
+      KC_DB_URL_HOST: keycloak-mysql
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: password
       KC_HOSTNAME: http://localhost:8180
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-    command: start-dev --import-realm
-    volumes:
-      - ./infrastructure/keycloak/air-freight-realm.json:/opt/keycloak/data/import/air-freight-realm.json:ro
-      - keycloak-data:/opt/keycloak/data
+    command: start-dev
     ports:
       - "127.0.0.1:8180:8080"
+    depends_on:
+      keycloak-mysql:
+        condition: service_healthy
+    networks:
+      - default
+      - keycloak
+
+  keycloak-mysql:
+    restart: unless-stopped
+    image: mysql:8.4.13
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: keycloak
+      MYSQL_USER: keycloak
+      MYSQL_PASSWORD: password
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - keycloak-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysql", "--protocol=TCP", "-h", "127.0.0.1", "-u", "keycloak", "-ppassword", "--database=keycloak", "--execute=SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      start_period: 30s
+      retries: 12
+    networks:
+      - keycloak
 
 volumes:
   postgres-data:
   rabbitmq-data:
-  keycloak-data:
+  keycloak-mysql-data:
+
+networks:
+  keycloak:

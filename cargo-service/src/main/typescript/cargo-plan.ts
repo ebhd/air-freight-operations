@@ -1,8 +1,9 @@
 import { clearError, getJson, showError } from './api.js';
-import { whenSignedIn } from './auth.js';
+import { hasRole } from './auth.js';
 import { requiredElement } from './dom.js';
 import type { FlightOverview } from './flight-overview.js';
 import { loadLoadingWindow, renderLoadingWindow } from './loading-window.js';
+import { initializePage } from './page.js';
 import {
     changePosition,
     loadPositions,
@@ -87,8 +88,7 @@ async function loadCargoPlan(): Promise<void> {
     }
     renderFlight(cargoPlan.data.flight);
     renderLoadingWindow(windowBlock, loadingWindow.data);
-    // the server still checks every change and roles come with #2
-    const editablePath = loadingWindow.data.loadingAllowed ? path : null;
+    const editablePath = hasRole('load-planner') && loadingWindow.data.loadingAllowed ? path : null;
     renderBookings(cargoPlan.data.bookings, positions.data, editablePath);
 }
 
@@ -186,4 +186,4 @@ function errorText(status: number | null, message: string): string {
 }
 
 retryButton.addEventListener('click', loadCargoPlan);
-whenSignedIn(loadCargoPlan);
+void initializePage(loadCargoPlan);

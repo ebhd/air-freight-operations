@@ -1,4 +1,4 @@
-import { getAccessToken, signOut } from './auth.js';
+import { AuthenticationError, authorizedFetch } from './auth.js';
 import { requiredElement } from './dom.js';
 
 // a failure carries the message to show and the http status which is null when the server did not answer
@@ -33,20 +33,20 @@ export async function sendJson(method: 'PUT' | 'DELETE', path: string, body?: ob
 
 // adds the token and turns every failed request into a failure with the message to show
 async function request(path: string, init: RequestInit): Promise<ApiResult<Response>> {
-    const headers = new Headers(init.headers);
-    headers.set('Authorization', `Bearer ${getAccessToken()}`);
     let response: Response;
     try {
-        response = await fetch(path, { ...init, headers });
-    } catch {
+        response = await authorizedFetch(path, init);
+    } catch (error) {
+        if (error instanceof AuthenticationError) {
+            return { ok: false, status: null, message: error.message };
+        }
         return { ok: false, status: null, message: 'Cargo service is unreachable.' };
     }
     if (response.ok) {
         return { ok: true, data: response };
     }
     if (response.status === 401) {
-        signOut();
-        return { ok: false, status: response.status, message: 'Your session has expired. Please sign in again.' };
+        return { ok: false, status: response.status, message: 'Your sign-in was not accepted. Reload the page to sign in again.' };
     }
     if (response.status === 403) {
         return { ok: false, status: response.status, message: 'You are not allowed to do this.' };
