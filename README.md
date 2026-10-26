@@ -115,7 +115,9 @@ planner roles can read it; flight planners can add delays, edit minutes and
 description, and delete delays within the flight-state rules. The reason dropdown
 uses `/api/delay-reasons`; editing preserves the existing reason and type. Saved
 changes refresh the displayed delays and estimates. Server refusals appear on the
-page without clearing the user's input. Returning to the overview preserves the
+page. Invalid input (400) keeps the user's input; a refusal (409) or a missing
+flight or delay (404) also reloads the flight, so status and buttons are current.
+Deleting asks for confirmation first. Returning to the overview preserves the
 selected scheduled departure date.
 
 The layout follows the teacher's separate frontend project. The TypeScript follows

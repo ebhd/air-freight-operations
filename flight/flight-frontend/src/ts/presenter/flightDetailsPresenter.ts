@@ -4,6 +4,7 @@ import type { Flight, FlightKey } from '../domain/Flight';
 import { hasRole } from '../infrastructure/auth';
 import { getDelayReasons } from '../infrastructure/delayReasonRest';
 import { addDelay, getFlight, removeDelay, updateDelay } from '../infrastructure/flightRest';
+import { ResponseError } from '../infrastructure/restUtils';
 import { clearError, showError } from './messagePresenter';
 import { formatBrusselsDateTime } from './timeFormat';
 import { initializeUser } from './userPresenter';
@@ -157,6 +158,19 @@ async function refreshFlight(): Promise<void> {
     }
 }
 
+// a refusal or a missing flight or delay means the page shows an old state
+async function reloadAfterRefusal(error: unknown): Promise<void> {
+    if (!(error instanceof ResponseError) || (error.status !== 404 && error.status !== 409)) {
+        return;
+    }
+    try {
+        await refreshFlight();
+    } catch {
+        // the flight itself is gone so the server message below is enough
+    }
+    showError(error);
+}
+
 async function saveDelay(event: Event): Promise<void> {
     event.preventDefault();
     if (busy || !form.reportValidity()) {
@@ -185,6 +199,9 @@ async function saveDelay(event: Event): Promise<void> {
         pageStatus.textContent = 'Delay saved. Flight times are up to date.';
     } catch (error) {
         showError(saved ? new Error('The delay was saved, but the flight could not be refreshed. Reload the page.') : error);
+        if (!saved) {
+            await reloadAfterRefusal(error);
+        }
     } finally {
         setBusy(false);
     }
@@ -192,6 +209,9 @@ async function saveDelay(event: Event): Promise<void> {
 
 async function deleteDelay(delay: Delay): Promise<void> {
     if (busy || !canChange(delay.type)) {
+        return;
+    }
+    if (!confirm('Delete this delay? Partners will be notified of the new times.')) {
         return;
     }
     clearError();
@@ -205,6 +225,9 @@ async function deleteDelay(delay: Delay): Promise<void> {
         pageStatus.textContent = 'Delay deleted. Flight times are up to date.';
     } catch (error) {
         showError(removed ? new Error('The delay was deleted, but the flight could not be refreshed. Reload the page.') : error);
+        if (!removed) {
+            await reloadAfterRefusal(error);
+        }
     } finally {
         setBusy(false);
     }
