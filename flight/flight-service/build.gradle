@@ -24,28 +24,12 @@ dependencies {
     testImplementation 'org.testcontainers:testcontainers-postgresql'
 }
 
+// the vite output goes into the jar as static without passing through src
 tasks.named('processResources') {
-    dependsOn('installWebApp')
-}
-
-def webAppDir = 'src/main/resources/static'
-
-tasks.register('installWebApp', Copy) {
-    group = 'build'
-    description = 'Installs the frontend bundle in resources/static'
-    dependsOn(':flight:flight-frontend:build')
-    from('../flight-frontend/dist')
-    into(webAppDir)
-}
-
-tasks.register('cleanWebApp', Delete) {
-    group = 'build'
-    description = 'Cleans the frontend bundle from resources/static'
-    delete(webAppDir)
-}
-
-tasks.named('clean') {
-    dependsOn('cleanWebApp')
+    dependsOn(':flight:flight-frontend:assemble')
+    // old hashed bundles would otherwise stay in build and in the jar
+    doFirst { delete layout.buildDirectory.dir('resources/main/static') }
+    from('../flight-frontend/build/dist') { into 'static' }
 }
 
 apply from: rootProject.file('gradle/quality.gradle')

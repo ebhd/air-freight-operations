@@ -11,16 +11,6 @@ node {
     npmInstallCommand = 'ci'
 }
 
-tasks.register('cleanFrontend', Delete) {
-    group = 'build'
-    description = 'Cleans the Vite distribution folder'
-    delete('dist')
-}
-
-tasks.named('build') {
+tasks.named('assemble') {
     dependsOn('npm_run_build')
-}
-
-tasks.named('clean') {
-    dependsOn('cleanFrontend')
 }

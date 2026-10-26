@@ -126,12 +126,11 @@ the page at `flight/flight-frontend/index.html`, TypeScript in
 `flight/flight-frontend/src/ts/` and Tailwind CSS in
 `flight/flight-frontend/src/css/`. The frontend is a nested Gradle subproject
 with its own Node/Vite build and local development proxy for `/api` requests.
-Vite writes the compiled page into its `dist/` directory; the Flight service's
-`installWebApp` task copies that bundle into
-`flight/flight-service/src/main/resources/static/`, which Spring Boot serves
-from the Flight Service JAR. Flight's resource processing depends on
-`:flight:flight-service:installWebApp`, so `bootJar`, `bootRun` and service
-checks build and install the frontend first. Compose maps
+Vite writes the compiled page into `flight/flight-frontend/build/dist/`. The
+Flight service's `processResources` depends on `:flight:flight-frontend:assemble`,
+clears its generated `static/` folder and adds that bundle as `static/`, which
+Spring Boot serves from the Flight Service JAR. So `bootJar`, `bootRun` and
+service checks build the frontend first; compiled files never go into `src/`. Compose maps
 `FLIGHT_FRONTEND_CLIENT_ID` to Flight's `VITE_KEYCLOAK_CLIENT_ID` build
 argument. Rebuild the frontend after changing its Keycloak build settings.
 
@@ -144,7 +143,7 @@ URIs in Keycloak before using this mode. To inspect a production build, stop the
 dev server, run `./gradlew :flight:flight-frontend:build`, then run
 `./gradlew :flight:flight-frontend:npm_run_preview`. Preview also uses port 5173
 and the API proxy, so it uses the same Keycloak redirect setting. It serves the
-existing `dist/` files; source edits require another build. Dev and preview cannot
+existing `build/dist/` files; source edits require another build. Dev and preview cannot
 run on port 5173 at the same time. Use Ctrl+C in the server terminal to stop either.
 
 ## Delay management
