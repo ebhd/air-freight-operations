@@ -14,3 +14,8 @@ node {
 tasks.named('assemble') {
     dependsOn('npm_run_build')
 }
+
+// so check also runs the page tests like cargo does
+tasks.named('check') {
+    dependsOn('npm_run_test')
+}

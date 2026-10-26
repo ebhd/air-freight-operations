@@ -304,4 +304,6 @@ npm ci                          # Install Husky hooks; requires Node.js
 
 Spotless (Google Java Format/AOSP), Checkstyle, JUnit, AssertJ, ArchUnit, Testcontainers and JaCoCo. Cargo's and Flight's database integration tests (`*IT`) start PostgreSQL with Testcontainers when Docker is available and are skipped without Docker, as in GitLab CI; all other tests run without Docker. Coverage reports are under `<service>/build/reports/jacoco/test/`. No coverage threshold is enforced.
 
+Flight's page tests (Vitest, `flight/flight-frontend/src/test/ts/`) run in `:flight:flight-frontend:check`, so the root `check` runs them; the GitLab CI test job runs only `:flight:flight-service:test`.
+
 Husky checks formatting and lint without modifying files. GitLab CI runs format, lint, build and test jobs per service; artifacts are retained for one week.
