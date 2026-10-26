@@ -21,6 +21,7 @@ import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightRepository;
 import be.kdg.airfreight.flight.domain.flight.FlightStatus;
 import jakarta.servlet.ServletException;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -79,7 +80,10 @@ class DelayControllerTest {
                                 new FlightController(
                                         new FlightQueryService(flightRepository),
                                         new FlightDelayService(
-                                                flightRepository, reasons, event -> {})),
+                                                flightRepository,
+                                                reasons,
+                                                event -> {},
+                                                Clock.systemUTC())),
                                 new DelayReasonController(new DelayReasonQueryService(reasons)))
                         .setControllerAdvice(new ErrorHandling())
                         .build();

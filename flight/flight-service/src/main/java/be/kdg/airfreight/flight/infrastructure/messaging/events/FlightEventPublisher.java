@@ -6,6 +6,7 @@ import be.kdg.airfreight.flight.infrastructure.messaging.RabbitConfiguration;
 import be.kdg.airfreight.flight.infrastructure.messaging.outbox.OutboxMessage;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaOutboxMessage;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaOutboxMessageRepository;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -21,14 +22,17 @@ public class FlightEventPublisher {
     private final JpaOutboxMessageRepository outboxRepository;
     private final JsonMapper jsonMapper;
     private final ApplicationEventPublisher events;
+    private final Clock clock;
 
     public FlightEventPublisher(
             JpaOutboxMessageRepository outboxRepository,
             JsonMapper jsonMapper,
-            ApplicationEventPublisher events) {
+            ApplicationEventPublisher events,
+            Clock clock) {
         this.outboxRepository = outboxRepository;
         this.jsonMapper = jsonMapper;
         this.events = events;
+        this.clock = clock;
     }
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
@@ -52,7 +56,7 @@ public class FlightEventPublisher {
                         RabbitConfiguration.FLIGHT_EVENTS,
                         RabbitConfiguration.FLIGHT_CREATED,
                         jsonMapper.writeValueAsString(message),
-                        Instant.now(),
+                        Instant.now(clock),
                         null);
 
         outboxRepository.save(JpaOutboxMessage.fromDomain(outboxMessage));
@@ -87,7 +91,7 @@ public class FlightEventPublisher {
                         RabbitConfiguration.FLIGHT_EVENTS,
                         RabbitConfiguration.FLIGHT_ESTIMATES_CHANGED,
                         jsonMapper.writeValueAsString(message),
-                        Instant.now(),
+                        Instant.now(clock),
                         null);
 
         outboxRepository.save(JpaOutboxMessage.fromDomain(outboxMessage));

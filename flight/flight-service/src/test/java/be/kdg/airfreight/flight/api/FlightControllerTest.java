@@ -12,6 +12,7 @@ import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightRepository;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -67,7 +68,8 @@ class FlightControllerTest {
                                         new FlightDelayService(
                                                 flights,
                                                 mock(DelayReasonRepository.class),
-                                                mock(ApplicationEventPublisher.class))))
+                                                mock(ApplicationEventPublisher.class),
+                                                Clock.systemUTC())))
                         .setControllerAdvice(new ErrorHandling())
                         .build();
     }

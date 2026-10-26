@@ -9,6 +9,7 @@ import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightRepository;
 import be.kdg.airfreight.flight.domain.flight.InvalidDelayException;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -22,14 +23,17 @@ public class FlightDelayService {
     private final FlightRepository flightRepository;
     private final DelayReasonRepository delayReasonRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final Clock clock;
 
     public FlightDelayService(
             FlightRepository flightRepository,
             DelayReasonRepository delayReasonRepository,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher,
+            Clock clock) {
         this.flightRepository = flightRepository;
         this.delayReasonRepository = delayReasonRepository;
         this.eventPublisher = eventPublisher;
+        this.clock = clock;
     }
 
     @Transactional
@@ -93,7 +97,7 @@ public class FlightDelayService {
                             previousArrival,
                             saved.estimatedDeparture(),
                             saved.estimatedArrival(),
-                            Instant.now()));
+                            Instant.now(clock)));
         }
         return saved;
     }
