@@ -57,6 +57,8 @@ The loading window opens 12h before STD and closes 20m before ETD. Change this w
 
 The pages are TypeScript with Tailwind CSS and `keycloak-js`, built with Vite in `cargo/cargo-frontend` and `flight/flight-frontend`. Building a service also builds its pages into the JAR. Gradle downloads Node, so you do not need to install it.
 
+Times: APIs, databases and messages use UTC. The pages show Brussels time (`Europe/Brussels`) with the date next to every time, and label the flight key date "(UTC)"; the day filter is that UTC date. Cargo's `cargo/cargo-frontend/src/ts/time.ts` and Flight's `flight/flight-frontend/src/ts/presenter/timeFormat.ts` convert in the same format; their Vitest tests check summer and winter time and arrivals after midnight, Cargo's also both clock changes.
+
 The Keycloak settings `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM` and `VITE_KEYCLOAK_CLIENT_ID` are fixed at build time. Rebuild after changing them.
 
 For live reload, keep the backend running and start one of:
