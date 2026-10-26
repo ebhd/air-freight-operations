@@ -351,7 +351,7 @@ classDiagram
         finalizedLoadProcessed
         create(flightKey, arrivalAirportCode, aircraftRegistration, scheduledDeparture, scheduledArrival)
         addDelay(type, minutes, reasonCode, description)
-        editDelay(delayId, minutes, description)
+        updateDelay(delayId, minutes, description)
         removeDelay(delayId)
         estimatedDeparture()
         estimatedArrival()
@@ -376,13 +376,10 @@ classDiagram
 
     class Delay {
         <<Entity>>
+        id
         minutes
+        reasonCode
         description
-    }
-
-    class DelayId {
-        <<ValueObject>>
-        value
     }
 
     class DelayType {
@@ -396,7 +393,6 @@ classDiagram
     Flight "1" *-- "0..*" Delay : delays
     Flight "1" --> "1" FlightKey : key
     Flight --> "1" FlightStatus : status
-    Delay --> "1" DelayId : id
     Delay --> "1" DelayType : type
 
 ```
@@ -407,7 +403,7 @@ classDiagram
 | --- | --- |
 | Aggregate root | `Flight` (owns delays and controls the lifecycle) |
 | Entity | `Delay` |
-| Value objects | `FlightKey`, `DelayId` |
+| Value objects | `FlightKey` (a delay's `id` is a plain `UUID`, no value object) |
 | Enumerations | `FlightStatus`, `DelayType` |
 | Domain events | `FlightCreated`, `FlightEstimatesChanged`, `FlightDeparted`, `FlightArrived` |
 | Repository | `FlightRepository` |
@@ -509,7 +505,7 @@ stateDiagram-v2
 
 Each service uses `domain` for business rules and repository interfaces, `application` for use cases, `infrastructure` for persistence and external adapters, and `api` for REST controllers, DTOs and mappers. The initial setup contains these packages; business workflows are still to be implemented.
 
-A service serves its own web pages as static files from its JAR (so far only Cargo): HTML from `src/main/resources/static`, plus TypeScript modules and Tailwind CSS that the Gradle build compiles into `static/js` and `static/css`. The pages render on the client: the TypeScript modules call the service's REST API with `fetch` and a bearer token.
+A service serves its own web pages as static files from its JAR. Cargo keeps its HTML in `src/main/resources/static`, plus TypeScript modules and Tailwind CSS that the Gradle build compiles into `static/js` and `static/css`. Flight's pages are a separate Gradle project, `flight/flight-frontend`, built with Vite; Flight's build adds that output to its JAR as `static/`. The pages render on the client: the TypeScript modules call the service's REST API with `fetch` and a bearer token.
 
 Cargo signals a missing or invalid input value with its own `InvalidCargoValueException` from the value objects. The ULD listener stores such a message in `rejected_messages` without retrying; a REST controller turns it into 400 only while it builds the domain values from the URL, so bad data from Flight stays a 500. `CargoApiExceptionHandler` gives every Cargo endpoint the same answers: 404 for a flight Flight does not know, 503 when Flight is unreachable, 409 with a refusal code when the loading rules refuse an action (`LoadingNotAllowedException`). Read use cases such as the cargo plan view (`CargoPlanQueryService`) load the aggregate through its repository and add Flight's data; they check no flight state, so the plan stays readable after departure.
 
