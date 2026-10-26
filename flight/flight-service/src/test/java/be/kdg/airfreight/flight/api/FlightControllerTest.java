@@ -43,6 +43,11 @@ class FlightControllerTest {
                     }
 
                     @Override
+                    public Optional<Flight> findByIdForUpdate(FlightKey key) {
+                        return findById(key);
+                    }
+
+                    @Override
                     public List<Flight> findByScheduledDepartureDate(LocalDate date) {
                         return flight.key().scheduledDepartureDate().equals(date)
                                 ? List.of(flight)

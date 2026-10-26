@@ -154,6 +154,11 @@ class FlightSchedulingServiceTest {
         }
 
         @Override
+        public Optional<Flight> findByIdForUpdate(FlightKey key) {
+            return findById(key);
+        }
+
+        @Override
         public List<Flight> findByScheduledDepartureDate(LocalDate date) {
             return flights.values().stream()
                     .filter(flight -> flight.key().scheduledDepartureDate().equals(date))

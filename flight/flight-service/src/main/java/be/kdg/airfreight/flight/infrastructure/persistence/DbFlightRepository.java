@@ -25,6 +25,11 @@ class DbFlightRepository implements FlightRepository {
     }
 
     @Override
+    public Optional<Flight> findByIdForUpdate(FlightKey key) {
+        return flights.findByIdForUpdate(JpaFlightId.fromDomain(key)).map(JpaFlight::toDomain);
+    }
+
+    @Override
     public List<Flight> findByScheduledDepartureDate(LocalDate date) {
         return flights.findByIdScheduledDepartureDateOrderByScheduledDepartureAsc(date).stream()
                 .map(JpaFlight::toDomain)

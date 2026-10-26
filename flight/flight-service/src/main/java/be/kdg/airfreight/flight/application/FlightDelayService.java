@@ -97,9 +97,10 @@ public class FlightDelayService {
         return saved;
     }
 
+    // every delay change locks the flight so it starts from the last saved estimates
     private Flight requireFlight(FlightKey flightKey) {
         return flightRepository
-                .findById(flightKey)
+                .findByIdForUpdate(flightKey)
                 .orElseThrow(() -> new NotFoundException("Unknown flight " + flightKey));
     }
 }
