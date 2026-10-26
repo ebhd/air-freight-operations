@@ -40,9 +40,16 @@ public record FlightEstimatesChangedFact(
         return !previousEstimatedArrival.equals(estimatedArrival);
     }
 
+    // slash and dot separate the parts of mvt line 2 so they cannot be inside a part
     private static void requireTelegramText(String value, String name) {
-        if (value == null || value.isBlank() || value.contains("\n") || value.contains("\r")) {
-            throw new IllegalArgumentException(name + " must be nonblank single-line text");
+        if (value == null
+                || value.isBlank()
+                || value.contains("\n")
+                || value.contains("\r")
+                || value.contains("/")
+                || value.contains(".")) {
+            throw new IllegalArgumentException(
+                    name + " must be nonblank single-line text without / or .");
         }
     }
 
