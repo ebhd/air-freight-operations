@@ -120,7 +120,9 @@ public final class Flight {
     }
 
     public void addDelay(DelayType type, int minutes, String reasonCode, String description) {
-        Objects.requireNonNull(type, "delay type must not be null");
+        if (type == null) {
+            throw new InvalidDelayException("delay type must not be null");
+        }
         requireDelayChangesAllowed(type);
         delays.add(new Delay(type, minutes, reasonCode, description));
     }

@@ -5,7 +5,6 @@ import be.kdg.airfreight.flight.application.FlightQueryService;
 import be.kdg.airfreight.flight.domain.NotFoundException;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
-import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -41,7 +40,7 @@ public class FlightController {
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate scheduledDepartureDate,
             @PathVariable String departureAirportCode,
-            @Valid @RequestBody AddDelayRequest request) {
+            @RequestBody AddDelayRequest request) {
         FlightKey key = new FlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
         FlightResponse response =
                 FlightResponse.from(flightDelayService.addDelay(request.toCommand(key)));
@@ -57,7 +56,7 @@ public class FlightController {
                     LocalDate scheduledDepartureDate,
             @PathVariable String departureAirportCode,
             @PathVariable UUID delayId,
-            @Valid @RequestBody UpdateDelayRequest request) {
+            @RequestBody UpdateDelayRequest request) {
         FlightKey key = new FlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
         flightDelayService.updateDelay(request.toCommand(key, delayId));
     }

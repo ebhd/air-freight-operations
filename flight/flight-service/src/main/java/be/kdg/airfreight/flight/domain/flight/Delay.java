@@ -16,7 +16,10 @@ public final class Delay {
 
     private Delay(UUID id, DelayType type, int minutes, String reasonCode, String description) {
         this.id = Objects.requireNonNull(id, "delay id must not be null");
-        this.type = Objects.requireNonNull(type, "delay type must not be null");
+        if (type == null) {
+            throw new InvalidDelayException("delay type must not be null");
+        }
+        this.type = type;
 
         this.minutes = requireMinutes(minutes);
         this.reasonCode = requireText(reasonCode, "delay reason code");
@@ -37,14 +40,14 @@ public final class Delay {
 
     private static int requireMinutes(int minutes) {
         if (minutes < 1 || minutes > 720) {
-            throw new IllegalArgumentException("delay minutes must be between 1 and 720");
+            throw new InvalidDelayException("delay minutes must be between 1 and 720");
         }
         return minutes;
     }
 
     private static String requireText(String value, String name) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
+            throw new InvalidDelayException(name + " must not be blank");
         }
         return value.trim();
     }

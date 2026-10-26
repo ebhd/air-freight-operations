@@ -8,6 +8,7 @@ import be.kdg.airfreight.flight.domain.events.FlightEstimatesChanged;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightRepository;
+import be.kdg.airfreight.flight.domain.flight.InvalidDelayException;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +42,7 @@ public class FlightDelayService {
                 .findByCode(command.getReasonCode())
                 .orElseThrow(
                         () ->
-                                new IllegalArgumentException(
+                                new InvalidDelayException(
                                         "Unknown delay reason code " + command.getReasonCode()));
 
         flight.addDelay(

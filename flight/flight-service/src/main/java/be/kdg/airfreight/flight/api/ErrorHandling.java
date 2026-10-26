@@ -2,6 +2,8 @@ package be.kdg.airfreight.flight.api;
 
 import be.kdg.airfreight.flight.domain.DomainRuleViolationException;
 import be.kdg.airfreight.flight.domain.NotFoundException;
+import be.kdg.airfreight.flight.domain.flight.InvalidDelayException;
+import be.kdg.airfreight.flight.domain.flight.InvalidScheduleException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
@@ -10,8 +12,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 
 @ControllerAdvice
 class ErrorHandling {
-    @ExceptionHandler(IllegalArgumentException.class)
-    ProblemDetail invalidInput(IllegalArgumentException exception) {
+    // only our own input exceptions so any other bug stays a 500
+    @ExceptionHandler({InvalidDelayException.class, InvalidScheduleException.class})
+    ProblemDetail invalidInput(RuntimeException exception) {
         return problem(HttpStatus.BAD_REQUEST, exception.getMessage());
     }
 

@@ -2,8 +2,8 @@ package be.kdg.airfreight.flight.application.command;
 
 import be.kdg.airfreight.flight.domain.flight.DelayType;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
+import be.kdg.airfreight.flight.domain.flight.InvalidDelayException;
 import java.util.Locale;
-import java.util.Objects;
 
 public final class AddDelayCommand {
     private final FlightKey flightKey;
@@ -18,10 +18,13 @@ public final class AddDelayCommand {
             int minutes,
             String reasonCode,
             String description) {
-        this.flightKey = Objects.requireNonNull(flightKey, "flight key must not be null");
-        if (type == null) {
-            throw new IllegalArgumentException("delay type must not be null");
+        if (flightKey == null) {
+            throw new InvalidDelayException("flight key must not be null");
         }
+        if (type == null) {
+            throw new InvalidDelayException("delay type must not be null");
+        }
+        this.flightKey = flightKey;
         this.type = type;
         this.minutes = minutes;
         this.reasonCode = requireText(reasonCode, "delay reason code").toUpperCase(Locale.ROOT);
@@ -30,7 +33,7 @@ public final class AddDelayCommand {
 
     private static String requireText(String value, String name) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
+            throw new InvalidDelayException(name + " must not be blank");
         }
         return value.trim();
     }
