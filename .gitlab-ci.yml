@@ -46,8 +46,8 @@ variables:
     matrix:
       - SERVICE: flight:flight-service
         SERVICE_DIR: flight/flight-service
-      - SERVICE: cargo-service
-        SERVICE_DIR: cargo-service
+      - SERVICE: cargo:cargo-service
+        SERVICE_DIR: cargo/cargo-service
       - SERVICE: partner-communication-service
         SERVICE_DIR: partner-communication-service
 
