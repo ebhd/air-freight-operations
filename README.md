@@ -5,7 +5,7 @@ Java 22 · Spring Boot 4.1.1 · Gradle 9.7.1 multi-project build.
 | Service | HTTP port | PostgreSQL database |
 | --- | --- | --- |
 | `flight/flight-service` | 8080 | `flight` |
-| `cargo-service` | 8081 | `cargo` |
+| `cargo/cargo-service` | 8081 | `cargo` |
 | `partner-communication-service` | 8082 | `partner_communication` |
 | `simulator`  | 8083 | None |
 
@@ -42,6 +42,38 @@ infrastructure/
 
 Flight and Delay stay in the same domain package. Flight creates delays from supplied values and controls their updates and removal; new-delay construction and child mutation remain package-private. Tests follow the moved packages where applicable; `FlightControllerTest` stays in `api` to access the shared package-private error handler. Class names, HTTP contracts, database mappings and RabbitMQ destinations are preserved by this organization.
 
+
+## Cargo Service packages
+
+Cargo keeps the same four main layers and groups related files inside them:
+
+```text
+api/
+  flight/          Flight overview, cargo plan and loading-window endpoints and DTOs
+  loadingposition/ Position catalogue endpoint and DTO
+  StatusController
+application/
+  booking/         ULD booking commands, results and message processing
+  cargoplan/       Cargo plan queries and position changes
+  flight/          Flight overview queries
+  loading/         Loading-window queries and status
+domain/
+  cargoplan/       CargoPlan, owned bookings, positions, weights and repository
+  flight/          Flight information, identity, date rule and repository
+  loading/         Loading context, window, policy and refusals
+  offloading/      Offloading check and result
+  InvalidCargoValueException
+infrastructure/
+  flight/          Flight API adapter
+  messaging/       Incoming ULD messages
+  persistence/     Database adapters and JPA mappings
+  security/        Token checks and role mapping
+```
+
+`CargoPlan` and `UldBooking` stay together so child mutation remains package-private.
+Flight-specific controllers, DTOs and their exception handler also stay together
+to preserve their package-private helpers. Existing tests follow these packages;
+filenames, business logic, API contracts and persistence mappings are unchanged.
 
 ## Run
 
@@ -98,7 +130,39 @@ Configuration lives in each service's `application.properties`; standard Spring 
 
 ### Cargo frontend
 
-Page HTML lives in `cargo-service/src/main/resources/static/`, TypeScript modules in `cargo-service/src/main/typescript/` and the Tailwind CSS input in `cargo-service/src/main/css/app.css`. Gradle's `processResources` (part of `bootJar`, `bootRun` and `check`) type-checks TypeScript, bundles the page modules and `keycloak-js` with Vite, and runs the Tailwind CLI. The JAR contains the page entry scripts and shared chunks under `static/js/`, and `static/css/app.css`. The Gradle Node plugin downloads the pinned Node version and runs `npm ci` in `cargo-service/`, so no Node installation is needed, also not in Docker or CI. A TypeScript type error fails the build. Compiled files are not committed; edit the sources. Frontend Keycloak settings are build-time values: `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM` and `VITE_KEYCLOAK_CLIENT_ID`. Docker Compose passes the URL and realm from `.env` and maps `CARGO_FRONTEND_CLIENT_ID` to the Cargo image's `VITE_KEYCLOAK_CLIENT_ID` build argument.
+Cargo has separate `cargo/cargo-frontend` and `cargo/cargo-service` Gradle
+projects, following Flight's structure. The frontend contains `index.html`,
+`cargo-plan.html`, the existing TypeScript modules in `src/ts/` and Tailwind CSS
+in `src/css/app.css`. Vite uses the HTML pages as entry points, bundles their
+TypeScript and `keycloak-js`, and compiles Tailwind through its Vite plugin.
+The frontend's `assemble` task runs this build into `build/dist/`.
+
+The backend's `processResources` depends on `:cargo:cargo-frontend:assemble`
+and copies that output into `build/resources/main/static/`. Generated frontend
+files stay under `build/`; none are written into `src/`. The Cargo JAR still
+serves `/`, `/cargo-plan.html`, `/js/flights-to-load.js`, `/js/cargo-plan.js`
+and `/css/app.css` on port 8081. Start the backend from the repository root with
+`./gradlew :cargo:cargo-service:bootRun`, or build it with
+`./gradlew :cargo:cargo-service:bootJar`.
+
+The Gradle Node plugin downloads the pinned Node version and runs `npm ci` in
+`cargo/cargo-frontend/`, so no Node installation is needed, including in Docker
+and CI. A TypeScript type error fails the build. Frontend Keycloak settings
+remain build-time values: `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM` and
+`VITE_KEYCLOAK_CLIENT_ID`. Compose passes the URL and realm from `.env` and maps
+`CARGO_FRONTEND_CLIENT_ID` to the Cargo image's client-ID build argument.
+
+For frontend development, keep Cargo's backend on port 8081 and run
+`./gradlew :cargo:cargo-frontend:npm_run_dev`. Vite serves
+`http://localhost:5174` and proxies `/api` to Cargo; `CARGO_API_URL` overrides
+the backend address. Port 5174 keeps it separate from Flight's Vite server on
+5173. Before signing in through this development URL, add
+`http://localhost:5174/*` to the existing `cargo-frontend` client's valid redirect
+URIs and `http://localhost:5174` to its web origins in Keycloak. The normal
+port-8081 workflow needs no realm change. To preview a production bundle, run
+`./gradlew :cargo:cargo-frontend:assemble`, stop the dev server, then run
+`./gradlew :cargo:cargo-frontend:npm_run_preview`. Preview uses the same port
+and API proxy. Stop either server with Ctrl+C.
 
 For manual SSM and ULD submission, start Flight Service and Cargo Service and run `./gradlew :simulator:bootRun`. Then send the requests in [simulator/http/ssm.http](simulator/http/ssm.http) and [simulator/http/uld.http](simulator/http/uld.http). The simulator listens on 127.0.0.1:8083, has no database and is not part of the Compose deployment.
 

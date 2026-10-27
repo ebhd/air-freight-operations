@@ -3,6 +3,10 @@ rootProject.name = 'air-freight-operations'
 include('flight')
 include('flight:flight-service')
 include('flight:flight-frontend')
-include('cargo-service')
+
+include('cargo')
+include('cargo:cargo-service')
+include('cargo:cargo-frontend')
+
 include('partner-communication-service')
 include('simulator')
