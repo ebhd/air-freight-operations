@@ -97,10 +97,20 @@ function renderFlight(flight: FlightOverview): void {
     setText('#flight-date', flight.scheduledDepartureDate);
     setText('#flight-from', flight.departureAirportCode);
     setText('#flight-departure', formatBrusselsDateTime(flight.scheduledDeparture));
+    showEstimate('departure', flight.scheduledDeparture, flight.estimatedDeparture);
     setText('#flight-to', flight.arrivalAirportCode);
     setText('#flight-arrival', formatBrusselsDateTime(flight.scheduledArrival));
+    showEstimate('arrival', flight.scheduledArrival, flight.estimatedArrival);
     setText('#flight-status', flight.status);
     flightBlock.hidden = false;
+}
+
+function showEstimate(name: 'departure' | 'arrival', scheduled: string, estimated: string): void {
+    const changed = Date.parse(scheduled) !== Date.parse(estimated);
+    requiredElement(`#flight-estimated-${name}-label`, HTMLElement).hidden = !changed;
+    const value = requiredElement(`#flight-estimated-${name}`, HTMLElement);
+    value.hidden = !changed;
+    value.textContent = changed ? formatBrusselsDateTime(estimated) : '';
 }
 
 // textContent never runs server text as html

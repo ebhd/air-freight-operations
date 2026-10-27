@@ -24,10 +24,7 @@ public class RabbitConfiguration {
     static final String FLIGHT_ESTIMATES_CHANGED = "flight.estimates-changed";
     static final String FLIGHT_ESTIMATES_CHANGED_QUEUE = "partner.flight-estimates-changed";
 
-    // ----- Incoming message retry and dead-letter handling -----
-    static final String FLIGHT_CREATED_RETRY_QUEUE = "partner.flight-created.retry";
-    static final String FLIGHT_ESTIMATES_CHANGED_RETRY_QUEUE =
-            "partner.flight-estimates-changed.retry";
+    // ----- Incoming message dead-letter handling -----
     static final String DEAD_LETTER_EXCHANGE = "partner.dlx";
     static final String DEAD_LETTER_QUEUE = "partner.dlq";
 
@@ -71,31 +68,7 @@ public class RabbitConfiguration {
                 .with(FLIGHT_ESTIMATES_CHANGED);
     }
 
-    // ----- incoming message retry and dead-letter handling -----
-    @Bean
-    Queue flightCreatedRetryQueue() {
-        return QueueBuilder.durable(FLIGHT_CREATED_RETRY_QUEUE)
-                .quorum()
-                .ttl(30_000)
-                .withArgument("x-dead-letter-strategy", "at-least-once")
-                .overflow(QueueBuilder.Overflow.rejectPublish)
-                .deadLetterExchange("")
-                .deadLetterRoutingKey(FLIGHT_CREATED_QUEUE)
-                .build();
-    }
-
-    @Bean
-    Queue flightEstimatesChangedRetryQueue() {
-        return QueueBuilder.durable(FLIGHT_ESTIMATES_CHANGED_RETRY_QUEUE)
-                .quorum()
-                .ttl(30_000)
-                .withArgument("x-dead-letter-strategy", "at-least-once")
-                .overflow(QueueBuilder.Overflow.rejectPublish)
-                .deadLetterExchange("")
-                .deadLetterRoutingKey(FLIGHT_ESTIMATES_CHANGED_QUEUE)
-                .build();
-    }
-
+    // ----- Incoming message dead-letter handling -----
     @Bean
     FanoutExchange deadLetterExchange() {
         return new FanoutExchange(DEAD_LETTER_EXCHANGE);

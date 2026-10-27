@@ -16,7 +16,8 @@ record FlightResponse(
         String status,
         Instant scheduledDeparture,
         Instant scheduledArrival,
-        Instant estimatedDeparture) {
+        Instant estimatedDeparture,
+        Instant estimatedArrival) {
     FlightInformation toFlightInformation() {
         FlightKey key =
                 new FlightKey(
@@ -25,12 +26,14 @@ record FlightResponse(
                         new AirportCode(departureAirportCode));
         // Temporary compatibility with Flight before US-15 is integrated.
         Instant etd = estimatedDeparture != null ? estimatedDeparture : scheduledDeparture;
+        Instant eta = estimatedArrival != null ? estimatedArrival : scheduledArrival;
         return new FlightInformation(
                 key,
                 new AirportCode(arrivalAirportCode),
                 FlightStatus.valueOf(status),
                 scheduledDeparture,
                 scheduledArrival,
-                etd);
+                etd,
+                eta);
     }
 }

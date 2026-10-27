@@ -7,4 +7,6 @@ export type FlightOverview = {
     status: string;
     scheduledDeparture: string;
     scheduledArrival: string;
+    estimatedDeparture: string;
+    estimatedArrival: string;
 };

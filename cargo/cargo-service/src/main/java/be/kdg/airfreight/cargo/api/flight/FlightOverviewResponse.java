@@ -11,7 +11,9 @@ public record FlightOverviewResponse(
         String arrivalAirportCode,
         String status,
         Instant scheduledDeparture,
-        Instant scheduledArrival) {
+        Instant scheduledArrival,
+        Instant estimatedDeparture,
+        Instant estimatedArrival) {
     static FlightOverviewResponse from(FlightInformation flight) {
         return new FlightOverviewResponse(
                 flight.flightKey().flightNumber(),
@@ -20,6 +22,8 @@ public record FlightOverviewResponse(
                 flight.arrivalAirportCode().value(),
                 flight.status().name(),
                 flight.scheduledDeparture(),
-                flight.scheduledArrival());
+                flight.scheduledArrival(),
+                flight.estimatedDeparture(),
+                flight.estimatedArrival());
     }
 }

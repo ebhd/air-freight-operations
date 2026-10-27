@@ -21,7 +21,6 @@ public class RabbitConfiguration {
     public static final String FLIGHT_ESTIMATES_CHANGED = "flight.estimates-changed";
 
     public static final String SSM_QUEUE = "flight.ssm";
-    static final String SSM_RETRY_QUEUE = "flight.ssm.retry";
     static final String DEAD_LETTER_EXCHANGE = "flight.dlx";
     static final String DEAD_LETTER_QUEUE = "flight.dlq"; // rejected messages queue
 
@@ -33,18 +32,6 @@ public class RabbitConfiguration {
     @Bean
     Queue ssm() {
         return QueueBuilder.durable(SSM_QUEUE).deadLetterExchange(DEAD_LETTER_EXCHANGE).build();
-    }
-
-    @Bean
-    Queue ssmRetryQueue() {
-        return QueueBuilder.durable(SSM_RETRY_QUEUE)
-                .quorum()
-                .ttl(30_000)
-                .withArgument("x-dead-letter-strategy", "at-least-once")
-                .overflow(QueueBuilder.Overflow.rejectPublish)
-                .deadLetterExchange("")
-                .deadLetterRoutingKey(SSM_QUEUE)
-                .build();
     }
 
     @Bean

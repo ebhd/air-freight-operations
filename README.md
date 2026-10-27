@@ -128,7 +128,7 @@ ULD booking:
 }
 ```
 
-Every message has a stable ID and is processed only once. Cargo stores invalid ULD messages in its `rejected_messages` table. Flight and Partner send invalid messages to a dead-letter queue (`flight.dlq`, `partner.dlq`) and retry database outages through a `.retry` queue.
+Every message has a stable ID and is processed only once. Cargo stores invalid ULD messages in its `rejected_messages` table. Flight and Partner send invalid messages to a dead-letter queue (`flight.dlq`, `partner.dlq`) and requeue temporary database failures on the original queue after the configured short retries.
 
 ## Checks
 
