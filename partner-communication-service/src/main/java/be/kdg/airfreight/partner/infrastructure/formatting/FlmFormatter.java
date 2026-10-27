@@ -8,6 +8,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class FlmFormatter implements MessageFormatter<FlightCreatedFact> {
+    private static final int FORMAT_VERSION = 1;
+
     private final JsonMapper jsonMapper;
 
     public FlmFormatter(JsonMapper jsonMapper) {
@@ -25,6 +27,6 @@ public class FlmFormatter implements MessageFormatter<FlightCreatedFact> {
                         flightFact.scheduledDeparture(),
                         flightFact.scheduledArrival());
 
-        return new MessageContent("FLM", jsonMapper.writeValueAsString(payload), 1);
+        return new MessageContent("FLM", jsonMapper.writeValueAsString(payload), FORMAT_VERSION);
     }
 }
