@@ -12,6 +12,10 @@ export type FlightOverview = {
     estimatedArrival: string;
 };
 
-export type FlightKey = Pick<FlightOverview, 'flightNumber' | 'scheduledDepartureDate' | 'departureAirportCode'>;
+export type FlightKey = {
+    flightNumber: string;
+    scheduledDepartureDate: string;
+    departureAirportCode: string;
+};
 
 export type Flight = FlightOverview & { delays: Delay[] };

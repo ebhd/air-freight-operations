@@ -5,16 +5,17 @@ import { formatBrusselsDateTime } from './timeFormat';
 import { initializeUser } from './userPresenter';
 
 const dateInput = document.querySelector<HTMLInputElement>('#date')!;
-const rows = document.querySelector<HTMLTableSectionElement>('#flights')!;
+const flightTableBody = document.querySelector<HTMLTableSectionElement>('#flights')!;
 const tableStatus = document.querySelector<HTMLElement>('#table-status')!;
 
-let latestRequest = 0;
+let latestRequestId = 0;
 
 async function showFlights(): Promise<void> {
-    const request = ++latestRequest;
+    latestRequestId += 1;
+    const requestId = latestRequestId;
     const date = dateInput.value;
     clearError();
-    rows.replaceChildren();
+    flightTableBody.replaceChildren();
     tableStatus.textContent = '';
     if (!date || !dateInput.validity.valid) {
         showError(new Error('Choose a valid date.'));
@@ -23,20 +24,26 @@ async function showFlights(): Promise<void> {
     tableStatus.textContent = 'Loading…';
     try {
         const flights = await getFlights(date);
-        if (request !== latestRequest) {
+        // A slower response for a previously selected date must not replace this list.
+        if (requestId !== latestRequestId) {
             return;
         }
-        rows.replaceChildren(...flights.map(flightRow));
-        tableStatus.textContent = flights.length === 0 ? `No flights on ${date}.` : '';
+        for (const flight of flights) {
+            flightTableBody.append(createFlightRow(flight));
+        }
+        tableStatus.textContent = '';
+        if (flights.length === 0) {
+            tableStatus.textContent = `No flights on ${date}.`;
+        }
     } catch (error) {
-        if (request === latestRequest) {
+        if (requestId === latestRequestId) {
             tableStatus.textContent = '';
             showError(error);
         }
     }
 }
 
-function flightRow(flight: FlightOverview): HTMLTableRowElement {
+function createFlightRow(flight: FlightOverview): HTMLTableRowElement {
     const link = document.createElement('a');
     const key = new URLSearchParams({
         flightNumber: flight.flightNumber,
@@ -49,32 +56,32 @@ function flightRow(flight: FlightOverview): HTMLTableRowElement {
     const row = document.createElement('tr');
     row.className = '*:border-b *:border-slate-300 *:px-3 *:py-2';
     row.append(
-        cell(link),
-        cell(flight.scheduledDepartureDate),
-        cell(flight.departureAirportCode),
-        timeCell(flight.scheduledDeparture, flight.estimatedDeparture),
-        cell(flight.arrivalAirportCode),
-        timeCell(flight.scheduledArrival, flight.estimatedArrival),
-        cell(flight.status),
+        createCell(link),
+        createCell(flight.scheduledDepartureDate),
+        createCell(flight.departureAirportCode),
+        createTimeCell(flight.scheduledDeparture, flight.estimatedDeparture),
+        createCell(flight.arrivalAirportCode),
+        createTimeCell(flight.scheduledArrival, flight.estimatedArrival),
+        createCell(flight.status),
     );
     return row;
 }
 
-function cell(text: string | HTMLElement): HTMLTableCellElement {
-    const td = document.createElement('td');
-    td.append(text);
-    return td;
+function createCell(content: string | HTMLElement): HTMLTableCellElement {
+    const cell = document.createElement('td');
+    cell.append(content);
+    return cell;
 }
 
-function timeCell(scheduled: string, estimated: string): HTMLTableCellElement {
-    const td = cell(formatBrusselsDateTime(scheduled));
+function createTimeCell(scheduled: string, estimated: string): HTMLTableCellElement {
+    const cell = createCell(formatBrusselsDateTime(scheduled));
     if (Date.parse(scheduled) !== Date.parse(estimated)) {
-        const expected = document.createElement('span');
-        expected.className = 'block text-sm font-medium text-amber-800';
-        expected.textContent = `Expected: ${formatBrusselsDateTime(estimated)}`;
-        td.append(expected);
+        const estimate = document.createElement('span');
+        estimate.className = 'block text-sm font-medium text-amber-800';
+        estimate.textContent = `Expected: ${formatBrusselsDateTime(estimated)}`;
+        cell.append(estimate);
     }
-    return td;
+    return cell;
 }
 
 async function initialize(): Promise<void> {
@@ -84,7 +91,9 @@ async function initialize(): Promise<void> {
         showError(new Error('Sign-in could not be completed. Check Keycloak and reload the page.'));
         return;
     }
-    dateInput.value = new URLSearchParams(window.location.search).get('date') ?? new Date().toISOString().slice(0, 10);
+    const query = new URLSearchParams(window.location.search);
+    const today = new Date().toISOString().slice(0, 10);
+    dateInput.value = query.get('date') ?? today;
     dateInput.addEventListener('change', showFlights);
     document.querySelector<HTMLElement>('#content')!.hidden = false;
     await showFlights();

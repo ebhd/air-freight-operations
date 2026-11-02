@@ -11,10 +11,11 @@ import { initializeUser } from './userPresenter';
 
 const content = document.querySelector<HTMLElement>('#content')!;
 const pageStatus = document.querySelector<HTMLElement>('#page-status')!;
-const rows = document.querySelector<HTMLTableSectionElement>('#delays')!;
-const editor = document.querySelector<HTMLElement>('#delay-editor')!;
-const form = document.querySelector<HTMLFormElement>('#delay-form')!;
-const fields = document.querySelector<HTMLFieldSetElement>('#delay-fields')!;
+const delayTableBody = document.querySelector<HTMLTableSectionElement>('#delays')!;
+const delayEditor = document.querySelector<HTMLElement>('#delay-editor')!;
+const editorTitle = document.querySelector<HTMLElement>('#editor-title')!;
+const delayForm = document.querySelector<HTMLFormElement>('#delay-form')!;
+const delayFields = document.querySelector<HTMLFieldSetElement>('#delay-fields')!;
 const typeInput = document.querySelector<HTMLSelectElement>('#delay-type')!;
 const minutesInput = document.querySelector<HTMLInputElement>('#delay-minutes')!;
 const reasonInput = document.querySelector<HTMLSelectElement>('#delay-reason')!;
@@ -22,91 +23,141 @@ const descriptionInput = document.querySelector<HTMLInputElement>('#delay-descri
 const saveButton = document.querySelector<HTMLButtonElement>('#save-delay')!;
 const cancelButton = document.querySelector<HTMLButtonElement>('#cancel-edit')!;
 const refreshButton = document.querySelector<HTMLButtonElement>('#refresh')!;
+const permissionsMessage = document.querySelector<HTMLElement>('#permissions')!;
+const delayStatus = document.querySelector<HTMLElement>('#delay-status')!;
 let flightKey: FlightKey;
-let flight: Flight | null = null;
-let reasons: DelayReason[] = [];
-let editing: Delay | null = null;
-let busy = false;
+let currentFlight: Flight | null = null;
+let delayReasons: DelayReason[] = [];
+let delayBeingEdited: Delay | null = null;
+let isBusy = false;
 
-function canChange(type: DelayType): boolean {
-    return hasRole('flight-planner') && flight !== null
-        && (flight.status === 'PLANNED' || (type === 'ARRIVAL' && flight.status === 'DEPARTED'));
+function canChangeDelay(type: DelayType): boolean {
+    if (!hasRole('flight-planner') || currentFlight === null) {
+        return false;
+    }
+    if (currentFlight.status === 'PLANNED') {
+        return true;
+    }
+    return type === 'ARRIVAL' && currentFlight.status === 'DEPARTED';
 }
 
-function setBusy(value: boolean): void {
-    busy = value;
-    fields.disabled = value;
-    refreshButton.disabled = value;
-    rows.querySelectorAll('button').forEach(button => { button.disabled = value; });
+function setBusy(busy: boolean): void {
+    isBusy = busy;
+    delayFields.disabled = busy;
+    refreshButton.disabled = busy;
+    for (const button of delayTableBody.querySelectorAll('button')) {
+        button.disabled = busy;
+    }
 }
 
-function option(label: string, value: string): HTMLOptionElement {
-    const item = document.createElement('option');
-    item.textContent = label;
-    item.value = value;
-    return item;
+function createReasonOption(label: string, code: string): HTMLOptionElement {
+    const option = document.createElement('option');
+    option.textContent = label;
+    option.value = code;
+    return option;
 }
 
-function resetEditor(): void {
-    editing = null;
-    form.reset();
+function resetDelayEditor(): void {
+    delayBeingEdited = null;
+    delayForm.reset();
     typeInput.disabled = false;
     reasonInput.disabled = false;
-    const departure = typeInput.querySelector<HTMLOptionElement>('[value="DEPARTURE"]')!;
-    departure.disabled = !canChange('DEPARTURE');
-    typeInput.value = canChange('DEPARTURE') ? 'DEPARTURE' : 'ARRIVAL';
-    reasonInput.replaceChildren(option('Choose a reason', ''), ...reasons.map(reason => option(`${reason.code} — ${reason.label}`, reason.code)));
-    saveButton.textContent = 'Add delay';
-    document.querySelector<HTMLElement>('#editor-title')!.textContent = 'Add delay';
-    cancelButton.hidden = true;
-    editor.hidden = !(canChange('DEPARTURE') || canChange('ARRIVAL')) || reasons.length === 0;
-}
-
-function showEstimate(name: string, scheduled: string, estimated: string): void {
-    const changed = Date.parse(scheduled) !== Date.parse(estimated);
-    const value = document.querySelector<HTMLElement>(`#estimated-${name}`)!;
-    document.querySelector<HTMLElement>(`#estimated-${name}-label`)!.hidden = !changed;
-    value.hidden = !changed;
-    value.textContent = changed ? formatBrusselsDateTime(estimated) : '';
-}
-
-function renderFlight(current: Flight): void {
-    flight = current;
-    const values: Record<string, string> = {
-        'flight-number': current.flightNumber,
-        'flight-date': current.scheduledDepartureDate,
-        'flight-from': current.departureAirportCode,
-        'flight-to': current.arrivalAirportCode,
-        'flight-status': current.status,
-        'scheduled-departure': formatBrusselsDateTime(current.scheduledDeparture),
-        'scheduled-arrival': formatBrusselsDateTime(current.scheduledArrival),
-    };
-    for (const [id, text] of Object.entries(values)) {
-        document.getElementById(id)!.textContent = text;
+    const departureOption = typeInput.querySelector<HTMLOptionElement>('[value="DEPARTURE"]')!;
+    const canChangeDeparture = canChangeDelay('DEPARTURE');
+    const canChangeArrival = canChangeDelay('ARRIVAL');
+    departureOption.disabled = !canChangeDeparture;
+    if (canChangeDeparture) {
+        typeInput.value = 'DEPARTURE';
+    } else {
+        typeInput.value = 'ARRIVAL';
     }
-    showEstimate('departure', current.scheduledDeparture, current.estimatedDeparture);
-    showEstimate('arrival', current.scheduledArrival, current.estimatedArrival);
-    rows.replaceChildren(...current.delays.map(delayRow));
-    document.querySelector<HTMLElement>('#delay-status')!.textContent = current.delays.length === 0 ? 'No delays recorded.' : '';
-    document.querySelector<HTMLElement>('#permissions')!.textContent = !hasRole('flight-planner')
-        ? 'Read-only access. Flight planners can manage delays.'
-        : current.status === 'LANDED' ? 'This flight has landed. All delays are frozen.'
-        : current.status === 'DEPARTED' ? 'This flight has departed. Only arrival delays can change.' : '';
-    resetEditor();
+    reasonInput.replaceChildren(createReasonOption('Choose a reason', ''));
+    for (const reason of delayReasons) {
+        const label = `${reason.code} — ${reason.label}`;
+        reasonInput.add(createReasonOption(label, reason.code));
+    }
+    saveButton.textContent = 'Add delay';
+    editorTitle.textContent = 'Add delay';
+    cancelButton.hidden = true;
+    delayEditor.hidden = !(canChangeDeparture || canChangeArrival) || delayReasons.length === 0;
+}
+
+function displayEstimate(name: string, scheduled: string, estimated: string): void {
+    const estimateChanged = Date.parse(scheduled) !== Date.parse(estimated);
+    const estimateValue = document.querySelector<HTMLElement>(`#estimated-${name}`)!;
+    const estimateLabel = document.querySelector<HTMLElement>(`#estimated-${name}-label`)!;
+    estimateLabel.hidden = !estimateChanged;
+    estimateValue.hidden = !estimateChanged;
+    estimateValue.textContent = '';
+    if (estimateChanged) {
+        estimateValue.textContent = formatBrusselsDateTime(estimated);
+    }
+}
+
+function displayFlightDetails(flight: Flight): void {
+    document.querySelector<HTMLElement>('#flight-number')!.textContent = flight.flightNumber;
+    document.querySelector<HTMLElement>('#flight-date')!.textContent = flight.scheduledDepartureDate;
+    document.querySelector<HTMLElement>('#flight-from')!.textContent = flight.departureAirportCode;
+    document.querySelector<HTMLElement>('#flight-to')!.textContent = flight.arrivalAirportCode;
+    document.querySelector<HTMLElement>('#flight-status')!.textContent = flight.status;
+    document.querySelector<HTMLElement>('#scheduled-departure')!.textContent = formatBrusselsDateTime(flight.scheduledDeparture);
+    document.querySelector<HTMLElement>('#scheduled-arrival')!.textContent = formatBrusselsDateTime(flight.scheduledArrival);
+    displayEstimate('departure', flight.scheduledDeparture, flight.estimatedDeparture);
+    displayEstimate('arrival', flight.scheduledArrival, flight.estimatedArrival);
+}
+
+function displayDelays(delays: Delay[]): void {
+    delayTableBody.replaceChildren();
+    for (const delay of delays) {
+        delayTableBody.append(createDelayRow(delay));
+    }
+    delayStatus.textContent = '';
+    if (delays.length === 0) {
+        delayStatus.textContent = 'No delays recorded.';
+    }
+}
+
+function displayPermissions(flight: Flight): void {
+    if (!hasRole('flight-planner')) {
+        permissionsMessage.textContent = 'Read-only access. Flight planners can manage delays.';
+    } else if (flight.status === 'LANDED') {
+        permissionsMessage.textContent = 'This flight has landed. All delays are frozen.';
+    } else if (flight.status === 'DEPARTED') {
+        permissionsMessage.textContent = 'This flight has departed. Only arrival delays can change.';
+    } else {
+        permissionsMessage.textContent = '';
+    }
+}
+
+function displayFlight(flight: Flight): void {
+    currentFlight = flight;
+    displayFlightDetails(flight);
+    displayDelays(flight.delays);
+    displayPermissions(flight);
+    resetDelayEditor();
     content.hidden = false;
 }
 
-function delayRow(delay: Delay): HTMLTableRowElement {
+function createDelayRow(delay: Delay): HTMLTableRowElement {
     const row = document.createElement('tr');
     row.className = '*:border-b *:border-slate-300 *:px-3 *:py-2';
-    const reason = reasons.find(item => item.code === delay.reasonCode);
-    for (const text of [delay.type === 'DEPARTURE' ? 'Departure' : 'Arrival', String(delay.minutes), reason ? `${reason.code} — ${reason.label}` : delay.reasonCode, delay.description]) {
+    let typeLabel = 'Arrival';
+    if (delay.type === 'DEPARTURE') {
+        typeLabel = 'Departure';
+    }
+    let reasonLabel = delay.reasonCode;
+    const reason = delayReasons.find(reason => reason.code === delay.reasonCode);
+    if (reason) {
+        reasonLabel = `${reason.code} — ${reason.label}`;
+    }
+    const values = [typeLabel, String(delay.minutes), reasonLabel, delay.description];
+    for (const text of values) {
         const cell = document.createElement('td');
         cell.textContent = text;
         row.append(cell);
     }
     const actions = document.createElement('td');
-    if (canChange(delay.type)) {
+    if (canChangeDelay(delay.type)) {
         const edit = document.createElement('button');
         edit.type = 'button';
         edit.className = 'button mr-2';
@@ -124,35 +175,44 @@ function delayRow(delay: Delay): HTMLTableRowElement {
 }
 
 function editDelay(delay: Delay): void {
-    if (busy || !canChange(delay.type)) {
+    if (isBusy || !canChangeDelay(delay.type)) {
         return;
     }
     clearError();
     pageStatus.textContent = '';
-    editing = delay;
+    delayBeingEdited = delay;
     typeInput.value = delay.type;
     typeInput.disabled = true;
-    if (!Array.from(reasonInput.options).some(option => option.value === delay.reasonCode)) {
-        reasonInput.add(option(delay.reasonCode, delay.reasonCode));
+    let reasonListed = false;
+    for (const option of reasonInput.options) {
+        if (option.value === delay.reasonCode) {
+            reasonListed = true;
+            break;
+        }
+    }
+    if (!reasonListed) {
+        reasonInput.add(createReasonOption(delay.reasonCode, delay.reasonCode));
     }
     reasonInput.value = delay.reasonCode;
     reasonInput.disabled = true;
     minutesInput.value = String(delay.minutes);
     descriptionInput.value = delay.description;
-    document.querySelector<HTMLElement>('#editor-title')!.textContent = 'Edit delay';
+    editorTitle.textContent = 'Edit delay';
     saveButton.textContent = 'Save changes';
     cancelButton.hidden = false;
-    editor.hidden = false;
+    delayEditor.hidden = false;
     minutesInput.focus();
 }
 
-async function refreshFlight(): Promise<void> {
+async function refreshFlight(): Promise<Flight> {
     try {
-        renderFlight(await getFlight(flightKey));
+        const flight = await getFlight(flightKey);
+        displayFlight(flight);
+        return flight;
     } catch (error) {
-        flight = null;
-        editor.hidden = true;
-        rows.replaceChildren();
+        currentFlight = null;
+        delayEditor.hidden = true;
+        delayTableBody.replaceChildren();
         content.hidden = true;
         throw error;
     }
@@ -160,7 +220,10 @@ async function refreshFlight(): Promise<void> {
 
 // a refusal or a missing flight or delay means the page shows an old state
 async function reloadAfterRefusal(error: unknown): Promise<void> {
-    if (!(error instanceof ResponseError) || (error.status !== 404 && error.status !== 409)) {
+    if (!(error instanceof ResponseError)) {
+        return;
+    }
+    if (error.status !== 404 && error.status !== 409) {
         return;
     }
     try {
@@ -173,33 +236,39 @@ async function reloadAfterRefusal(error: unknown): Promise<void> {
 
 async function saveDelay(event: Event): Promise<void> {
     event.preventDefault();
-    if (busy || !form.reportValidity()) {
+    if (isBusy || !delayForm.reportValidity()) {
         return;
     }
     clearError();
     pageStatus.textContent = '';
-    const type = editing?.type ?? typeInput.value as DelayType;
+    let type = typeInput.value as DelayType;
+    if (delayBeingEdited !== null) {
+        type = delayBeingEdited.type;
+    }
     const minutes = Number(minutesInput.value);
     const description = descriptionInput.value.trim();
-    if (!canChange(type) || !Number.isInteger(minutes) || minutes < 1 || minutes > 720 || !description) {
+    if (!canChangeDelay(type) || !Number.isInteger(minutes) || minutes < 1 || minutes > 720 || !description) {
         showError(new Error('Choose an allowed delay type, 1–720 whole minutes and a description.'));
         return;
     }
     setBusy(true);
-    let saved = false;
+    let delaySaved = false;
     try {
-        if (editing) {
-            await updateDelay(flightKey, editing.id, { minutes, description });
-            saved = true;
+        if (delayBeingEdited !== null) {
+            await updateDelay(flightKey, delayBeingEdited.id, { minutes, description });
+            delaySaved = true;
             await refreshFlight();
         } else {
-            renderFlight(await addDelay(flightKey, { type, minutes, reasonCode: reasonInput.value, description }));
-            saved = true;
+            const flight = await addDelay(flightKey, { type, minutes, reasonCode: reasonInput.value, description });
+            displayFlight(flight);
+            delaySaved = true;
         }
         pageStatus.textContent = 'Delay saved. Flight times are up to date.';
     } catch (error) {
-        showError(saved ? new Error('The delay was saved, but the flight could not be refreshed. Reload the page.') : error);
-        if (!saved) {
+        if (delaySaved) {
+            showError(new Error('The delay was saved, but the flight could not be refreshed. Reload the page.'));
+        } else {
+            showError(error);
             await reloadAfterRefusal(error);
         }
     } finally {
@@ -208,7 +277,7 @@ async function saveDelay(event: Event): Promise<void> {
 }
 
 async function deleteDelay(delay: Delay): Promise<void> {
-    if (busy || !canChange(delay.type)) {
+    if (isBusy || !canChangeDelay(delay.type)) {
         return;
     }
     if (!confirm('Delete this delay? Partners will be notified of the new times.')) {
@@ -217,17 +286,32 @@ async function deleteDelay(delay: Delay): Promise<void> {
     clearError();
     pageStatus.textContent = '';
     setBusy(true);
-    let removed = false;
+    let delayRemoved = false;
     try {
         await removeDelay(flightKey, delay.id);
-        removed = true;
+        delayRemoved = true;
         await refreshFlight();
         pageStatus.textContent = 'Delay deleted. Flight times are up to date.';
     } catch (error) {
-        showError(removed ? new Error('The delay was deleted, but the flight could not be refreshed. Reload the page.') : error);
-        if (!removed) {
+        if (delayRemoved) {
+            showError(new Error('The delay was deleted, but the flight could not be refreshed. Reload the page.'));
+        } else {
+            showError(error);
             await reloadAfterRefusal(error);
         }
+    } finally {
+        setBusy(false);
+    }
+}
+
+async function handleRefreshClick(): Promise<void> {
+    clearError();
+    pageStatus.textContent = '';
+    setBusy(true);
+    try {
+        await refreshFlight();
+    } catch (error) {
+        showError(error);
     } finally {
         setBusy(false);
     }
@@ -246,28 +330,17 @@ async function initialize(): Promise<void> {
         flightKey = { flightNumber, scheduledDepartureDate, departureAirportCode };
         document.querySelector<HTMLAnchorElement>('#back-to-flights')!.href = `../index.html?${new URLSearchParams({ date: scheduledDepartureDate })}`;
         pageStatus.textContent = 'Loading…';
-        await refreshFlight();
+        const flight = await refreshFlight();
         try {
-            reasons = await getDelayReasons();
-            renderFlight(flight!);
+            delayReasons = await getDelayReasons();
+            displayFlight(flight);
         } catch {
             showError(new Error('Delay reasons could not be loaded. Refresh the page before adding a delay.'));
         }
         pageStatus.textContent = '';
-        form.addEventListener('submit', saveDelay);
-        cancelButton.addEventListener('click', resetEditor);
-        refreshButton.addEventListener('click', async () => {
-            clearError();
-            pageStatus.textContent = '';
-            setBusy(true);
-            try {
-                await refreshFlight();
-            } catch (error) {
-                showError(error);
-            } finally {
-                setBusy(false);
-            }
-        });
+        delayForm.addEventListener('submit', saveDelay);
+        cancelButton.addEventListener('click', resetDelayEditor);
+        refreshButton.addEventListener('click', handleRefreshClick);
     } catch (error) {
         pageStatus.textContent = '';
         showError(error);
