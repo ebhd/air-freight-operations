@@ -17,16 +17,13 @@ import tools.jackson.databind.json.JsonMapper;
 @EnableScheduling
 public class RabbitConfiguration {
 
-    // ----- Incoming Flight events -----
-    static final String FLIGHT_EVENTS = "flight.events";
-    static final String FLIGHT_CREATED = "flight.created";
-    static final String FLIGHT_CREATED_QUEUE = "partner.flight-created";
-    static final String FLIGHT_ESTIMATES_CHANGED = "flight.estimates-changed";
-    static final String FLIGHT_ESTIMATES_CHANGED_QUEUE = "partner.flight-estimates-changed";
+    static final String FORMATTER_EVENTS = "formatter.events";
+    static final String PREPARED = "partner-messages.prepared";
+    static final String PREPARED_QUEUE = "partner.messages-prepared";
 
     // ----- Incoming message dead-letter handling -----
-    static final String DEAD_LETTER_EXCHANGE = "partner.dlx";
-    static final String DEAD_LETTER_QUEUE = "partner.dlq";
+    static final String DEAD_LETTER_EXCHANGE = "partner.sender.dlx";
+    static final String DEAD_LETTER_QUEUE = "partner.sender.dlq";
 
     // ----- Outgoing partner messages -----
     static final String PARTNER_MESSAGES = "partner.messages";
@@ -35,37 +32,21 @@ public class RabbitConfiguration {
     static final String MVT_ED = "mvt.ed";
     static final String MVT_EA = "mvt.ea";
 
-    // ----- Incoming Flight events -----
     @Bean
-    TopicExchange flightEvents() {
-        return new TopicExchange(FLIGHT_EVENTS);
+    TopicExchange formatterEvents() {
+        return new TopicExchange(FORMATTER_EVENTS);
     }
 
     @Bean
-    Queue flightCreatedQueue() {
-        return QueueBuilder.durable(FLIGHT_CREATED_QUEUE)
+    Queue preparedQueue() {
+        return QueueBuilder.durable(PREPARED_QUEUE)
                 .deadLetterExchange(DEAD_LETTER_EXCHANGE)
                 .build();
     }
 
     @Bean
-    Binding flightCreatedBinding(Queue flightCreatedQueue, TopicExchange flightEvents) {
-        return BindingBuilder.bind(flightCreatedQueue).to(flightEvents).with(FLIGHT_CREATED);
-    }
-
-    @Bean
-    Queue flightEstimatesChangedQueue() {
-        return QueueBuilder.durable(FLIGHT_ESTIMATES_CHANGED_QUEUE)
-                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
-                .build();
-    }
-
-    @Bean
-    Binding flightEstimatesChangedBinding(
-            Queue flightEstimatesChangedQueue, TopicExchange flightEvents) {
-        return BindingBuilder.bind(flightEstimatesChangedQueue)
-                .to(flightEvents)
-                .with(FLIGHT_ESTIMATES_CHANGED);
+    Binding preparedBinding(Queue preparedQueue, TopicExchange formatterEvents) {
+        return BindingBuilder.bind(preparedQueue).to(formatterEvents).with(PREPARED);
     }
 
     // ----- Incoming message dead-letter handling -----

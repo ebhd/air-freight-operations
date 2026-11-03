@@ -29,16 +29,18 @@ flowchart LR
     IAM["Identity and Access Management<br/>(external)"]
 
     F -->|flight identity, state and times| C
-    F -->|flight changes| M
+    MF["Message Formatter<br/>FLM, MVT-ED, MVT-EA"]
+    F -->|flight changes - published language| MF
+    MF -->|prepared messages - sender ACL| M
     C -->|CPM| F
-    C -->|CPM copy| M
+    C -.->|finalized load - future| MF
     IAM -.->|identity and roles| F
     IAM -.->|identity and roles| C
 ```
 
 ## 3. Ubiquitous language
 
-| Term | Flight Operations | Cargo Loading | Partner Communication |
+| Term | Flight Operations | Cargo Loading | Message Formatter / Partner Communication |
 | --- | --- | --- | --- |
 | Flight | Aggregate owning times, status and delays for one dated flight | Flight information used for bookings and load planning | Flight identity and facts used to prepare messages |
 | FlightKey | Flight number, UTC scheduled departure date and departure airport code | Identifies the flight of a CargoPlan | Identifies the flight described by a message |
@@ -73,11 +75,13 @@ flowchart LR
         FO --> CPMReceiver
     end
 
-    subgraph PC_CTX["Partner Communication (downstream)"]
+    subgraph MF_CTX["Message Formatter"]
+        FlightFormatter["Flight event listeners and formatters"]
+    end
+    subgraph PC_CTX["Partner Communication"]
+        PreparedACL["Prepared-message listener<br/>«anti-corruption layer»"]
         PC["Partner Communication"]
-        FlightFormatter["Flight Message Formatter"]
-
-        PC --> FlightFormatter
+        PreparedACL --> PC
     end
 
     IAM["Identity and Access Management <br/>external"]
@@ -86,8 +90,9 @@ flowchart LR
 
     CPMReceiver -->|"CPM - RabbitMQ<br/>«published language»"| CL
 
-    FlightFormatter -->|"Flight facts - RabbitMQ"| FO
-    PC -->|"CPM - RabbitMQ"| CL
+    FO -->|"Flight facts - RabbitMQ<br/>«published language»"| FlightFormatter
+    CL -.->|"Finalized load - future<br/>«published language»"| FlightFormatter
+    FlightFormatter -->|"Prepared messages - RabbitMQ"| PreparedACL
     FO -.->|"Identity and roles - OIDC"| IAM
     CL -.->|"Identity and roles - OIDC"| IAM
 ```
@@ -96,8 +101,8 @@ flowchart LR
 | --- | --- | --- |
 | Flight Operations -> Cargo Loading | Open Host Service, Published Language; Cargo anti-corruption layer | Flight Operations exposes a flight-information contract; Cargo Loading translates it into its own model. |
 | Cargo Loading -> Flight Operations | Published Language; Flight anti-corruption layer | Cargo Loading publishes CPM; Flight Operations translates it into its departure prerequisite. |
-| Flight Operations -> Partner Communication | Published Language | Partner Communication formats flight facts into FLM/MVT messages. |
-| Cargo Loading -> Partner Communication | Published Language | Partner Communication receives its own CPM copy for partner delivery. |
+| Flight Operations / Cargo Loading -> Message Formatter | Published Language | Formatter consumes Flight facts for FLM/MVT; finalized Cargo events are a future input. |
+| Message Formatter -> Partner Communication | Sender anti-corruption layer | Sender translates prepared batches into its own message model, persists them and publishes them. |
 
 ## 5. Deployment
 
@@ -122,6 +127,7 @@ flowchart TB
         PDB[("Partner messaging database")]
     end
 
+    MF["message-formatter-service :8084<br/>stateless"]
     F --> FDB
     C --> CDB
     P --> PDB
@@ -132,7 +138,10 @@ flowchart TB
     MQ -->|ULD message| C
     F -->|flight changes| MQ
     C -->|CPM| MQ
-    MQ -->|flight facts and CPM copy| P
+    MQ -->|flight facts| MF
+    MF -->|prepared batch - formatter.events| MQ
+    MQ -->|prepared batch - sender ACL| P
+    C -.->|finalized load - future| MF
     MQ -->|CPM for departure check| F
 ```
 
@@ -350,9 +359,12 @@ classDiagram
         actualArrival
         finalizedLoadProcessed
         create(flightKey, arrivalAirportCode, aircraftRegistration, scheduledDeparture, scheduledArrival)
-        addDelay(type, minutes, reasonCode, description)
-        updateDelay(delayId, minutes, description)
-        removeDelay(delayId)
+        addDepartureDelay(minutes, reasonCode, description)
+        addArrivalDelay(minutes, reasonCode, description)
+        updateDepartureDelay(delayId, minutes, description)
+        updateArrivalDelay(delayId, minutes, description)
+        removeDepartureDelay(delayId)
+        removeArrivalDelay(delayId)
         estimatedDeparture()
         estimatedArrival()
         recordFinalizedLoad()
@@ -382,18 +394,13 @@ classDiagram
         description
     }
 
-    class DelayType {
-        <<enumeration>>
-        DEPARTURE
-        ARRIVAL
-    }
 
 
 
-    Flight "1" *-- "0..*" Delay : delays
+    Flight "1" *-- "0..*" Delay : departureDelays
+    Flight "1" *-- "0..*" Delay : arrivalDelays
     Flight "1" --> "1" FlightKey : key
     Flight --> "1" FlightStatus : status
-    Delay --> "1" DelayType : type
 
 ```
 
@@ -433,7 +440,7 @@ stateDiagram-v2
     DEPARTED --> LANDED: recordArrival(ATA)
 ```
 
-## 8. Tactical design: Partner Communication
+## 8. Tactical design: Message Formatter and Partner Communication
 
 ```mermaid
 classDiagram
@@ -459,22 +466,34 @@ classDiagram
         <<interface>>
         format(flightFact)
     }
-    class FlmFormatter
-    class MvtFormatter
+    class FlmFormatter {
+        <<Message Formatter service>>
+    }
+    class MvtEdFormatter {
+        <<Message Formatter service>>
+    }
+    class MvtEaFormatter {
+        <<Message Formatter service>>
+    }
+    class PreparedMessageListener {
+        <<Sender ACL>>
+    }
+    PreparedMessageListener --> MessageContent : translates prepared batch
     PartnerMessage --> MessageId : identity
     PartnerMessage --> MessageContent : immutable content
     PartnerMessage --> PublicationState : state
     PartnerMessage : sourceMessageId
     PartnerMessage : createdAtUTC
     MessageFormatter <|.. FlmFormatter
-    MessageFormatter <|.. MvtFormatter
+    MessageFormatter <|.. MvtEdFormatter
+    MessageFormatter <|.. MvtEaFormatter
 ```
 
 | Building block | Elements |
 | --- | --- |
 | Aggregate root | `PartnerMessage` |
 | Value objects | `MessageId`, `MessageContent` |
-| Domain services | `FlmFormatter`, `MvtFormatter` |
+| Formatter implementations | `FlmFormatter`, `MvtEdFormatter`, `MvtEaFormatter` in Message Formatter |
 | Repository | `PartnerMessageRepository` |
 | Actors | Partners |
 

@@ -55,10 +55,10 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 @ContextConfiguration(classes = FlightSecurityTest.Config.class)
 class FlightSecurityTest {
     private static final String FLIGHT = "/api/flights/HJ221/2026-10-19/BRU";
-    private static final String DELAY = FLIGHT + "/delays/" + UUID.randomUUID();
+    private static final String DELAY = FLIGHT + "/departure-delays/" + UUID.randomUUID();
     private static final String ADD_BODY =
             """
-            {"type":"DEPARTURE","minutes":20,"reasonCode":"71","description":"Fog"}
+            {"minutes":20,"reasonCode":"71","description":"Fog"}
             """;
     private static final String EDIT_BODY =
             """
@@ -90,7 +90,7 @@ class FlightSecurityTest {
     @Test
     void loadPlannerCannotAddADelay() throws Exception {
         mvc.perform(
-                        post(FLIGHT + "/delays")
+                        post(FLIGHT + "/departure-delays")
                                 .with(planner("load-planner"))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(ADD_BODY))
@@ -120,7 +120,7 @@ class FlightSecurityTest {
     void flightPlannerCanDeleteADelay() throws Exception {
         mvc.perform(delete(DELAY).with(planner("flight-planner")))
                 .andExpect(status().isNoContent());
-        verify(flightDelayService).removeDelay(any(), any());
+        verify(flightDelayService).removeDepartureDelay(any(), any());
     }
 
     @ParameterizedTest

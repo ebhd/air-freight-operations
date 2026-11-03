@@ -9,4 +9,5 @@ include('cargo:cargo-service')
 include('cargo:cargo-frontend')
 
 include('partner-communication-service')
+include('message-formatter-service')
 include('simulator')

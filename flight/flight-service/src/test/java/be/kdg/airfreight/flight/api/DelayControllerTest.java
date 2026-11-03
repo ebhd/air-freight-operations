@@ -15,7 +15,6 @@ import be.kdg.airfreight.flight.application.FlightQueryService;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReason;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
 import be.kdg.airfreight.flight.domain.flight.Delay;
-import be.kdg.airfreight.flight.domain.flight.DelayType;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightRepository;
@@ -66,13 +65,8 @@ class DelayControllerTest {
                         Instant.parse("2026-10-19T09:00:00Z"),
                         Instant.parse("2026-10-19T11:00:00Z"),
                         FlightStatus.DEPARTED,
-                        List.of(
-                                Delay.restore(
-                                        DEPARTURE_DELAY,
-                                        DelayType.DEPARTURE,
-                                        20,
-                                        "71",
-                                        "Fog at departure"))));
+                        List.of(Delay.restore(DEPARTURE_DELAY, 20, "71", "Fog at departure")),
+                        List.of()));
         FlightRepository flightRepository = new InMemoryFlights();
         DelayReasonRepository reasons = new OneReason();
         mvc =
@@ -157,11 +151,11 @@ class DelayControllerTest {
     private ResultActions addDelay(int minutes, String reasonCode, String description)
             throws Exception {
         return mvc.perform(
-                post("/api/flights/HJ221/2026-10-19/BRU/delays")
+                post("/api/flights/HJ221/2026-10-19/BRU/departure-delays")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(
                                 """
-                                {"type":"DEPARTURE","minutes":%d,"reasonCode":"%s","description":"%s"}
+                                {"minutes":%d,"reasonCode":"%s","description":"%s"}
                                 """
                                         .formatted(minutes, reasonCode, description)));
     }
@@ -170,7 +164,7 @@ class DelayControllerTest {
             throws Exception {
         return mvc.perform(
                 patch(
-                                "/api/flights/{number}/{date}/{airport}/delays/{id}",
+                                "/api/flights/{number}/{date}/{airport}/departure-delays/{id}",
                                 key.flightNumber(),
                                 key.scheduledDepartureDate(),
                                 key.departureAirportCode(),

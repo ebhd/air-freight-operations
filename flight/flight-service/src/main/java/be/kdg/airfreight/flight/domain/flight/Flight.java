@@ -17,7 +17,8 @@ public final class Flight {
     private final Instant scheduledDeparture;
     private final Instant scheduledArrival;
     private final FlightStatus status;
-    private final List<Delay> delays;
+    private final List<Delay> departureDelays;
+    private final List<Delay> arrivalDelays;
 
     private Flight(
             FlightKey key,
@@ -46,7 +47,8 @@ public final class Flight {
                     "flight key date must equal the UTC scheduled departure date");
         }
         this.status = Objects.requireNonNull(status, "flight status must not be null");
-        this.delays = new ArrayList<>();
+        this.departureDelays = new ArrayList<>();
+        this.arrivalDelays = new ArrayList<>();
     }
 
     public static Flight create(
@@ -71,7 +73,8 @@ public final class Flight {
             Instant scheduledDeparture,
             Instant scheduledArrival,
             FlightStatus status,
-            List<Delay> delays) {
+            List<Delay> departureDelays,
+            List<Delay> arrivalDelays) {
         Flight flight =
                 new Flight(
                         key,
@@ -80,7 +83,10 @@ public final class Flight {
                         scheduledDeparture,
                         scheduledArrival,
                         Objects.requireNonNull(status, "flight status must not be null"));
-        flight.delays.addAll(Objects.requireNonNull(delays, "delays must not be null"));
+        flight.departureDelays.addAll(
+                Objects.requireNonNull(departureDelays, "departure delays must not be null"));
+        flight.arrivalDelays.addAll(
+                Objects.requireNonNull(arrivalDelays, "arrival delays must not be null"));
         return flight;
     }
 
@@ -115,45 +121,67 @@ public final class Flight {
         return status;
     }
 
-    public List<Delay> delays() {
-        return Collections.unmodifiableList(delays);
+    public List<Delay> departureDelays() {
+        return Collections.unmodifiableList(departureDelays);
     }
 
-    public void addDelay(DelayType type, int minutes, String reasonCode, String description) {
-        if (type == null) {
-            throw new InvalidDelayException("delay type must not be null");
-        }
-        requireDelayChangesAllowed(type);
-        delays.add(new Delay(type, minutes, reasonCode, description));
+    public List<Delay> arrivalDelays() {
+        return Collections.unmodifiableList(arrivalDelays);
     }
 
-    public void updateDelay(UUID delayId, int minutes, String description) {
-        Delay delay = requireDelay(delayId);
-        requireDelayChangesAllowed(delay.type());
+    public void addDepartureDelay(int minutes, String reasonCode, String description) {
+        requireDepartureDelayChangesAllowed();
+        departureDelays.add(new Delay(minutes, reasonCode, description));
+    }
+
+    public void updateDepartureDelay(UUID delayId, int minutes, String description) {
+        Delay delay = requireDelay(departureDelays, delayId);
+        requireDepartureDelayChangesAllowed();
         delay.update(minutes, description);
     }
 
-    public void removeDelay(UUID delayId) {
-        Delay delay = requireDelay(delayId);
-        requireDelayChangesAllowed(delay.type());
-        delays.remove(delay);
+    public void removeDepartureDelay(UUID delayId) {
+        Delay delay = requireDelay(departureDelays, delayId);
+        requireDepartureDelayChangesAllowed();
+        departureDelays.remove(delay);
     }
 
-    private Delay requireDelay(UUID delayId) {
+    public void addArrivalDelay(int minutes, String reasonCode, String description) {
+        requireArrivalDelayChangesAllowed();
+        arrivalDelays.add(new Delay(minutes, reasonCode, description));
+    }
+
+    public void updateArrivalDelay(UUID delayId, int minutes, String description) {
+        Delay delay = requireDelay(arrivalDelays, delayId);
+        requireArrivalDelayChangesAllowed();
+        delay.update(minutes, description);
+    }
+
+    public void removeArrivalDelay(UUID delayId) {
+        Delay delay = requireDelay(arrivalDelays, delayId);
+        requireArrivalDelayChangesAllowed();
+        arrivalDelays.remove(delay);
+    }
+
+    private Delay requireDelay(List<Delay> delays, UUID delayId) {
         Objects.requireNonNull(delayId, "delay id must not be null");
-        return delays.stream()
-                .filter(delay -> delay.id().equals(delayId))
-                .findFirst()
-                .orElseThrow(() -> new NotFoundException("Unknown delay " + delayId));
+        for (Delay delay : delays) {
+            if (delay.id().equals(delayId)) {
+                return delay;
+            }
+        }
+        throw new NotFoundException("Unknown delay " + delayId);
     }
 
-    private void requireDelayChangesAllowed(DelayType type) {
-        if (type == DelayType.DEPARTURE && status != FlightStatus.PLANNED) {
+    private void requireDepartureDelayChangesAllowed() {
+        if (status != FlightStatus.PLANNED) {
             throw new DomainRuleViolationException(
                     "departure delays can only be changed while the flight is planned");
         }
+    }
 
-        if (type == DelayType.ARRIVAL && status == FlightStatus.LANDED) {
+    private void requireArrivalDelayChangesAllowed() {
+        if (status == FlightStatus.LANDED) {
             throw new DomainRuleViolationException(
                     "arrival delays cannot be changed after landing");
         }
@@ -170,17 +198,11 @@ public final class Flight {
     }
 
     public int departureDelayMinutes() {
-        return delays.stream()
-                .filter(delay -> delay.type() == DelayType.DEPARTURE)
-                .mapToInt(Delay::minutes)
-                .sum();
+        return departureDelays.stream().mapToInt(Delay::minutes).sum();
     }
 
     public int arrivalDelayMinutes() {
-        return delays.stream()
-                .filter(delay -> delay.type() == DelayType.ARRIVAL)
-                .mapToInt(Delay::minutes)
-                .sum();
+        return arrivalDelays.stream().mapToInt(Delay::minutes).sum();
     }
 
     @Override
