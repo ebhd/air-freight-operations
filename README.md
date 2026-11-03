@@ -104,13 +104,15 @@ Every request needs a bearer token. Times are UTC. In the paths below, `{flight}
 
 Errors use `ProblemDetail`: 400 for invalid input, 404 for an unknown flight, 409 when a business rule refuses the action (with the reason), 503 when Cargo cannot reach Flight.
 
+Cargo keeps its own copy of Flight's flights, filled by Flight's events (see [Messages](#messages)), and asks Flight over HTTP only for a flight that is not in the copy yet. So Cargo's pages keep working while Flight is down, except for a flight Cargo has never seen. A flight created before Cargo's queues first existed is missing from Cargo's day overview until someone opens it by its key (cargo plan or ULD booking). Start Cargo at least once before sending SSMs, or reset with `docker compose down -v`. Until Flight registers departures (US-28), every flight in Cargo's copy stays `PLANNED`.
+
 ## Messages
 
 | Queue or exchange | Routing keys | Content |
 | --- | --- | --- |
 | `flight.ssm` | | SSM from the simulator |
 | `cargo.uld` | | ULD bookings, provisional format below (Q01) |
-| `flight.events` | `flight.created`, `flight.estimates-changed` | From Flight to Partner, sent through Flight's outbox |
+| `flight.events` | `flight.created`, `flight.estimates-changed` | From Flight to Partner and Cargo, sent through Flight's outbox. Cargo reads them on `cargo.flight-created` and `cargo.flight-estimates-changed` |
 | `partner.messages` | `flm`, `mvt.ed`, `mvt.ea` | To partners: FLM as JSON, MVT as three lines of text with UTC times |
 
 ULD booking:
@@ -128,7 +130,7 @@ ULD booking:
 }
 ```
 
-Every message has a stable ID and is processed only once. Cargo stores invalid ULD messages in its `rejected_messages` table. Flight and Partner send invalid messages to a dead-letter queue (`flight.dlq`, `partner.dlq`) and requeue temporary database failures on the original queue after the configured short retries.
+Every message has a stable ID and is processed only once. Cargo stores invalid ULD and flight messages in its `rejected_messages` table. Flight and Partner send invalid messages to a dead-letter queue (`flight.dlq`, `partner.dlq`) and requeue temporary database failures on the original queue after the configured short retries.
 
 ## Checks
 
