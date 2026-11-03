@@ -34,7 +34,7 @@ public class LoadingWindowService {
         this.clock = clock;
     }
 
-    // fresh flight data on every call so the latest etd sets the end of the window
+    // the copy follows flights estimate events so the latest etd sets the end of the window
     public LoadingContext contextFor(FlightKey flightKey) {
         Optional<FlightInformation> flight = flightRepository.findByFlightKey(flightKey);
         if (flight.isEmpty()) {

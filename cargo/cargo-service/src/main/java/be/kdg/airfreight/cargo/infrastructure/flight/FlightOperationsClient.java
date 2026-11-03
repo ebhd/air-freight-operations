@@ -4,30 +4,26 @@ import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.flight.FlightLookupRejectedException;
 import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
-import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
-import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.core.OAuth2AuthorizationException;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
-@Repository
+// flights open host service, only asked for a flight that is not in cargos copy yet
+@Component
 @Slf4j
-class HttpFlightRepository implements FlightRepository {
+class FlightOperationsClient {
     private final RestClient flightApiClient;
 
-    HttpFlightRepository(RestClient flightApiClient) {
+    FlightOperationsClient(RestClient flightApiClient) {
         this.flightApiClient = flightApiClient;
     }
 
-    @Override
-    public Optional<FlightInformation> findByFlightKey(FlightKey flightKey) {
+    Optional<FlightInformation> fetch(FlightKey flightKey) {
         try {
             FlightResponse response =
                     flightApiClient
@@ -55,29 +51,6 @@ class HttpFlightRepository implements FlightRepository {
         } catch (RestClientException | OAuth2AuthorizationException exception) {
             // flight down timeout 5xx or keycloak unreachable
             throw unavailable(flightKey, exception);
-        }
-    }
-
-    @Override
-    public List<FlightInformation> findByScheduledDepartureDate(LocalDate scheduledDepartureDate) {
-        try {
-            FlightResponse[] response =
-                    flightApiClient
-                            .get()
-                            .uri("/api/flights?date={date}", scheduledDepartureDate)
-                            .retrieve()
-                            .body(FlightResponse[].class);
-            // flight always sends a list so no body means something is broken
-            if (response == null) {
-                throw new FlightLookupUnavailableException(scheduledDepartureDate, null);
-            }
-            return Arrays.stream(response).map(FlightResponse::toFlightInformation).toList();
-        } catch (RestClientException | OAuth2AuthorizationException exception) {
-            log.warn(
-                    "Flight lookup for {} failed: {}",
-                    scheduledDepartureDate,
-                    exception.getMessage());
-            throw new FlightLookupUnavailableException(scheduledDepartureDate, exception);
         }
     }
 

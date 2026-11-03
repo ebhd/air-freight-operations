@@ -31,7 +31,7 @@ public class UldPositionService {
     }
 
     public void assignPosition(FlightKey flightKey, UldCode uldCode, LoadingPosition position) {
-        // flight is asked over http before the transaction so no db connection waits on it
+        // read before the transaction so asking flight for an unknown flight holds no db connection
         LoadingContext context = loadingWindowService.contextFor(flightKey);
         // load change and save in one transaction so save checks the version that was loaded
         transaction.executeWithoutResult(
