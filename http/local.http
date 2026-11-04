@@ -221,3 +221,51 @@ Authorization: Bearer {{cargo_flight_planner_token}}
 Content-Type: application/json
 
 {"position": "RL"}
+
+### Replanning demo (flight planner token; send the HJ500 SSM in simulator/http/ssm.http first and keep the simulator running)
+### 1. Departure delay of 400 minutes (200)
+POST http://localhost:8080/api/flights/HJ500/2026-11-10/BRU/departure-delays
+Authorization: Bearer {{flight_access_token}}
+Content-Type: application/json
+
+{"minutes": 400, "reasonCode": "71", "description": "Fog at departure"}
+
+### 2. Arrival delay of 200 minutes (200, total 600)
+POST http://localhost:8080/api/flights/HJ500/2026-11-10/BRU/arrival-delays
+Authorization: Bearer {{flight_access_token}}
+Content-Type: application/json
+
+{"minutes": 200, "reasonCode": "71", "description": "Holding at arrival"}
+
+### 3. One more departure delay of 140 minutes (409 TOTAL_DELAY_EXCEEDED with the proposed HJ500A and its times)
+POST http://localhost:8080/api/flights/HJ500/2026-11-10/BRU/departure-delays
+Authorization: Bearer {{flight_access_token}}
+Content-Type: application/json
+
+{"minutes": 140, "reasonCode": "93", "description": "Hydraulic leak, part flown in"}
+
+### 4. Replan the flight for that refused change (200, status REPLANNED; the simulator answers with the SSM for HJ500A)
+POST http://localhost:8080/api/flights/HJ500/2026-11-10/BRU/replanning
+Authorization: Bearer {{flight_access_token}}
+Content-Type: application/json
+
+{"delayType": "DEPARTURE", "delayId": null, "minutes": 140, "reasonCode": "93", "description": "Hydraulic leak, part flown in"}
+
+### 5. The new flight, once the simulator processed the event (200 with replaces, 404 before that)
+GET http://localhost:8080/api/flights/HJ500A/2026-11-11/BRU
+Authorization: Bearer {{flight_access_token}}
+
+### 6. The old flight shows its replanning and replacementCreated
+GET http://localhost:8080/api/flights/HJ500/2026-11-10/BRU
+Authorization: Bearer {{flight_access_token}}
+
+### 7. A second replan is refused (409 NOT_PLANNED)
+POST http://localhost:8080/api/flights/HJ500/2026-11-10/BRU/replanning
+Authorization: Bearer {{flight_access_token}}
+Content-Type: application/json
+
+{"delayType": "DEPARTURE", "delayId": null, "minutes": 140, "reasonCode": "93", "description": "Hydraulic leak, part flown in"}
+
+### 8. Cargo: the old plan says where its cargo moved to (load planner token)
+GET http://localhost:8081/api/cargo-plans/HJ500/2026-11-10/BRU
+Authorization: Bearer {{cargo_access_token}}

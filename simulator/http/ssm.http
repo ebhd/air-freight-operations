@@ -21,3 +21,21 @@ Content-Type: application/json
   }
 ]
 
+
+### Replanning demo: HJ500 flies only on Tuesday 10 November 2026, 20:00-22:00 UTC (see http/local.http for the delays and the replan)
+POST http://localhost:8083/api/simulator/flight-schedules
+Content-Type: application/json
+
+[
+  {
+    "startDate": "2026-11-10",
+    "endDate": "2026-11-10",
+    "operatingDays": ["TUESDAY"],
+    "departureTime": "20:00:00",
+    "arrivalTime": "22:00:00",
+    "flightNumber": "HJ500",
+    "departureAirportCode": "BRU",
+    "arrivalAirportCode": "AMS",
+    "aircraftRegistration": "SXBAA"
+  }
+]
