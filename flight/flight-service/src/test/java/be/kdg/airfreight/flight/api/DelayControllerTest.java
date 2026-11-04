@@ -1,6 +1,7 @@
 package be.kdg.airfreight.flight.api;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -10,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import be.kdg.airfreight.flight.api.delayreason.DelayReasonController;
 import be.kdg.airfreight.flight.api.flight.FlightController;
 import be.kdg.airfreight.flight.application.DelayReasonQueryService;
+import be.kdg.airfreight.flight.application.FlightActualTimeService;
 import be.kdg.airfreight.flight.application.FlightDelayService;
 import be.kdg.airfreight.flight.application.FlightQueryService;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReason;
@@ -77,7 +79,8 @@ class DelayControllerTest {
                                                 flightRepository,
                                                 reasons,
                                                 event -> {},
-                                                Clock.systemUTC())),
+                                                Clock.systemUTC()),
+                                        mock(FlightActualTimeService.class)),
                                 new DelayReasonController(new DelayReasonQueryService(reasons)))
                         .setControllerAdvice(new ErrorHandling())
                         .build();

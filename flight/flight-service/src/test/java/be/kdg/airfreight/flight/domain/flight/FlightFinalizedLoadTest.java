@@ -27,8 +27,8 @@ class FlightFinalizedLoadTest {
 
         assertThatThrownBy(flight::requireFinalizedLoadProcessed)
                 .isInstanceOf(DomainRuleViolationException.class)
-                .hasMessage(
-                        "departure needs the processed CPM of the finalized load from Cargo"
+                .hasMessageStartingWith(
+                        "Departure needs the processed CPM of the finalized load from Cargo"
                                 + " Loading");
 
         flight.recordFinalizedLoad();

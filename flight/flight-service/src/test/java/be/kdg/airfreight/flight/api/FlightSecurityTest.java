@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import be.kdg.airfreight.flight.api.delayreason.DelayReasonController;
 import be.kdg.airfreight.flight.api.flight.FlightController;
 import be.kdg.airfreight.flight.application.DelayReasonQueryService;
+import be.kdg.airfreight.flight.application.FlightActualTimeService;
 import be.kdg.airfreight.flight.application.FlightDelayService;
 import be.kdg.airfreight.flight.application.FlightQueryService;
 import be.kdg.airfreight.flight.domain.flight.Flight;
@@ -64,16 +65,25 @@ class FlightSecurityTest {
             """
             {"minutes":30,"description":"Fog"}
             """;
+    private static final String ACTUAL_TIME_BODY =
+            """
+            {"actualDeparture":"2026-10-19T08:03:00Z"}
+            """;
 
     @Autowired private WebApplicationContext context;
     @Autowired private FlightQueryService flightQueryService;
     @Autowired private FlightDelayService flightDelayService;
     @Autowired private DelayReasonQueryService delayReasonQueryService;
+    @Autowired private FlightActualTimeService flightActualTimeService;
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        reset(flightQueryService, flightDelayService, delayReasonQueryService);
+        reset(
+                flightQueryService,
+                flightDelayService,
+                delayReasonQueryService,
+                flightActualTimeService);
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
         Flight flight =
                 Flight.create(
@@ -84,6 +94,7 @@ class FlightSecurityTest {
                         Instant.parse("2026-10-19T10:00:00Z"));
         when(flightQueryService.findFlight(any())).thenReturn(Optional.of(flight));
         when(flightQueryService.findFlightsOn(any())).thenReturn(List.of(flight));
+        when(flightActualTimeService.recordDeparture(any())).thenReturn(flight);
         when(delayReasonQueryService.findAll()).thenReturn(List.of());
     }
 
@@ -124,6 +135,40 @@ class FlightSecurityTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"departure", "arrival"})
+    void loadPlannerCannotRegisterAnActualTime(String action) throws Exception {
+        mvc.perform(
+                        post(FLIGHT + "/" + action)
+                                .with(planner("load-planner"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(ACTUAL_TIME_BODY))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(flightActualTimeService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"departure", "arrival"})
+    void anonymousCannotRegisterAnActualTime(String action) throws Exception {
+        mvc.perform(
+                        post(FLIGHT + "/" + action)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(ACTUAL_TIME_BODY))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(flightActualTimeService);
+    }
+
+    @Test
+    void flightPlannerCanRegisterTheDeparture() throws Exception {
+        mvc.perform(
+                        post(FLIGHT + "/departure")
+                                .with(planner("flight-planner"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(ACTUAL_TIME_BODY))
+                .andExpect(status().isOk());
+        verify(flightActualTimeService).recordDeparture(any());
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"flight-planner", "load-planner"})
     void bothPlannerRolesCanReadFlightsAndDelayReasons(String role) throws Exception {
         mvc.perform(get(FLIGHT).with(planner(role))).andExpect(status().isOk());
@@ -160,6 +205,11 @@ class FlightSecurityTest {
         @Bean
         DelayReasonQueryService delayReasonQueryService() {
             return mock(DelayReasonQueryService.class);
+        }
+
+        @Bean
+        FlightActualTimeService flightActualTimeService() {
+            return mock(FlightActualTimeService.class);
         }
     }
 }
