@@ -393,6 +393,7 @@ class FlightActualTimeRulesTest {
                 actualDeparture,
                 null,
                 null,
-                false);
+                false,
+                null);
     }
 }

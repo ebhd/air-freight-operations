@@ -231,6 +231,11 @@ class DelayControllerTest {
             flights.put(flight.key(), flight);
             return flight;
         }
+
+        @Override
+        public Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture) {
+            return Optional.empty();
+        }
     }
 
     // only reason 71 exists and a broken table throws a plain library exception

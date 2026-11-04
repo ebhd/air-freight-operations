@@ -33,6 +33,8 @@ public final class Flight {
     private Replanning replanning;
     // true once the new flight was created from its ssm, a flag like finalizedLoadProcessed
     private boolean replacementCreated;
+    // the key of the replanned flight this one replaces, null for a normal flight
+    private FlightKey replaces;
 
     private Flight(
             FlightKey key,
@@ -124,7 +126,8 @@ public final class Flight {
                 null,
                 null,
                 null,
-                false);
+                false,
+                null);
     }
 
     public static Flight restore(
@@ -140,7 +143,8 @@ public final class Flight {
             Instant actualDeparture,
             Instant actualArrival,
             Replanning replanning,
-            boolean replacementCreated) {
+            boolean replacementCreated,
+            FlightKey replaces) {
         Flight flight =
                 new Flight(
                         key,
@@ -158,6 +162,7 @@ public final class Flight {
         flight.actualArrival = actualArrival;
         flight.replanning = replanning;
         flight.replacementCreated = replacementCreated;
+        flight.replaces = replaces;
         return flight;
     }
 
@@ -218,6 +223,18 @@ public final class Flight {
 
     public boolean replacementCreated() {
         return replacementCreated;
+    }
+
+    public Optional<FlightKey> replaces() {
+        return Optional.ofNullable(replaces);
+    }
+
+    // the back link, set once when this flight is created as the replacement of another
+    public void recordReplaces(FlightKey replannedFlight) {
+        if (replaces != null) {
+            throw new DomainRuleViolationException("this flight already replaces " + replaces);
+        }
+        replaces = Objects.requireNonNull(replannedFlight, "replanned flight must not be null");
     }
 
     // the schedule a replan would give, nothing changes; the service picks the free number

@@ -15,6 +15,8 @@ import be.kdg.airfreight.flight.domain.flight.DelayType;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightStatus;
+import be.kdg.airfreight.flight.infrastructure.messaging.ssm.SsmMessage;
+import be.kdg.airfreight.flight.infrastructure.messaging.ssm.SsmRabbitListener;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaFlight;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaFlightId;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaFlightRepository;
@@ -46,6 +48,7 @@ class ReplanningIntegrationTest {
     private static final FlightKey KEY = new FlightKey("HJ500", LocalDate.of(2026, 11, 10), "BRU");
 
     @Autowired private FlightReplanningService replanningService;
+    @Autowired private SsmRabbitListener ssmListener;
     @Autowired private JpaFlightRepository flights;
     @MockitoSpyBean private DelayReasonRepository delayReasons;
     @Autowired private JpaOutboxMessageRepository outbox;
@@ -98,6 +101,7 @@ class ReplanningIntegrationTest {
         Flight stored = flights.findById(JpaFlightId.fromDomain(KEY)).orElseThrow().toDomain();
         assertThat(stored.status()).isEqualTo(FlightStatus.REPLANNED);
         assertThat(stored.replacementCreated()).isFalse();
+        assertThat(stored.replaces()).isEmpty();
         var replanning = stored.replanning().orElseThrow();
         assertThat(replanning.newFlightNumber()).isEqualTo("HJ500A");
         assertThat(replanning.newScheduledDeparture())
@@ -129,6 +133,68 @@ class ReplanningIntegrationTest {
         assertThat(message.get("newScheduledDeparture").asText()).isEqualTo("2026-11-11T05:00:00Z");
         assertThat(message.get("newScheduledArrival").asText()).isEqualTo("2026-11-11T10:20:00Z");
         assertThat(message.has("reasonCode")).isFalse();
+    }
+
+    // the simulators ssm: new flight, both links and two outbox rows in one transaction
+    @Test
+    void ssmForTheNewKeyCreatesTheReplacementAndLinksBothFlights() {
+        replanningService.replan(
+                new ReplanFlightCommand(
+                        KEY, DelayType.DEPARTURE, null, 140, "93", "Hydraulic leak"));
+        outbox.deleteAll();
+        FlightKey newKey = new FlightKey("HJ500A", LocalDate.of(2026, 11, 11), "BRU");
+
+        ssmListener.receive(replacementSsm("replan-1"));
+
+        Flight replacement =
+                flights.findById(JpaFlightId.fromDomain(newKey)).orElseThrow().toDomain();
+        assertThat(replacement.status()).isEqualTo(FlightStatus.PLANNED);
+        assertThat(replacement.replaces()).contains(KEY);
+        assertThat(replacement.replanning()).isEmpty();
+        Flight old = flights.findById(JpaFlightId.fromDomain(KEY)).orElseThrow().toDomain();
+        assertThat(old.replacementCreated()).isTrue();
+        assertThat(old.replaces()).isEmpty();
+
+        List<JpaOutboxMessage> rows = outbox.findAll();
+        assertThat(rows)
+                .extracting(JpaOutboxMessage::getRoutingKey)
+                .containsExactlyInAnyOrder("flight.created", "flight.replaced");
+        JsonNode replaced =
+                json.readTree(
+                        rows.stream()
+                                .filter(row -> row.getRoutingKey().equals("flight.replaced"))
+                                .findFirst()
+                                .orElseThrow()
+                                .getPayload());
+        assertThat(replaced.get("version").asInt()).isEqualTo(1);
+        assertThat(replaced.get("flightNumber").asText()).isEqualTo("HJ500");
+        assertThat(replaced.get("scheduledDepartureDate").asText()).isEqualTo("2026-11-10");
+        assertThat(replaced.get("departureAirportCode").asText()).isEqualTo("BRU");
+        assertThat(replaced.get("newFlightNumber").asText()).isEqualTo("HJ500A");
+        assertThat(replaced.get("newScheduledDepartureDate").asText()).isEqualTo("2026-11-11");
+        assertThat(replaced.get("newDepartureAirportCode").asText()).isEqualTo("BRU");
+        assertThat(replaced.get("newScheduledDeparture").asText())
+                .isEqualTo("2026-11-11T05:00:00Z");
+        assertThat(replaced.get("newScheduledArrival").asText()).isEqualTo("2026-11-11T10:20:00Z");
+
+        // the same ssm again (redelivered event) changes nothing
+        outbox.deleteAll();
+        ssmListener.receive(replacementSsm("replan-1"));
+
+        assertThat(flights.count()).isEqualTo(2);
+        assertThat(outbox.count()).isZero();
+    }
+
+    private SsmMessage replacementSsm(String messageId) {
+        String body =
+                """
+                {"messageId":"%s","startDate":"2026-11-11","endDate":"2026-11-11",
+                 "operatingDays":["WEDNESDAY"],"departureTime":"05:00:00","arrivalTime":"10:20:00",
+                 "flightNumber":"HJ500A","departureAirportCode":"BRU","arrivalAirportCode":"AMS",
+                 "aircraftRegistration":"SXBAA"}
+                """
+                        .formatted(messageId);
+        return json.readValue(body, SsmMessage.class);
     }
 
     // a flight that was never replanned reads back without a replanning

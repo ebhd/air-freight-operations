@@ -191,6 +191,11 @@ class FlightDelayServiceTest {
             flights.put(flight.key(), flight);
             return flight;
         }
+
+        @Override
+        public Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture) {
+            return Optional.empty();
+        }
     }
 
     private static final class OneReason implements DelayReasonRepository {

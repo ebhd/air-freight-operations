@@ -3,6 +3,7 @@ package be.kdg.airfreight.flight.infrastructure.persistence.jpa;
 import be.kdg.airfreight.flight.domain.flight.Delay;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightStatus;
+import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
@@ -61,6 +62,19 @@ public class JpaFlight {
     @Column(name = "replacement_created", nullable = false)
     private boolean replacementCreated;
 
+    // the key of the replanned flight this one replaces, the same three columns under other names
+    @Embedded
+    @AttributeOverride(
+            name = "flightNumber",
+            column = @Column(name = "replaces_flight_number", length = 32))
+    @AttributeOverride(
+            name = "scheduledDepartureDate",
+            column = @Column(name = "replaces_departure_date"))
+    @AttributeOverride(
+            name = "departureAirportCode",
+            column = @Column(name = "replaces_departure_airport_code", length = 3))
+    private JpaFlightId replaces;
+
     @OneToMany(
             mappedBy = "flight",
             cascade = CascadeType.ALL,
@@ -92,7 +106,8 @@ public class JpaFlight {
             Instant actualDeparture,
             Instant actualArrival,
             JpaReplanning replanning,
-            boolean replacementCreated) {
+            boolean replacementCreated,
+            JpaFlightId replaces) {
         this.id = id;
         this.arrivalAirportCode = arrivalAirportCode;
         this.aircraftRegistration = aircraftRegistration;
@@ -104,6 +119,7 @@ public class JpaFlight {
         this.actualArrival = actualArrival;
         this.replanning = replanning;
         this.replacementCreated = replacementCreated;
+        this.replaces = replaces;
     }
 
     public static JpaFlight fromDomain(Flight flight) {
@@ -119,7 +135,8 @@ public class JpaFlight {
                         flight.actualDeparture(),
                         flight.actualArrival(),
                         JpaReplanning.fromDomain(flight.replanning().orElse(null)),
-                        flight.replacementCreated());
+                        flight.replacementCreated(),
+                        flight.replaces().map(JpaFlightId::fromDomain).orElse(null));
         for (Delay delay : flight.departureDelays()) {
             jpaFlight.departureDelays.add(JpaDepartureDelay.fromDomain(delay, jpaFlight));
         }
@@ -143,6 +160,7 @@ public class JpaFlight {
                 actualDeparture,
                 actualArrival,
                 replanning == null ? null : replanning.toDomain(),
-                replacementCreated);
+                replacementCreated,
+                replaces == null ? null : replaces.toDomain());
     }
 }

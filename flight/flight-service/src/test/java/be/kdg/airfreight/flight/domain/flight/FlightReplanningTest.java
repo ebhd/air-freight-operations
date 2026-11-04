@@ -291,6 +291,24 @@ class FlightReplanningTest {
         assertThat(flight.replacementCreated()).isTrue();
     }
 
+    @Test
+    void theBackLinkIsSetOnce() {
+        Flight replacement =
+                Flight.create(
+                        new FlightKey("HJ500A", LocalDate.of(2026, 11, 11), "BRU"),
+                        "AMS",
+                        "SXBAA",
+                        Instant.parse("2026-11-11T05:00:00Z"),
+                        Instant.parse("2026-11-11T10:20:00Z"));
+        assertThat(replacement.replaces()).isEmpty();
+
+        replacement.recordReplaces(KEY);
+
+        assertThat(replacement.replaces()).contains(KEY);
+        assertThatThrownBy(() -> replacement.recordReplaces(KEY))
+                .isInstanceOf(DomainRuleViolationException.class);
+    }
+
     private Flight planned() {
         return Flight.restore(
                 KEY,

@@ -1,7 +1,9 @@
 package be.kdg.airfreight.flight.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.mock;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -106,6 +108,28 @@ class ReplanControllerTest {
         assertThat(flights.get(KEY).status()).isEqualTo(FlightStatus.REPLANNED);
     }
 
+    // the new flight shows which flight it replaces, so the history reads both ways
+    @Test
+    void replacementFlightShowsTheFlightItReplaces() throws Exception {
+        FlightKey newKey = new FlightKey("HJ500A", LocalDate.of(2026, 11, 11), "BRU");
+        Flight replacement =
+                Flight.create(
+                        newKey,
+                        "AMS",
+                        "SXBAA",
+                        Instant.parse("2026-11-11T05:00:00Z"),
+                        Instant.parse("2026-11-11T10:20:00Z"));
+        replacement.recordReplaces(KEY);
+        flights.put(newKey, replacement);
+
+        mvc.perform(get("/api/flights/HJ500A/2026-11-11/BRU"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.replanning").value(nullValue()))
+                .andExpect(jsonPath("$.replaces.flightNumber").value("HJ500"))
+                .andExpect(jsonPath("$.replaces.scheduledDepartureDate").value("2026-11-10"))
+                .andExpect(jsonPath("$.replaces.departureAirportCode").value("BRU"));
+    }
+
     @Test
     void editRequestIgnoresTheReasonAndUsesTheDelays() throws Exception {
         replan(
@@ -197,6 +221,11 @@ class ReplanControllerTest {
         public Flight save(Flight flight) {
             flights.put(flight.key(), flight);
             return flight;
+        }
+
+        @Override
+        public Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture) {
+            return Optional.empty();
         }
     }
 

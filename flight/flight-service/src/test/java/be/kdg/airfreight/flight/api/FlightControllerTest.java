@@ -62,6 +62,12 @@ class FlightControllerTest {
                     public Flight save(Flight saved) {
                         return saved;
                     }
+
+                    @Override
+                    public Optional<Flight> findReplacedBy(
+                            FlightKey newKey, Instant newScheduledDeparture) {
+                        return Optional.empty();
+                    }
                 };
         // security is the same filter chain as /api/status which StatusSecurityTest covers
         mvc =
@@ -90,7 +96,8 @@ class FlightControllerTest {
                 .andExpect(jsonPath("$.arrivalAirportCode").value("AMS"))
                 .andExpect(jsonPath("$.status").value("PLANNED"))
                 .andExpect(jsonPath("$.scheduledDeparture").value("2026-10-19T08:00:00Z"))
-                .andExpect(jsonPath("$.replanning").value(nullValue()));
+                .andExpect(jsonPath("$.replanning").value(nullValue()))
+                .andExpect(jsonPath("$.replaces").value(nullValue()));
     }
 
     @Test
