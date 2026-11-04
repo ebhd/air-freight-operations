@@ -5,6 +5,7 @@ import be.kdg.airfreight.partner.domain.MessageContent;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
 @Component
+@Slf4j
 public class PartnerMessagesPreparedListener {
     private final PartnerMessageService service;
     private final JsonMapper json;
@@ -30,6 +32,10 @@ public class PartnerMessagesPreparedListener {
             throw new IllegalArgumentException(
                     "Invalid prepared-message batch or unsupported version");
         }
+        log.info(
+                "Received prepared batch {} ({} messages)",
+                batch.sourceMessageId(),
+                batch.messages().size());
         var types = new HashSet<String>();
         var contents = new ArrayList<MessageContent>();
         for (var item : batch.messages()) {

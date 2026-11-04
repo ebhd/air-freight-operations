@@ -19,16 +19,14 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
-import tools.jackson.databind.json.JsonMapper;
 
 class PartnerMessageServiceTest {
     private final PartnerMessageRepository repository = mock(PartnerMessageRepository.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
-    private final JsonMapper mapper = JsonMapper.builder().findAndAddModules().build();
     private final PartnerMessageService service = new PartnerMessageService(repository, events);
 
     @Test
-    void createsPendingFlmWithRequiredFlightContent() {
+    void createsPendingFlmWithThePreparedContent() {
         var sourceId = UUID.randomUUID();
         var content = flm();
         when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -42,15 +40,7 @@ class PartnerMessageServiceTest {
         assertThat(message.createdAtUTC()).isNotNull();
         assertThat(message.sourceMessageId()).isEqualTo(sourceId);
         assertThat(message.state()).isEqualTo(PublicationState.PENDING);
-        assertThat(message.content().type()).isEqualTo("FLM");
-        assertThat(message.content().formatVersion()).isEqualTo(1);
-        var payload = mapper.readTree(message.content().payload());
-        assertThat(payload.get("flightNumber").asText()).isEqualTo("HJ221");
-        assertThat(payload.get("scheduledDepartureDate").asText()).isEqualTo("2026-10-20");
-        assertThat(payload.get("departureAirportCode").asText()).isEqualTo("BRU");
-        assertThat(payload.get("arrivalAirportCode").asText()).isEqualTo("AMS");
-        assertThat(payload.get("scheduledDeparture").asText()).isEqualTo("2026-10-20T08:00:00Z");
-        assertThat(payload.get("scheduledArrival").asText()).isEqualTo("2026-10-20T10:00:00Z");
+        assertThat(message.content()).isEqualTo(content);
         verify(repository).save(message);
         verify(events).publishEvent(message);
     }
@@ -64,8 +54,6 @@ class PartnerMessageServiceTest {
                 .thenReturn(Optional.of(existing));
 
         service.prepareMessages(sourceId, List.of(flm()));
-        assertThat(repository.findBySourceMessageIdAndType(sourceId, "FLM").orElseThrow())
-                .isSameAs(existing);
 
         verify(repository, never()).save(any());
         verifyNoInteractions(events);
