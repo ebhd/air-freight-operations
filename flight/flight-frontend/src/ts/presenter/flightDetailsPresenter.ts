@@ -56,6 +56,8 @@ let delayReasons: DelayReason[] = [];
 let delayBeingEdited: Delay | null = null;
 let editingDeparture = false;
 let isBusy = false;
+// the page displays the same flight twice on load, only the newest run may fill the history
+let historyRun = 0;
 
 function canChangeDelay(departure: boolean): boolean {
     if (!hasRole('flight-planner') || currentFlight === null) {
@@ -194,6 +196,8 @@ function displayFlight(flight: Flight): void {
 
 // the chain of replanned flights in both directions, each step one GET by key
 async function displayHistory(flight: Flight): Promise<void> {
+    historyRun += 1;
+    const run = historyRun;
     historyLines.replaceChildren();
     historySection.hidden = true;
     const lines: HTMLLIElement[] = [];
@@ -208,8 +212,8 @@ async function displayHistory(flight: Flight): Promise<void> {
         const next = await flightOrNull(later);
         later = next === null ? null : replacementKey(next);
     }
-    if (currentFlight !== flight) {
-        // the page moved on to another flight while the chain was loading
+    if (run !== historyRun || currentFlight !== flight) {
+        // a newer display started or the page moved on while the chain was loading
         return;
     }
     historyLines.append(...lines);
