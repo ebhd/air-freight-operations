@@ -29,11 +29,11 @@ flowchart LR
     IAM["Identity and Access Management<br/>(external)"]
 
     F -->|flight identity, state and times| C
-    MF["Message Formatter<br/>FLM, MVT-ED, MVT-EA"]
+    MF["Message Formatter<br/>FLM, MVT-ED, MVT-EA, CPM"]
     F -->|flight changes - published language| MF
     MF -->|prepared messages - sender ACL| M
-    C -->|CPM| F
-    C -.->|finalized load - future| MF
+    C -->|finalized load - published language| F
+    C -->|finalized load - published language| MF
     IAM -.->|identity and roles| F
     IAM -.->|identity and roles| C
 ```
@@ -76,7 +76,7 @@ flowchart LR
     end
 
     subgraph MF_CTX["Message Formatter"]
-        FlightFormatter["Flight event listeners and formatters"]
+        FlightFormatter["Flight and Cargo event listeners and formatters"]
     end
     subgraph PC_CTX["Partner Communication"]
         PreparedACL["Prepared-message listener<br/>«anti-corruption layer»"]
@@ -88,10 +88,10 @@ flowchart LR
 
     FlightACL -->|"REST"| FlightAPI
 
-    CPMReceiver -->|"CPM - RabbitMQ<br/>«published language»"| CL
+    CPMReceiver -->|"Finalized load cargo.load-finalized - RabbitMQ<br/>«published language»"| CL
 
     FO -->|"Flight facts - RabbitMQ<br/>«published language»"| FlightFormatter
-    CL -.->|"Finalized load - future<br/>«published language»"| FlightFormatter
+    CL -->|"Finalized load cargo.load-finalized - RabbitMQ<br/>«published language»"| FlightFormatter
     FlightFormatter -->|"Prepared messages - RabbitMQ"| PreparedACL
     FO -.->|"Identity and roles - OIDC"| IAM
     CL -.->|"Identity and roles - OIDC"| IAM
@@ -100,8 +100,8 @@ flowchart LR
 | Relationship |Pattern | Why |
 | --- | --- | --- |
 | Flight Operations -> Cargo Loading | Open Host Service, Published Language; Cargo anti-corruption layer | Flight Operations exposes a flight-information contract; Cargo Loading translates it into its own model. |
-| Cargo Loading -> Flight Operations | Published Language; Flight anti-corruption layer | Cargo Loading publishes CPM; Flight Operations translates it into its departure prerequisite. |
-| Flight Operations / Cargo Loading -> Message Formatter | Published Language | Formatter consumes Flight facts for FLM/MVT; finalized Cargo events are a future input. |
+| Cargo Loading -> Flight Operations | Published Language; Flight anti-corruption layer | Cargo Loading publishes the finalized load (`cargo.load-finalized`); Flight's `CpmReceiver` translates it into its departure prerequisite. |
+| Flight Operations / Cargo Loading -> Message Formatter | Published Language | Formatter consumes Flight facts for FLM/MVT and Cargo's finalized load for the partner CPM. Cargo never formats the partner CPM. |
 | Message Formatter -> Partner Communication | Sender anti-corruption layer | Sender translates prepared batches into its own message model, persists them and publishes them. |
 
 ## 5. Deployment
@@ -129,7 +129,7 @@ flowchart TB
 
     MF["message-formatter-service :8084<br/>stateless"]
     F --> FDB
-    C --> CDB
+    C -->|plan and outbox in one transaction| CDB
     P --> PDB
     C -->|Flight API - HTTP :8080| F
 
@@ -137,12 +137,12 @@ flowchart TB
     MQ -->|SSM| F
     MQ -->|ULD message| C
     F -->|flight changes| MQ
-    C -->|CPM| MQ
+    C -->|finalized load - outbox, cargo.events| MQ
     MQ -->|flight facts| MF
     MF -->|prepared batch - formatter.events| MQ
     MQ -->|prepared batch - sender ACL| P
-    C -.->|finalized load - future| MF
-    MQ -->|CPM for departure check| F
+    MQ -->|finalized load - partner CPM| MF
+    MQ -->|finalized load - departure condition| F
 
     IAM --> KDB[("Keycloak MySQL database<br/>host :3307")]
     F -.->|signing keys| IAM
@@ -150,6 +150,7 @@ flowchart TB
 ```
 
 - One PostgreSQL instance hosts three databases: one for Flight Operations, one for Cargo Loading and one for Partner Communication.
+- Flight and Cargo each have an `outbox_messages` table. An event is written there in the same transaction as the change and sent after the commit with publisher confirms; a scheduled job resends what is still pending with the same message ID.
 - Each service accesses only its own database. Services share information through APIs or RabbitMQ messages.
 - Keycloak keeps its realm, clients and users in its own MySQL database, as in the course example.
 
@@ -164,8 +165,10 @@ classDiagram
         requireLoadingAllowed(context)
         assignPosition(code, position, context)
         clearPosition(code, context)
-        checkLoad(context)
-        finalizeLoad(context)
+        checkLoad(context, checks)
+        finalizeLoad(context, checks)
+        state
+        finalizedAt
     }
     class LoadingContext {
         <<ValueObject>>
@@ -231,11 +234,16 @@ classDiagram
         sidesAndRoutes
         cargoDoor
     }
-    class LoadCheck {
-        <<interface, later>>
-        evaluate(bookings, context)
+    class LoadChecks {
+        <<DomainService>>
+        run(bookings, arrivalAirport)
     }
-    class LateralBalanceCheck
+    class LateralBalanceCheck {
+        <<DomainService>>
+        tolerance
+        balance(bookings)
+        evaluate(bookings)
+    }
     class OffloadingCheck {
         <<DomainService>>
         evaluate(bookings, arrivalAirport)
@@ -246,18 +254,28 @@ classDiagram
         blockedPositions
         passed()
     }
-    class AllCargoLoadedCheck
+    class AllCargoLoadedCheck {
+        <<DomainService>>
+        evaluate(bookings)
+    }
     class LoadCheckResult {
-        <<ValueObject, later>>
-        checkName
-        outcome
-        failureReason
-        hardOrSoft
+        <<ValueObject>>
+        name
+        severity
+        passed
+        reason
     }
     class LoadCheckReport {
-        <<ValueObject, later>>
+        <<ValueObject>>
         results
-        unpositionedCargo
+        hasHardFailure()
+    }
+    class LoadFinalized {
+        <<DomainEvent>>
+        flightKey
+        finalizedAt
+        positionedUlds
+        report
     }
     CargoPlan --> FlightKey : identity
     CargoPlan --> CargoPlanState : state
@@ -271,24 +289,23 @@ classDiagram
     UldBooking --> AirportCode : destination
     UldBooking --> "0..1" LoadingPosition : optional placement
     CargoPlan ..> FloorPlan : validates placements
-    CargoPlan ..> LoadCheck : runs all checks
-    CargoPlan ..> OffloadingCheck : runs
+    CargoPlan ..> LoadChecks : runs all checks
+    LoadChecks --> LateralBalanceCheck
+    LoadChecks --> OffloadingCheck
+    LoadChecks --> AllCargoLoadedCheck
     OffloadingCheck ..> OffloadingResult : returns
-    LoadCheck <|.. LateralBalanceCheck
-    LoadCheck <|.. OffloadingCheck
-    LoadCheck <|.. AllCargoLoadedCheck
-    CargoPlan ..> LoadCheckReport : returns
-    LoadCheck ..> LoadCheckResult : returns
-    LoadCheckReport "1" *-- "1..*" LoadCheckResult : results
+    LoadChecks ..> LoadCheckReport : returns
+    CargoPlan ..> LoadFinalized : finalizeLoad returns
+    LoadCheckReport "1" *-- "3" LoadCheckResult : results
 ```
 
 | Building block | Elements |
 | --- | --- |
 | Aggregate root | `CargoPlan` (owns bookings) |
 | Entity | `UldBooking` |
-| Value objects | `FlightKey`, `UldCode`, `Weight`, `AirportCode`, `LoadingPosition`, `LoadingWindow`, `LoadingContext`, `OffloadingResult`, `LoadCheckResult` and `LoadCheckReport` (later) |
-| Policy | `LoadingWindowPolicy` (configurable offsets) |
-| Domain checks | `LateralBalanceCheck`, `OffloadingCheck` (domain service), `AllCargoLoadedCheck` |
+| Value objects | `FlightKey`, `UldCode`, `Weight`, `AirportCode`, `LoadingPosition`, `LoadingWindow`, `LoadingContext`, `OffloadingResult`, `LateralBalance`, `LoadCheckResult`, `LoadCheckReport` |
+| Policy | `LoadingWindowPolicy` (configurable offsets); lateral balance tolerance (configurable) |
+| Domain checks | `LoadChecks` runs `LateralBalanceCheck`, `OffloadingCheck` and `AllCargoLoadedCheck` (domain services) |
 | Domain event | `LoadFinalized` |
 | Repository | `CargoPlanRepository` |
 | Actors | Load planner |
@@ -300,11 +317,11 @@ Invariants on `CargoPlan`:
 3. Finalization reruns all checks; hard failures block it, soft failures warn.
 4. Finalized load cannot change.
 
-Every change to a cargo plan (booking, position, later finalization) raises the version of its `cargo_plans` row, and Hibernate checks that version at commit (optimistic locking). Of two overlapping changes the second is rolled back and the API answers 409; a unique constraint on (flight, position) also guards invariant 1 in the database. A ULD with a position moves to a free position in one step; swapping two ULDs takes two steps (team reading of Q16).
+Every change to a cargo plan (booking, position, finalization) raises the version of its `cargo_plans` row, and Hibernate checks that version at commit (optimistic locking). Of two overlapping changes the second is rolled back and the API answers 409; a unique constraint on (flight, position) also guards invariant 1 in the database. A ULD with a position moves to a free position in one step; swapping two ULDs takes two steps (team reading of Q16).
 
 `LoadingPosition` is an enum of the 34 main-deck positions of the Boeing 747-400 freighter with row and side; with one aircraft type it is the floor plan's position list, and `OffloadingCheck` derives the routes from it. A second aircraft type would introduce a `FloorPlan` per type.
 
-Marked *later* in the diagram: `LoadCheck`, `LoadCheckResult` and `LoadCheckReport` come with the full load report (#21) once a second check exists; `OffloadingCheck` then implements `LoadCheck`. `FloorPlan` only comes with a second aircraft type.
+Marked *later* in the diagram: `FloorPlan` only comes with a second aircraft type. The three checks have different inputs, so there is no common `LoadCheck` interface; `LoadChecks` calls them in a fixed order and builds one report.
 
 Loading period: **STD - 12 hours → current ETD - 20 minutes**
 
@@ -321,12 +338,23 @@ Loading period: **STD - 12 hours → current ETD - 20 minutes**
 | Offloading | Hard | Destination cargo must reach the door at RL without moving other-destination cargo, following the floor plan's routes and maneuvering rules. |
 | Not all cargo loaded | Soft | Warn about bookings without a position. |
 
-- All checks run.
-- hard checks inspect positioned cargo only.
+- All checks run, also after an earlier one failed; the report keeps the order of the table. Every result has a name, `HARD` or `SOFT`, passed or not, and a reason (also when it passed). Checking changes nothing.
+- Hard checks inspect positioned cargo only.
+- `CargoPlan.checkLoad` calls `requireLoadingAllowed` first, so a check is refused outside the window and after finalizing (team reading of Q17: Check Load is a loading action).
+
+Lateral balance (#22):
+
+- Left is the sum of the L positions, right of the R positions; A1, A2, B1 and X count for neither side.
+- Weights are compared in kg, the common unit we chose (the course names none). LB is converted with the exact international factor 0.45359237 (the course gives no factor, Q15). The report shows both totals in kg.
+- `heavier <= lighter × (1 + tolerance)` with exact decimals and no rounding first: 1000/1100 passes, 1000/1101 fails. The report shows the maximum for the heavier side.
+- From the formula and not a course case: an empty load passes, cargo on only one side fails (0 against something). So one single ULD on CL blocks finalizing; on A1, A2, B1 or X it does not.
+- Tolerance `cargo.load-check.lateral-balance-tolerance`, default `0.10`; a missing or negative value stops the start-up. Changing it needs a restart, not a new release (Q21 stays open).
+
+All cargo loaded (#25): soft; names every booked ULD without a position (sorted), which stays behind. It never blocks finalizing.
 
 Offloading (#23, #24):
 
-- `OffloadingCheck` is a package-private domain service in `domain.offloading`, alongside its result and tests. It is not yet called by `CargoPlan`; integration follows with Check Load (#21) and finalization (#26). It calls no guard; the action that runs it must call `requireLoadingAllowed` first.
+- `OffloadingCheck` is a domain service in `domain.offloading`, alongside its result and tests. `LoadChecks` calls it for the report (#21) and for finalizing (#26). It calls no guard; `CargoPlan.checkLoad` calls `requireLoadingAllowed` first.
 - Routes follow the order of `LoadingPosition`. A paired position walks along its own side to row R: toward the tail in front of row R, toward the nose behind it. Left cargo leaves through RL; right cargo goes to RR and crosses to RL. A route never switches sides.
 - The check simulates unloading on its own copy of the positions. In passes from nose to tail it removes every ULD for the arrival airport whose route is empty at that moment, until a pass removes nothing. Cargo for other airports never moves. The removal order is a legal unloading order (published example 2: RR, then UR); what remains is blocked. The cargo plan itself never changes.
 - A route must be empty, not only free of other-airport cargo, so destination cargo on it leaves first. For paired positions this gives the same pass or fail as the case's wording, because the route of a position on my route is the rest of my route.
@@ -345,8 +373,29 @@ stateDiagram-v2
 ```
 
 - A departure delay never moves a plan from `FINALIZED` back to `DRAFT`; there is no unfinalize operation.
-- `LoadFinalized` carries the flight key and frozen positioned cargo, used to publish CPM.
-- CPM goes via RabbitMQ to Flight Operations and Partner Communication. Departure requires Flight Operations to have received and processed it.
+- `finalizeLoad(context, checks)` calls `requireLoadingAllowed` and reruns all checks; a hard failure throws `LoadNotFinalizedException` with the report and changes nothing (API 409 `HARD_CHECKS_FAILED`). Soft warnings do not block. On success the state becomes `FINALIZED` with `finalizedAt`, and it returns `LoadFinalized` with only the positioned ULDs (floor plan order, weight as booked) and the report.
+- A plan without positioned cargo can be finalized; the event then has an empty ULD list (D3).
+- After finalizing, positions, checks and a second finalize refuse with `PLAN_FINALIZED`. A new ULD booking is rejected into `rejected_messages`; a repeat of an existing booking stays an ignored duplicate (D4, our reading of CAR-14 and Q07).
+- `FinalizeLoadService` reads Flight before the transaction, then loads the plan, finalizes, saves it and writes the outbox row in one transaction. Finalizing changes the plan row, so its version rises; a position change that overlaps fails at commit (optimistic locking, 409), and so does a finalize that read the plan before a position change committed. Its outbox row is rolled back with it.
+- The outbox publisher sends `cargo.load-finalized` on the topic exchange `cargo.events`. Flight (departure condition) and the Formatter (partner CPM) each bind their own queue. Cargo never formats the partner CPM.
+- Team reading of Q10/Q11: Flight's processing of `cargo.load-finalized` is the receipt of the CPM. A resend uses the same message ID; Flight stores processed IDs and its flag is already true, Partner keeps one message per (source ID, type), so a duplicate has no second effect.
+
+Contract `cargo.load-finalized` version 1 (AMQP `message_id` = `messageId`, persistent, JSON; a field change needs version 2):
+
+```json
+{
+  "messageId": "81a28ad9-6b2e-4064-b231-02dd702a8198",
+  "version": 1,
+  "occurredOn": "2026-11-04T15:07:45.862Z",
+  "flightNumber": "HJ901",
+  "scheduledDepartureDate": "2026-11-04",
+  "departureAirportCode": "BRU",
+  "ulds": [
+    { "uldCode": "AKE90001HJ", "position": "CL",
+      "weight": { "value": 1000, "unit": "KG" }, "destinationAirportCode": "AMS" }
+  ]
+}
+```
 
 ## 7. Tactical design: Flight Operations
 
@@ -431,7 +480,9 @@ Invariants on `Flight`:
 ### Flight workflow
 
 - SSM creates `PLANNED` flights without delays or actual times; `finalizedLoadProcessed` starts false. Duplicate keys are logged and skipped unchanged; remaining dates continue.
-- `recordFinalizedLoad()` marks the CPM as received and processed by Flight Operations.
+- `recordFinalizedLoad()` marks the CPM as received and processed by Flight Operations. It returns false when the flag was already set (no second effect) and refuses a flight that is no longer planned.
+- `CpmReceiver` (anti-corruption layer) reads `flight.cargo-load-finalized`, checks version 1, message ID, time and the flight key, and calls `FinalizedLoadService`. That service locks the flight row, skips a message ID that is in `processed_messages`, records the load and stores the ID in one transaction. Invalid messages and unknown flights go to `flight.dlq` after the retries and are logged with their ID and reason.
+- `requireFinalizedLoadProcessed()` is the departure gate: until the CPM is processed it refuses with "departure needs the processed CPM of the finalized load from Cargo Loading". ATD registration (#28) calls it; that is not built yet.
 
 ### Flight lifecycle
 
@@ -480,6 +531,9 @@ classDiagram
     class MvtEaFormatter {
         <<Message Formatter service>>
     }
+    class CpmFormatter {
+        <<Message Formatter service>>
+    }
     class PreparedMessageListener {
         <<Sender ACL>>
     }
@@ -492,13 +546,14 @@ classDiagram
     MessageFormatter <|.. FlmFormatter
     MessageFormatter <|.. MvtEdFormatter
     MessageFormatter <|.. MvtEaFormatter
+    MessageFormatter <|.. CpmFormatter
 ```
 
 | Building block | Elements |
 | --- | --- |
 | Aggregate root | `PartnerMessage` |
 | Value objects | `MessageId`, `MessageContent` |
-| Formatter implementations | `FlmFormatter`, `MvtEdFormatter`, `MvtEaFormatter` in Message Formatter |
+| Formatter implementations | `FlmFormatter`, `MvtEdFormatter`, `MvtEaFormatter`, `CpmFormatter` in Message Formatter |
 | Repository | `PartnerMessageRepository` |
 | Actors | Partners |
 
@@ -512,7 +567,7 @@ classDiagram
 | ETD changed | MVT-ED + MVT-EA (IATA text) |
 | ETA only changed | MVT-EA (IATA text) |
 | ATD / ATA registered | MVT-AD / MVT-AA (IATA text) |
-| CPM received from Cargo | CPM copy (JSON) |
+| Load finalized in Cargo (`cargo.load-finalized`) | CPM (JSON): flight number, scheduled departure date, departure airport, positioned ULDs with code, position, weight with unit and destination; Partner adds message ID, creation time and format version |
 
 ### Publication lifecycle
 
@@ -533,7 +588,7 @@ A service serves its own web pages as static files from its JAR. Cargo and Fligh
 
 Sign-in and rights: the page (bundled with `keycloak-js`) sends the user to Keycloak's own login page (OpenID Connect, Authorization Code with PKCE), keeps the tokens in memory and renews the access token before an API call when it is about to expire. Flight and Cargo are stateless resource servers: each checks every JWT itself with Keycloak's public keys (signature, issuer, its own audience, expiry) and maps the realm roles `flight-planner` and `load-planner` to Spring roles. The rules live in each service's `SecurityConfiguration`: both roles may read (`GET /api/**`), other API calls need `load-planner` in Cargo and `flight-planner` in Flight. Cargo lets only its page files, health and `/error` through without a token and refuses every other path. A missing or invalid token gives 401, a wrong role 403; a refusal by the domain rules stays 409. The pages hide actions the role may not use, but the server decides. Cargo reads Flight with its own client-credentials token.
 
-Cargo signals a missing or invalid input value with its own `InvalidCargoValueException` from the value objects. The ULD listener stores such a message in `rejected_messages` without retrying; a REST controller turns it into 400 only while it builds the domain values from the URL, so bad data from Flight stays a 500. `CargoApiExceptionHandler` gives every Cargo endpoint the same answers: 404 for a flight Flight does not know, 503 when Flight is unreachable, 409 with a refusal code when the loading rules refuse an action (`LoadingNotAllowedException`). Read use cases such as the cargo plan view (`CargoPlanQueryService`) load the aggregate through its repository and add Flight's data; they check no flight state, so the plan stays readable after departure.
+Cargo signals a missing or invalid input value with its own `InvalidCargoValueException` from the value objects. The ULD listener stores such a message in `rejected_messages` without retrying; a REST controller turns it into 400 only while it builds the domain values from the URL, so bad data from Flight stays a 500. `CargoApiExceptionHandler` gives every Cargo endpoint the same answers: 404 for a flight Flight does not know, 503 when Flight is unreachable, 409 with a refusal code when the loading rules refuse an action (`LoadingNotAllowedException`), and 409 with `HARD_CHECKS_FAILED` plus the check report when finalizing fails a hard check (`LoadNotFinalizedException`). Read use cases such as the cargo plan view (`CargoPlanQueryService`) load the aggregate through its repository and add Flight's data; they check no flight state, so the plan stays readable after departure.
 
 ## 10. Running it 
 

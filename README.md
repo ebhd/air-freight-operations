@@ -4,9 +4,9 @@ Stack: Java 22, Spring Boot 4.1.1, Gradle 9.7.1 (multi-project build), PostgreSQ
 
 | Project | Port | Database | Purpose |
 | --- | --- | --- | --- |
-| `flight/flight-service` and `flight/flight-frontend` | 8080 | `flight` | Flights from SSM, delays, flight planner pages |
-| `cargo/cargo-service` and `cargo/cargo-frontend` | 8081 | `cargo` | ULD bookings, loading window, positions, load planner pages |
-| `message-formatter-service` / `partner-communication-service` | 8084 / 8082 | none / `partner_communication` | Formats FLM and MVT ED/EA / stores and publishes prepared messages to partners |
+| `flight/flight-service` and `flight/flight-frontend` | 8080 | `flight` | Flights from SSM, delays, processed CPM as departure condition, flight planner pages |
+| `cargo/cargo-service` and `cargo/cargo-frontend` | 8081 | `cargo` | ULD bookings, loading window, positions, load check, finalizing, load planner pages |
+| `message-formatter-service` / `partner-communication-service` | 8084 / 8082 | none / `partner_communication` | Formats FLM, MVT ED/EA and CPM / stores and publishes prepared messages to partners |
 | `simulator` | 8083 | none | Sends test SSM and ULD messages, local only |
 
 Each service uses the packages `domain`, `application`, `infrastructure` and `api`. The design is in [architecture/analyse.md](architecture/analyse.md).
@@ -52,6 +52,8 @@ These credentials are for development only.
 Settings are in each service's `application.properties` and can be overridden with environment variables. Compose reads `.env`; the IDE does not, so set `CARGO_SERVICE_CLIENT_SECRET` in Cargo's run configuration.
 
 The loading window opens 12h before STD and closes 20m before ETD. Change this with `CARGO_LOADINGWINDOW_OPENSBEFORESTD` and `CARGO_LOADINGWINDOW_CLOSESBEFOREETD` (for example `48h`, `30m`) and restart Cargo.
+
+Lateral balance: the heavier side may weigh at most the lighter side plus 10%, compared in kg (1 lb = 0.45359237 kg). Change the tolerance with `CARGO_LOADCHECK_LATERALBALANCETOLERANCE` (for example `0.15`) and restart Cargo.
 
 ### Frontends
 
@@ -101,8 +103,10 @@ Every API request needs a bearer token. Times are UTC. In the paths below, `{fli
 | Cargo | GET | `/api/cargo-plans/{flight}/loading-window` | any planner |
 | Cargo | GET | `/api/loading-positions` | any planner |
 | Cargo | PUT, DELETE | `/api/cargo-plans/{flight}/bookings/{uldCode}/position` | load planner |
+| Cargo | GET | `/api/cargo-plans/{flight}/load-check` (all checks, nothing changes) | any planner |
+| Cargo | POST | `/api/cargo-plans/{flight}/finalization` (reruns the checks; 200 with `finalizedAt` and the report) | load planner |
 
-Errors use `ProblemDetail`: 400 for invalid input, 404 for an unknown flight, 409 when a business rule refuses the action (with the reason), 503 when Cargo cannot reach Flight.
+Errors use `ProblemDetail`: 400 for invalid input, 404 for an unknown flight, 409 when a business rule refuses the action (with the reason), 503 when Cargo cannot reach Flight. A finalize that fails a hard check gives 409 with `refusal: HARD_CHECKS_FAILED` and the same `report` as the load check. Check and finalize also refuse with the loading refusals (`PLAN_FINALIZED`, `WINDOW_CLOSED`, ...).
 
 ## Messages
 
@@ -111,7 +115,8 @@ Errors use `ProblemDetail`: 400 for invalid input, 404 for an unknown flight, 40
 | `flight.ssm` | | SSM from the simulator |
 | `cargo.uld` | | ULD bookings, provisional format below (Q01) |
 | `flight.events` | `flight.created`, `flight.estimates-changed` | From Flight to Formatter, sent through Flight's outbox; Formatter hands batches to Partner using `formatter.events` / `partner-messages.prepared` / `partner.messages-prepared` |
-| `partner.messages` | `flm`, `mvt.ed`, `mvt.ea` | To partners: FLM as JSON, MVT as three lines of text with UTC times |
+| `cargo.events` | `cargo.load-finalized` | From Cargo's outbox after finalizing, contract below. Flight (`flight.cargo-load-finalized`) records it as departure condition; Formatter (`formatter.cargo-load-finalized`) makes the partner CPM |
+| `partner.messages` | `flm`, `mvt.ed`, `mvt.ea`, `cpm` | To partners: FLM and CPM as JSON with `messageId`, `createdAt`, `formatVersion`, `type` and `payload`, MVT as three lines of text with UTC times |
 
 ULD booking:
 
@@ -128,7 +133,23 @@ ULD booking:
 }
 ```
 
-Every message has a stable ID and is processed only once. Cargo stores invalid ULD messages in its `rejected_messages` table. Flight, Formatter and Partner send invalid messages to a dead-letter queue (`flight.dlq`, Formatter's `partner.dlq`, Sender's `partner.sender.dlq`) and requeue temporary database failures and Formatter publication failures on the original queue after the configured short retries.
+Load finalized, version 1 (only positioned ULDs, weight in the booked unit, the list may be empty; a field change needs version 2):
+
+```json
+{
+  "messageId": "81a28ad9-6b2e-4064-b231-02dd702a8198",
+  "version": 1,
+  "occurredOn": "2026-11-04T15:07:45.862Z",
+  "flightNumber": "HJ901",
+  "scheduledDepartureDate": "2026-11-04",
+  "departureAirportCode": "BRU",
+  "ulds": [
+    { "uldCode": "AKE90001HJ", "position": "CL", "weight": { "value": 1000, "unit": "KG" }, "destinationAirportCode": "AMS" }
+  ]
+}
+```
+
+Every message has a stable ID and is processed only once. Cargo stores invalid ULD messages in its `rejected_messages` table, also a booking for a finalized cargo plan ("Cargo plan of flight ... is finalized, no ULD can be added"). Flight, Formatter and Partner send invalid messages to a dead-letter queue (`flight.dlq`, Formatter's `partner.dlq`, Sender's `partner.sender.dlq`) and requeue temporary database failures and Formatter publication failures on the original queue after the configured short retries.
 
 ## Checks
 
