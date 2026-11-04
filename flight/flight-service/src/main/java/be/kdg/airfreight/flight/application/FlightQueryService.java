@@ -38,13 +38,10 @@ public class FlightQueryService {
         var visibleFlights = new ArrayList<Flight>();
         // A delay can move an older flight into this day. Use the domain estimates to check it.
         for (Flight flight : flightRepository.findScheduledBefore(end)) {
-            boolean scheduledOnDay =
+            boolean visibleOnDay =
                     flight.scheduledDeparture().isBefore(end)
-                            && flight.scheduledArrival().isAfter(start);
-            boolean expectedOnDay =
-                    flight.estimatedDeparture().isBefore(end)
                             && flight.estimatedArrival().isAfter(start);
-            if (scheduledOnDay || expectedOnDay) {
+            if (visibleOnDay) {
                 visibleFlights.add(flight);
             }
         }

@@ -17,7 +17,7 @@ const detailFormat = new Intl.DateTimeFormat('en-GB', {
     hour: '2-digit', minute: '2-digit', timeZoneName: 'shortOffset',
 });
 const axisFormat = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/Brussels', hour: '2-digit', minute: '2-digit', timeZoneName: 'shortOffset',
+    timeZone: 'Europe/Brussels', hour: '2-digit', minute: '2-digit',
 });
 let latestRequestId = 0;
 let dayStart = 0;
@@ -111,11 +111,10 @@ function createFlightRow(flight: FlightOverview): HTMLElement {
     label.append(number, route, scheduled);
     const track = document.createElement('div');
     track.className = 'timeline-track';
-    addBar(track, flight.scheduledDeparture, flight.scheduledArrival, 'scheduled', flight.flightNumber);
+    addBar(track, flight);
     const delayed = Date.parse(flight.estimatedDeparture) !== Date.parse(flight.scheduledDeparture)
         || Date.parse(flight.estimatedArrival) !== Date.parse(flight.scheduledArrival);
     if (delayed) {
-        addBar(track, flight.estimatedDeparture, flight.estimatedArrival, 'expected', flight.flightNumber);
         const expected = document.createElement('div');
         expected.className = 'timeline-times timeline-delay';
         expected.textContent = `Expected: ${formatFlightTime(flight.estimatedDeparture)} - ${formatFlightTime(flight.estimatedArrival)}`;
@@ -133,20 +132,25 @@ function formatFlightTime(instant: string): string {
     return flightTimeFormat.format(new Date(time));
 }
 
-function addBar(track: HTMLElement, departure: string, arrival: string, kind: string, flightNumber: string): void {
-    const start = Date.parse(departure);
-    const end = Date.parse(arrival);
+function addBar(track: HTMLElement, flight: FlightOverview): void {
+    const start = Date.parse(flight.scheduledDeparture);
+    const scheduledEnd = Date.parse(flight.scheduledArrival);
+    const end = Date.parse(flight.estimatedArrival);
     if (start >= dayEnd || end <= dayStart) {
         return;
     }
     const visibleStart = Math.max(start, dayStart);
     const visibleEnd = Math.min(end, dayEnd);
+    const visibleScheduledEnd = Math.min(Math.max(scheduledEnd, visibleStart), visibleEnd);
     const bar = document.createElement('div');
-    bar.className = `timeline-bar timeline-${kind}`;
+    bar.className = 'timeline-bar';
     bar.style.left = `${100 * (visibleStart - dayStart) / (dayEnd - dayStart)}%`;
     bar.style.width = `${100 * (visibleEnd - visibleStart) / (dayEnd - dayStart)}%`;
-    const label = kind === 'scheduled' ? 'Scheduled' : 'Expected';
-    const description = `${flightNumber} · ${label}: ${detailFormat.format(new Date(start))} - ${detailFormat.format(new Date(end))}`;
+    bar.style.setProperty('--scheduled-width', `${100 * (visibleScheduledEnd - visibleStart) / (visibleEnd - visibleStart)}%`);
+    let description = `${flight.flightNumber} · Scheduled: ${detailFormat.format(new Date(start))} - ${detailFormat.format(new Date(scheduledEnd))}`;
+    if (Date.parse(flight.estimatedDeparture) !== start || end !== scheduledEnd) {
+        description += ` · Expected: ${detailFormat.format(new Date(flight.estimatedDeparture))} - ${detailFormat.format(new Date(end))}`;
+    }
     bar.setAttribute('role', 'img');
     bar.setAttribute('aria-label', description);
     bar.tabIndex = 0;
