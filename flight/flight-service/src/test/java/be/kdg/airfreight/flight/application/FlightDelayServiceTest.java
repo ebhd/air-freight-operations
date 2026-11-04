@@ -13,6 +13,9 @@ import be.kdg.airfreight.flight.domain.flight.Delay;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightRepository;
+import be.kdg.airfreight.flight.domain.flight.FlightStatus;
+import be.kdg.airfreight.flight.domain.flight.Replanning;
+import be.kdg.airfreight.flight.domain.flight.TotalDelayExceededException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -35,9 +38,14 @@ class FlightDelayServiceTest {
 
     private final InMemoryFlights flights = new InMemoryFlights();
     private final List<Object> events = new ArrayList<>();
+    private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
     private final FlightDelayService service =
             new FlightDelayService(
-                    flights, new OneReason(), events::add, Clock.fixed(NOW, ZoneOffset.UTC));
+                    flights,
+                    new OneReason(),
+                    new FlightReplanningService(flights, new OneReason(), events::add, clock),
+                    events::add,
+                    clock);
 
     @BeforeEach
     void setUp() {
@@ -109,6 +117,51 @@ class FlightDelayServiceTest {
                                         new AddDelayCommand(unknown, 20, "71", "Fog at departure")))
                 .isInstanceOf(NotFoundException.class);
         assertThat(events).isEmpty();
+    }
+
+    // the refusal of a delay carries the same proposal a replan would give
+    @Test
+    void refusedDelayOverTheTotalCarriesTheProposedNewFlight() {
+        service.addDepartureDelay(command(600));
+        events.clear();
+
+        assertThatThrownBy(() -> service.addArrivalDelay(command(140)))
+                .isInstanceOfSatisfying(
+                        TotalDelayExceededException.class,
+                        refused -> {
+                            assertThat(refused.totalMinutes()).isEqualTo(740);
+                            assertThat(refused.replanningPossible()).isTrue();
+                            Replanning proposal = refused.proposal();
+                            assertThat(proposal.newFlightNumber()).isEqualTo("HJ221A");
+                            // arrival delay: std moves by the 600 departure minutes only
+                            assertThat(proposal.newScheduledDeparture())
+                                    .isEqualTo(STD.plus(Duration.ofMinutes(600)));
+                            assertThat(proposal.newScheduledArrival())
+                                    .isEqualTo(STA.plus(Duration.ofMinutes(740)));
+                        });
+        assertThat(events).isEmpty();
+        assertThat(flights.findById(KEY).orElseThrow().status()).isEqualTo(FlightStatus.PLANNED);
+    }
+
+    @Test
+    void refusedEditOverTheTotalCarriesTheProposalWithTheOldReason() {
+        service.addDepartureDelay(command(600));
+        UUID arrivalId = service.addArrivalDelay(command(100)).arrivalDelays().getFirst().id();
+
+        assertThatThrownBy(
+                        () ->
+                                service.updateArrivalDelay(
+                                        new UpdateDelayCommand(KEY, arrivalId, 121, "Longer")))
+                .isInstanceOfSatisfying(
+                        TotalDelayExceededException.class,
+                        refused -> {
+                            assertThat(refused.totalMinutes()).isEqualTo(721);
+                            assertThat(refused.proposal().minutes()).isEqualTo(121);
+                            assertThat(refused.proposal().reasonCode()).isEqualTo("71");
+                            assertThat(refused.proposal().description()).isEqualTo("Longer");
+                        });
+        assertThat(flights.findById(KEY).orElseThrow().arrivalDelays().getFirst().minutes())
+                .isEqualTo(100);
     }
 
     private static AddDelayCommand command(int minutes) {

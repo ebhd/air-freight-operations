@@ -3,6 +3,7 @@ package be.kdg.airfreight.flight.api.flight;
 import be.kdg.airfreight.flight.application.FlightActualTimeService;
 import be.kdg.airfreight.flight.application.FlightDelayService;
 import be.kdg.airfreight.flight.application.FlightQueryService;
+import be.kdg.airfreight.flight.application.FlightReplanningService;
 import be.kdg.airfreight.flight.domain.NotFoundException;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
@@ -29,14 +30,17 @@ public class FlightController {
     private final FlightQueryService flightQueryService;
     private final FlightDelayService flightDelayService;
     private final FlightActualTimeService flightActualTimeService;
+    private final FlightReplanningService flightReplanningService;
 
     public FlightController(
             FlightQueryService flightQueryService,
             FlightDelayService flightDelayService,
-            FlightActualTimeService flightActualTimeService) {
+            FlightActualTimeService flightActualTimeService,
+            FlightReplanningService flightReplanningService) {
         this.flightQueryService = flightQueryService;
         this.flightDelayService = flightDelayService;
         this.flightActualTimeService = flightActualTimeService;
+        this.flightReplanningService = flightReplanningService;
     }
 
     // post because registering is a one-time command that changes the state, never a replace
@@ -64,6 +68,21 @@ public class FlightController {
         FlightKey key = new FlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
         FlightResponse response =
                 FlightResponse.from(flightActualTimeService.recordArrival(request.toCommand(key)));
+        return ResponseEntity.ok(response);
+    }
+
+    // ends the flight and asks the planning system for the new one; 200 with the old flight
+    // because the new flight only exists once its ssm is processed
+    @PostMapping("/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/replanning")
+    public ResponseEntity<FlightResponse> replan(
+            @PathVariable String flightNumber,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate scheduledDepartureDate,
+            @PathVariable String departureAirportCode,
+            @RequestBody ReplanFlightRequest request) {
+        FlightKey key = new FlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
+        FlightResponse response =
+                FlightResponse.from(flightReplanningService.replan(request.toCommand(key)));
         return ResponseEntity.ok(response);
     }
 

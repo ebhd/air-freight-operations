@@ -15,6 +15,7 @@ import be.kdg.airfreight.flight.application.DelayReasonQueryService;
 import be.kdg.airfreight.flight.application.FlightActualTimeService;
 import be.kdg.airfreight.flight.application.FlightDelayService;
 import be.kdg.airfreight.flight.application.FlightQueryService;
+import be.kdg.airfreight.flight.application.FlightReplanningService;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReason;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
 import be.kdg.airfreight.flight.domain.flight.Delay;
@@ -72,6 +73,9 @@ class DelayControllerTest {
                         List.of()));
         FlightRepository flightRepository = new InMemoryFlights();
         DelayReasonRepository reasons = new OneReason();
+        FlightReplanningService replanningService =
+                new FlightReplanningService(
+                        flightRepository, reasons, event -> {}, Clock.systemUTC());
         mvc =
                 MockMvcBuilders.standaloneSetup(
                                 new FlightController(
@@ -79,9 +83,11 @@ class DelayControllerTest {
                                         new FlightDelayService(
                                                 flightRepository,
                                                 reasons,
+                                                replanningService,
                                                 event -> {},
                                                 Clock.systemUTC()),
-                                        mock(FlightActualTimeService.class)),
+                                        mock(FlightActualTimeService.class),
+                                        replanningService),
                                 new DelayReasonController(new DelayReasonQueryService(reasons)))
                         .setControllerAdvice(new ErrorHandling())
                         .build();
@@ -141,12 +147,16 @@ class DelayControllerTest {
                 .andExpect(jsonPath("$.totalMinutes").value(740))
                 .andExpect(jsonPath("$.maxTotalMinutes").value(720))
                 .andExpect(jsonPath("$.replanningPossible").value(true))
+                // the proposal: std 08:00 + 740 min of departure delay, sta 10:00 + 740 min
+                .andExpect(jsonPath("$.newFlightNumber").value("HJ221A"))
+                .andExpect(jsonPath("$.newScheduledDeparture").value("2026-10-19T20:20:00Z"))
+                .andExpect(jsonPath("$.newScheduledArrival").value("2026-10-19T22:20:00Z"))
                 .andExpect(
                         jsonPath("$.detail")
                                 .value(
                                         "All delays together would be 740 minutes (12 h 20 min)."
                                                 + " At most 720 minutes (12 h) is allowed. You can"
-                                                + " replan this flight instead."));
+                                                + " replan this flight as HJ221A instead."));
         assertThat(flights.get(PLANNED).totalDelayMinutes()).isEqualTo(600);
     }
 

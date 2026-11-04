@@ -391,6 +391,8 @@ class FlightActualTimeRulesTest {
                 List.of(),
                 true,
                 actualDeparture,
-                null);
+                null,
+                null,
+                false);
     }
 }
