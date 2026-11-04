@@ -2,6 +2,7 @@ import { clearError, getJson, showError } from './api.js';
 import { hasRole } from './auth.js';
 import { requiredElement } from './dom.js';
 import type { FlightOverview } from './flight-overview.js';
+import { renderLoadCheck, type LoadCheckReport } from './load-check.js';
 import { loadLoadingWindow, renderLoadingWindow } from './loading-window.js';
 import { initializePage } from './page.js';
 import {
@@ -11,7 +12,7 @@ import {
     takenPositions,
     type LoadingPositionResponse,
 } from './positions.js';
-import { LOAD_PLANNER_ONLY, positionNotChangedText } from './refusal-text.js';
+import { LOAD_PLANNER_ONLY, loadNotCheckedText, positionNotChangedText } from './refusal-text.js';
 import { formatBrusselsDateTime } from './time.js';
 import type { UldBookingResponse } from './uld-booking.js';
 
@@ -35,6 +36,10 @@ const rows = requiredElement('#bookings', HTMLTableSectionElement);
 const tableStatus = requiredElement('#table-status', HTMLElement);
 const retryButton = requiredElement('#retry', HTMLButtonElement);
 const readOnlyNote = requiredElement('#read-only', HTMLElement);
+const loadCheckSection = requiredElement('#load-check', HTMLElement);
+const checkButton = requiredElement('#check-load', HTMLButtonElement);
+const loadCheckStatus = requiredElement('#load-check-status', HTMLElement);
+const loadCheckRows = requiredElement('#load-check-results', HTMLTableSectionElement);
 readOnlyNote.textContent = `You can view this cargo plan. ${LOAD_PLANNER_ONLY}`;
 
 // shows the booked weight as is without converting units
@@ -63,6 +68,7 @@ async function loadCargoPlan(): Promise<void> {
     flightBlock.hidden = true;
     windowBlock.hidden = true;
     readOnlyNote.hidden = true;
+    loadCheckSection.hidden = true;
     rows.replaceChildren();
     const flightKey = readFlightKey(new URLSearchParams(location.search));
     if (!flightKey) {
@@ -97,6 +103,30 @@ async function loadCargoPlan(): Promise<void> {
     readOnlyNote.hidden = loadPlanner;
     const editablePath = loadPlanner && loadingWindow.data.loadingAllowed ? path : null;
     renderBookings(cargoPlan.data.bookings, positions.data, editablePath);
+    // checks only run while loading is allowed so the report shows the current load
+    if (loadingWindow.data.loadingAllowed) {
+        checkButton.hidden = !loadPlanner;
+        loadCheckSection.hidden = false;
+        await checkLoad(path);
+    }
+}
+
+// every reload checks again so the report never shows an older load
+async function checkLoad(cargoPlanPath: string): Promise<void> {
+    checkButton.disabled = true;
+    loadCheckStatus.textContent = 'Checking…';
+    loadCheckRows.replaceChildren();
+    // the check belongs to the cargo plan so its path continues the plan path
+    const report = await getJson<LoadCheckReport>(`${cargoPlanPath}/load-check`);
+    checkButton.disabled = false;
+    if (!report.ok) {
+        loadCheckStatus.textContent = loadNotCheckedText(report);
+        return;
+    }
+    renderLoadCheck(loadCheckRows, report.data);
+    loadCheckStatus.textContent = report.data.hardChecksPassed
+        ? 'All hard checks passed.'
+        : 'A hard check failed, so the load cannot be finalized yet.';
 }
 
 function renderFlight(flight: FlightOverview): void {
@@ -203,4 +233,10 @@ function errorText(status: number | null, message: string): string {
 }
 
 retryButton.addEventListener('click', loadCargoPlan);
+checkButton.addEventListener('click', () => {
+    const flightKey = readFlightKey(new URLSearchParams(location.search));
+    if (flightKey) {
+        void checkLoad(cargoPlanPath(flightKey));
+    }
+});
 void initializePage(loadCargoPlan);

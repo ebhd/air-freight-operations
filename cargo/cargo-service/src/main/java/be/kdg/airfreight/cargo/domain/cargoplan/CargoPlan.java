@@ -3,6 +3,8 @@ package be.kdg.airfreight.cargo.domain.cargoplan;
 import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
+import be.kdg.airfreight.cargo.domain.loadcheck.LoadCheckReport;
+import be.kdg.airfreight.cargo.domain.loadcheck.LoadChecks;
 import be.kdg.airfreight.cargo.domain.loading.LoadingContext;
 import be.kdg.airfreight.cargo.domain.loading.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.loading.LoadingRefusal;
@@ -101,6 +103,12 @@ public final class CargoPlan {
             throw new PositionOccupiedException(flightKey, position, occupant.get().getCode());
         }
         booking.placeAt(position);
+    }
+
+    // runs every check on the current load and changes nothing
+    public LoadCheckReport checkLoad(LoadingContext context, LoadChecks checks) {
+        requireLoadingAllowed(context);
+        return checks.run(getBookings(), context.flight().arrivalAirportCode());
     }
 
     // clearing a uld without a position changes nothing

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ApiFailure } from '../../ts/api-failure.js';
-import { positionNotChangedText, refusalText } from '../../ts/refusal-text.js';
+import { loadNotCheckedText, positionNotChangedText, refusalText } from '../../ts/refusal-text.js';
 
 // 20:00 and 07:40 utc are 22:00 and 09:40 in brussels summer time
 const OPENS_AT = '2026-10-21T20:00:00Z';
@@ -64,5 +64,24 @@ describe('positionNotChangedText', () => {
         expect(positionNotChangedText('AKE12345KL', failure)).toBe(
             'Position of AKE12345KL not changed: Cargo service is unreachable.',
         );
+    });
+});
+
+describe('loadNotCheckedText', () => {
+    it('writes the loading refusal in brussels time', () => {
+        const failure: ApiFailure = {
+            ok: false,
+            status: 409,
+            message: 'Loading on HJ221/2026-10-22/BRU is not allowed: the cargo plan is finalized',
+            loadingRefusal: { refusal: 'PLAN_FINALIZED', opensAt: OPENS_AT, closesAt: CLOSES_AT },
+        };
+
+        expect(loadNotCheckedText(failure)).toBe('Load not checked: Closed: the cargo plan is finalized');
+    });
+
+    it('shows the message of any other failure', () => {
+        const failure: ApiFailure = { ok: false, status: 503, message: 'Flight Operations is unavailable, try again later' };
+
+        expect(loadNotCheckedText(failure)).toBe('Load not checked: Flight Operations is unavailable, try again later');
     });
 });

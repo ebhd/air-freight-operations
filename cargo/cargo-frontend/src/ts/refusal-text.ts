@@ -30,9 +30,17 @@ export function positionNotChangedText(uldCode: string, failure: ApiFailure): st
     if (failure.status === 403) {
         return `Position of ${uldCode} not changed: ${LOAD_PLANNER_ONLY}`;
     }
+    return `Position of ${uldCode} not changed: ${failureReason(failure)}`;
+}
+
+export function loadNotCheckedText(failure: ApiFailure): string {
+    return `Load not checked: ${failureReason(failure)}`;
+}
+
+function failureReason(failure: ApiFailure): string {
     if (failure.loadingRefusal !== undefined) {
         const { refusal, opensAt, closesAt } = failure.loadingRefusal;
-        return `Position of ${uldCode} not changed: ${refusalText(refusal, opensAt, closesAt)}`;
+        return refusalText(refusal, opensAt, closesAt);
     }
-    return `Position of ${uldCode} not changed: ${failure.message}`;
+    return failure.message;
 }
