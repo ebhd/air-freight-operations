@@ -57,7 +57,7 @@ class RabbitConfigurationTest {
                 context ->
                         assertThat(context.getBeansOfType(Queue.class).values())
                                 .filteredOn(queue -> queue.getName().startsWith("cargo.flight-"))
-                                .hasSize(4)
+                                .hasSize(6)
                                 .allMatch(Queue::isDurable));
     }
 }

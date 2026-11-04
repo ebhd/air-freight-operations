@@ -88,20 +88,7 @@ public class FlightCopyService {
     }
 
     // the old flight of a replanning is final, so its copy only needs the status
-    public void recordReplanned(FlightKey flightKey, Instant occurredOn) {
-        if (copies.findCopy(flightKey).isEmpty()) {
-            // not seen yet so take the current state from flight once, which is already replanned
-            if (flights.findByFlightKey(flightKey).isEmpty()) {
-                log.warn(
-                        "Flight Operations does not know flight {} from its own replanned event",
-                        flightKey);
-                return;
-            }
-        }
-        if (copies.saveStatusIfNewer(flightKey, FlightStatus.REPLANNED, occurredOn)) {
-            log.info("Marked flight {} as replanned in the copy", flightKey);
-        } else {
-            log.debug("Flight {} was already replanned in the copy", flightKey);
-        }
+    public void recordReplanned(FlightKey flightKey) {
+        advance(flightKey, FlightStatus.REPLANNED);
     }
 }

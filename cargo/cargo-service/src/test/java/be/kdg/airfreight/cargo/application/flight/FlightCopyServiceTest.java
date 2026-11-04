@@ -155,9 +155,9 @@ class FlightCopyServiceTest {
     void replannedFlightGetsTheStatusInTheCopy() {
         when(copies.findCopy(KEY)).thenReturn(Optional.of(FLIGHT));
 
-        service.recordReplanned(KEY, DELAYED);
+        service.recordReplanned(KEY);
 
-        verify(copies).saveStatusIfNewer(KEY, FlightStatus.REPLANNED, DELAYED);
+        verify(copies).advanceStatus(KEY, FlightStatus.REPLANNED);
         verifyNoInteractions(flights);
     }
 
@@ -167,9 +167,9 @@ class FlightCopyServiceTest {
         when(copies.findCopy(KEY)).thenReturn(Optional.empty());
         when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(FLIGHT));
 
-        service.recordReplanned(KEY, DELAYED);
+        service.recordReplanned(KEY);
 
         verify(flights).findByFlightKey(KEY);
-        verify(copies).saveStatusIfNewer(KEY, FlightStatus.REPLANNED, DELAYED);
+        verify(copies).advanceStatus(KEY, FlightStatus.REPLANNED);
     }
 }

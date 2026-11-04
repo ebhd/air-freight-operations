@@ -114,8 +114,7 @@ class FlightEventListener {
                                 flightKey(
                                         replanned.flightNumber(),
                                         replanned.scheduledDepartureDate(),
-                                        replanned.departureAirportCode()),
-                                required(replanned.occurredOn(), "Occurred on")));
+                                        replanned.departureAirportCode())));
     }
 
     @RabbitListener(queues = RabbitConfiguration.FLIGHT_REPLACED_QUEUE)

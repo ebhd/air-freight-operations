@@ -129,7 +129,7 @@ class FlightEventListenerTest {
     void replannedFlightGetsItsStatusInTheCopy() {
         listener.receiveReplanned(message(replanned("version", 1)));
 
-        verify(copyService).recordReplanned(KEY, OCCURRED_ON);
+        verify(copyService).recordReplanned(KEY);
         verifyNoInteractions(rejectedMessages, moveService);
     }
 

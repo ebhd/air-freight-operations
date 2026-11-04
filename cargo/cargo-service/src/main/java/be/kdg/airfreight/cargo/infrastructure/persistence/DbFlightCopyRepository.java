@@ -148,26 +148,6 @@ class DbFlightCopyRepository implements FlightCopyRepository {
         return changed == 1;
     }
 
-    // same shape as the estimates update, only the status column changes
-    @Override
-    @Transactional
-    public boolean saveStatusIfNewer(FlightKey flightKey, FlightStatus status, Instant changedAt) {
-        int changed =
-                jdbc.sql(
-                                "UPDATE flights SET status = :status, last_change_at = :changedAt"
-                                        + " WHERE flight_number = :flightNumber"
-                                        + " AND scheduled_departure_date = :date"
-                                        + " AND departure_airport_code = :departure"
-                                        + " AND last_change_at < :changedAt")
-                        .param("status", status.name())
-                        .param("changedAt", timestamp(changedAt))
-                        .param("flightNumber", flightKey.flightNumber())
-                        .param("date", flightKey.scheduledDepartureDate())
-                        .param("departure", flightKey.departureAirportCode().value())
-                        .update();
-        return changed == 1;
-    }
-
     private static FlightInformation toFlight(ResultSet row, int rowNumber) throws SQLException {
         FlightKey key =
                 new FlightKey(
