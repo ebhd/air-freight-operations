@@ -18,7 +18,7 @@ public class FlightCreatedListener {
     @RabbitListener(queues = RabbitConfiguration.FLIGHT_CREATED_QUEUE)
     public void receive(FlightCreatedMessage message) {
         log.info("Received FlightCreated message {}", message.messageId());
-        if (message.version() != 1) {
+        if (message.version() != FlightCreatedMessage.VERSION) {
             throw new IllegalArgumentException(
                     "unsupported FlightCreated version: " + message.version());
         }

@@ -44,7 +44,12 @@ variables:
 .microservices:
   parallel:
     matrix:
-      - SERVICE: [flight-service, cargo-service, partner-communication-service]
+      - SERVICE: flight:flight-service
+        SERVICE_DIR: flight/flight-service
+      - SERVICE: cargo:cargo-service
+        SERVICE_DIR: cargo/cargo-service
+      - SERVICE: partner-communication-service
+        SERVICE_DIR: partner-communication-service
 
 format:
   extends: .microservices
@@ -61,7 +66,7 @@ lint:
     when: always
     expire_in: 1 week
     paths:
-      - $SERVICE/build/reports/checkstyle/
+      - $SERVICE_DIR/build/reports/checkstyle/
 
 build:
   extends: .microservices
@@ -71,7 +76,7 @@ build:
   artifacts:
     expire_in: 1 week
     paths:
-      - $SERVICE/build/libs/*.jar
+      - $SERVICE_DIR/build/libs/*.jar
 
 test:
   extends: .microservices
@@ -83,7 +88,7 @@ test:
     when: always
     expire_in: 1 week
     reports:
-      junit: $SERVICE/build/test-results/test/TEST-*.xml
+      junit: $SERVICE_DIR/build/test-results/test/TEST-*.xml
     paths:
-      - $SERVICE/build/reports/tests/
-      - $SERVICE/build/reports/jacoco/
+      - $SERVICE_DIR/build/reports/tests/
+      - $SERVICE_DIR/build/reports/jacoco/

@@ -1,0 +1,21 @@
+plugins {
+    id 'com.github.node-gradle.node'
+    id 'base'
+}
+
+description = 'Flight Operations frontend'
+
+node {
+    download = true
+    version = '24.22.1'
+    npmInstallCommand = 'ci'
+}
+
+tasks.named('assemble') {
+    dependsOn('npm_run_build')
+}
+
+// so check also runs the page tests like cargo does
+tasks.named('check') {
+    dependsOn('npm_run_test')
+}

@@ -317,7 +317,7 @@ Loading period: **STD - 12 hours → current ETD - 20 minutes**
 
 Offloading (#23, #24):
 
-- `OffloadingCheck` is a package-private domain service: only domain classes can create it, so in production only `CargoPlan` runs it (Check Load in #21, finalization in #26). It calls no guard; the action that runs it calls `requireLoadingAllowed` first.
+- `OffloadingCheck` is a package-private domain service in `domain.offloading`, alongside its result and tests. It is not yet called by `CargoPlan`; integration follows with Check Load (#21) and finalization (#26). It calls no guard; the action that runs it must call `requireLoadingAllowed` first.
 - Routes follow the order of `LoadingPosition`. A paired position walks along its own side to row R: toward the tail in front of row R, toward the nose behind it. Left cargo leaves through RL; right cargo goes to RR and crosses to RL. A route never switches sides.
 - The check simulates unloading on its own copy of the positions. In passes from nose to tail it removes every ULD for the arrival airport whose route is empty at that moment, until a pass removes nothing. Cargo for other airports never moves. The removal order is a legal unloading order (published example 2: RR, then UR); what remains is blocked. The cargo plan itself never changes.
 - A route must be empty, not only free of other-airport cargo, so destination cargo on it leaves first. For paired positions this gives the same pass or fail as the case's wording, because the route of a position on my route is the rest of my route.
@@ -356,7 +356,7 @@ classDiagram
         finalizedLoadProcessed
         create(flightKey, arrivalAirportCode, aircraftRegistration, scheduledDeparture, scheduledArrival)
         addDelay(type, minutes, reasonCode, description)
-        editDelay(delayId, minutes, description)
+        updateDelay(delayId, minutes, description)
         removeDelay(delayId)
         estimatedDeparture()
         estimatedArrival()
@@ -381,13 +381,10 @@ classDiagram
 
     class Delay {
         <<Entity>>
+        id
         minutes
+        reasonCode
         description
-    }
-
-    class DelayId {
-        <<ValueObject>>
-        value
     }
 
     class DelayType {
@@ -401,7 +398,6 @@ classDiagram
     Flight "1" *-- "0..*" Delay : delays
     Flight "1" --> "1" FlightKey : key
     Flight --> "1" FlightStatus : status
-    Delay --> "1" DelayId : id
     Delay --> "1" DelayType : type
 
 ```
@@ -412,7 +408,7 @@ classDiagram
 | --- | --- |
 | Aggregate root | `Flight` (owns delays and controls the lifecycle) |
 | Entity | `Delay` |
-| Value objects | `FlightKey`, `DelayId` |
+| Value objects | `FlightKey` (a delay's `id` is a plain `UUID`, no value object) |
 | Enumerations | `FlightStatus`, `DelayType` |
 | Domain events | `FlightCreated`, `FlightEstimatesChanged`, `FlightDeparted`, `FlightArrived` |
 | Repository | `FlightRepository` |
@@ -514,12 +510,12 @@ stateDiagram-v2
 
 Each service uses `domain` for business rules and repository interfaces, `application` for use cases, `infrastructure` for persistence and external adapters, and `api` for REST controllers, DTOs and mappers. The initial setup contains these packages; business workflows are still to be implemented.
 
-A service serves its own web pages as static files from its JAR (so far only Cargo): HTML from `src/main/resources/static`, plus TypeScript modules (bundled with `keycloak-js` by Vite) and Tailwind CSS that the Gradle build compiles into `static/js` and `static/css`. The pages render on the client: the TypeScript modules call the service's REST API with `fetch` and a bearer token.
+A service serves its own web pages as static files from its JAR. Cargo and Flight each have separate frontend and backend Gradle projects under `cargo/` and `flight/`. Vite builds each frontend's HTML, TypeScript and Tailwind CSS into its `build/dist/` directory. The backend's resource processing adds that output to its JAR as `static/`, without writing generated files into `src/`. Cargo preserves its page URLs and its `static/js` and `static/css` asset paths. The pages render on the client: the TypeScript modules call the service's REST API with `fetch` and a bearer token.
 
-Sign-in and rights: the page sends the user to Keycloak's own login page (OpenID Connect, Authorization Code with PKCE), keeps the tokens in memory and renews the access token before an API call when it is about to expire. Flight and Cargo are stateless resource servers: each checks every JWT itself with Keycloak's public keys (signature, issuer, its own audience, expiry) and maps the realm roles `flight-planner` and `load-planner` to Spring roles. The rules live in each service's `SecurityConfiguration`: both roles may read (`GET /api/**`), other API calls need `load-planner` in Cargo and `flight-planner` in Flight. Cargo lets only its page files, health and `/error` through without a token and refuses every other path. A missing or invalid token gives 401, a wrong role 403; a refusal by the domain rules stays 409. The pages hide actions the role may not use, but the server decides. Cargo reads Flight with its own client-credentials token.
+Sign-in and rights: the page (bundled with `keycloak-js`) sends the user to Keycloak's own login page (OpenID Connect, Authorization Code with PKCE), keeps the tokens in memory and renews the access token before an API call when it is about to expire. Flight and Cargo are stateless resource servers: each checks every JWT itself with Keycloak's public keys (signature, issuer, its own audience, expiry) and maps the realm roles `flight-planner` and `load-planner` to Spring roles. The rules live in each service's `SecurityConfiguration`: both roles may read (`GET /api/**`), other API calls need `load-planner` in Cargo and `flight-planner` in Flight. Cargo lets only its page files, health and `/error` through without a token and refuses every other path. A missing or invalid token gives 401, a wrong role 403; a refusal by the domain rules stays 409. The pages hide actions the role may not use, but the server decides. Cargo reads Flight with its own client-credentials token.
 
 Cargo signals a missing or invalid input value with its own `InvalidCargoValueException` from the value objects. The ULD listener stores such a message in `rejected_messages` without retrying; a REST controller turns it into 400 only while it builds the domain values from the URL, so bad data from Flight stays a 500. `CargoApiExceptionHandler` gives every Cargo endpoint the same answers: 404 for a flight Flight does not know, 503 when Flight is unreachable, 409 with a refusal code when the loading rules refuse an action (`LoadingNotAllowedException`). Read use cases such as the cargo plan view (`CargoPlanQueryService`) load the aggregate through its repository and add Flight's data; they check no flight state, so the plan stays readable after departure.
 
 ## 10. Running it 
 
-Run `docker compose up -d --build` from the repository root. See [README](../README.md) for ports, development credentials, IntelliJ setup and the current implementation limits. Configure Keycloak first as the README describes. Health endpoints verify PostgreSQL and RabbitMQ; Cargo also checks its HTTP connection to Flight. Flight and Cargo validate Keycloak tokens and enforce the planner roles (section 9). Domain message flows are still to be implemented.
+Run `docker compose up -d --build` from the repository root. See [README](../README.md) for ports, development credentials, IntelliJ setup and the current implementation limits. Configure Keycloak first as the README describes. Health endpoints verify PostgreSQL and RabbitMQ; Cargo also checks its HTTP connection to Flight. Flight and Cargo validate Keycloak tokens and enforce the planner roles (section 9).

@@ -10,6 +10,7 @@ desktop.ini
 # Gradle output
 .gradle/
 **/build/
+**/dist/
 **/bin/
 node_modules/
 http-client.private.env.json
@@ -20,3 +21,4 @@ http-requests/
 .env.*
 !.env.example
 *.log
+**/node_modules.previous/

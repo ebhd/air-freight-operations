@@ -1,0 +1,16 @@
+plugins {
+    id 'com.github.node-gradle.node'
+    id 'base'
+}
+
+description = 'Cargo Loading frontend'
+
+node {
+    download = true
+    version = '24.22.1'
+    npmInstallCommand = 'ci'
+}
+
+tasks.named('assemble') {
+    dependsOn('npm_run_build')
+}
