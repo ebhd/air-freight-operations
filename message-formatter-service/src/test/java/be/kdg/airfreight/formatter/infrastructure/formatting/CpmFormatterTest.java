@@ -67,6 +67,7 @@ class CpmFormatterTest {
                         formatter,
                         new MvtAdFormatter(),
                         new MvtAaFormatter(),
+                        new FlightReplannedFormatter(JSON),
                         publisher);
         var sourceId = UUID.randomUUID();
         LoadFinalizedFact fact = fact(List.of());

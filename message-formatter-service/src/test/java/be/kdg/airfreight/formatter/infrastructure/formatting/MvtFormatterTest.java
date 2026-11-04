@@ -70,6 +70,8 @@ class MvtFormatterTest {
                         new CpmFormatter(JsonMapper.builder().findAndAddModules().build()),
                         new MvtAdFormatter(),
                         new MvtAaFormatter(),
+                        new FlightReplannedFormatter(
+                                JsonMapper.builder().findAndAddModules().build()),
                         publisher);
         var sourceId = UUID.randomUUID();
         var changed =
@@ -97,6 +99,8 @@ class MvtFormatterTest {
                         new CpmFormatter(JsonMapper.builder().findAndAddModules().build()),
                         new MvtAdFormatter(),
                         new MvtAaFormatter(),
+                        new FlightReplannedFormatter(
+                                JsonMapper.builder().findAndAddModules().build()),
                         publisher);
         var sourceId = UUID.randomUUID();
         var changed =
@@ -180,6 +184,7 @@ class MvtFormatterTest {
                 new CpmFormatter(JsonMapper.builder().findAndAddModules().build()),
                 adFormatter,
                 aaFormatter,
+                new FlightReplannedFormatter(JsonMapper.builder().findAndAddModules().build()),
                 publisher);
     }
 

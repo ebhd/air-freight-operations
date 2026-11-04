@@ -4,6 +4,7 @@ import be.kdg.airfreight.formatter.domain.FlightCreatedFact;
 import be.kdg.airfreight.formatter.domain.FlightDepartedFact;
 import be.kdg.airfreight.formatter.domain.FlightEstimatesChangedFact;
 import be.kdg.airfreight.formatter.domain.FlightLandedFact;
+import be.kdg.airfreight.formatter.domain.FlightReplacedFact;
 import be.kdg.airfreight.formatter.domain.LoadFinalizedFact;
 import be.kdg.airfreight.formatter.domain.MessageContent;
 import be.kdg.airfreight.formatter.domain.MessageFormatter;
@@ -22,6 +23,7 @@ public class MessageFormattingService {
     private final MessageFormatter<LoadFinalizedFact> cpmFormatter;
     private final MessageFormatter<FlightDepartedFact> adFormatter;
     private final MessageFormatter<FlightLandedFact> aaFormatter;
+    private final MessageFormatter<FlightReplacedFact> replannedFormatter;
     private final MessagePublisher publisher;
 
     public MessageFormattingService(
@@ -32,6 +34,7 @@ public class MessageFormattingService {
             // one bean per fact type so no qualifier is needed
             MessageFormatter<FlightDepartedFact> adFormatter,
             MessageFormatter<FlightLandedFact> aaFormatter,
+            MessageFormatter<FlightReplacedFact> replannedFormatter,
             MessagePublisher publisher) {
         this.flmFormatter = flmFormatter;
         this.edFormatter = edFormatter;
@@ -39,6 +42,7 @@ public class MessageFormattingService {
         this.cpmFormatter = cpmFormatter;
         this.adFormatter = adFormatter;
         this.aaFormatter = aaFormatter;
+        this.replannedFormatter = replannedFormatter;
         this.publisher = publisher;
     }
 
@@ -49,6 +53,11 @@ public class MessageFormattingService {
     // the cargo message id is the source id so partner stores one cpm per finalized load
     public void prepareCpm(UUID sourceMessageId, LoadFinalizedFact fact) {
         publisher.publish(sourceMessageId, List.of(cpmFormatter.format(fact)));
+    }
+
+    // the flight.replaced message id is the source id so partner stores one message per replanning
+    public void prepareFlightReplanned(UUID sourceMessageId, FlightReplacedFact fact) {
+        publisher.publish(sourceMessageId, List.of(replannedFormatter.format(fact)));
     }
 
     public void prepareEstimates(UUID sourceMessageId, FlightEstimatesChangedFact fact) {
