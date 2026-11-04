@@ -167,6 +167,7 @@ class FlightEventListenerTest {
         return created("version", 1);
     }
 
+    // flights full json, also the fields cargo does not read
     // one field replaced, null writes a json null like a missing field
     private static String created(String field, Object value) {
         Map<String, Object> message = new LinkedHashMap<>();
@@ -187,6 +188,7 @@ class FlightEventListenerTest {
         return estimates("version", 1);
     }
 
+    // flights full json like created
     private static String estimates(String field, Object value) {
         Map<String, Object> message = new LinkedHashMap<>();
         message.put("messageId", MESSAGE_ID);
