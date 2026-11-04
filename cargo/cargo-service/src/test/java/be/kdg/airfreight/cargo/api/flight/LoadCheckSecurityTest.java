@@ -9,12 +9,16 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import be.kdg.airfreight.cargo.application.cargoplan.FinalizeLoadService;
 import be.kdg.airfreight.cargo.application.loadcheck.LoadCheckService;
+import be.kdg.airfreight.cargo.domain.cargoplan.LoadFinalized;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadCheckReport;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,13 +51,21 @@ class LoadCheckSecurityTest {
 
     @Autowired private WebApplicationContext context;
     @Autowired private LoadCheckService loadCheckService;
+    @Autowired private FinalizeLoadService finalizeLoadService;
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        clearInvocations(loadCheckService);
+        clearInvocations(loadCheckService, finalizeLoadService);
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
         when(loadCheckService.checkLoad(KEY)).thenReturn(new LoadCheckReport(List.of()));
+        when(finalizeLoadService.finalizeLoad(KEY))
+                .thenReturn(
+                        new LoadFinalized(
+                                KEY,
+                                Instant.parse("2026-10-19T06:00:00Z"),
+                                List.of(),
+                                new LoadCheckReport(List.of())));
     }
 
     @Test
@@ -78,6 +90,25 @@ class LoadCheckSecurityTest {
         verifyNoInteractions(loadCheckService);
     }
 
+    // no csrf check so a post without a token is refused with 401
+    @Test
+    void finalizeNeedsToken() throws Exception {
+        mvc.perform(post(URL + "/finalization")).andExpect(status().isUnauthorized());
+        verifyNoInteractions(finalizeLoadService);
+    }
+
+    @Test
+    void onlyALoadPlannerMayFinalize() throws Exception {
+        mvc.perform(post(URL + "/finalization").with(planner("flight-planner")))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(URL + "/finalization").with(jwt())).andExpect(status().isForbidden());
+        verifyNoInteractions(finalizeLoadService);
+
+        mvc.perform(post(URL + "/finalization").with(planner("load-planner")))
+                .andExpect(status().isOk());
+        verify(finalizeLoadService).finalizeLoad(KEY);
+    }
+
     private static RequestPostProcessor planner(String role) {
         return jwt().authorities(new SimpleGrantedAuthority("ROLE_" + role));
     }
@@ -86,8 +117,17 @@ class LoadCheckSecurityTest {
     @EnableWebMvc
     @EnableWebSecurity
     @ComponentScan("be.kdg.airfreight.cargo.infrastructure.security")
-    @Import({LoadCheckController.class, CargoApiExceptionHandler.class})
+    @Import({
+        LoadCheckController.class,
+        FinalizationController.class,
+        CargoApiExceptionHandler.class
+    })
     static class Config {
+        @Bean
+        FinalizeLoadService finalizeLoadService() {
+            return mock(FinalizeLoadService.class);
+        }
+
         @Bean
         LoadCheckService loadCheckService() {
             return mock(LoadCheckService.class);
