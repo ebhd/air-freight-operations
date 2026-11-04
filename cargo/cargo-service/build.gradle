@@ -31,4 +31,9 @@ tasks.named('processResources') {
     from('../cargo-frontend/build/dist') { into 'static' }
 }
 
+// so the ci test job of cargo-service also runs the page tests
+tasks.named('test') {
+    dependsOn(':cargo:cargo-frontend:npm_run_test')
+}
+
 apply from: rootProject.file('gradle/quality.gradle')

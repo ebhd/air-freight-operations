@@ -83,11 +83,11 @@ A 202 answer only means the message was published. The Cargo log and database sh
 2. Create one flight planner and one load planner user and give each the matching realm role.
 3. Under Clients, Credentials, regenerate the secrets of `flight-service` and `cargo-service`. Put Cargo's secret in `.env` as `CARGO_SERVICE_CLIENT_SECRET`, put both in `http/http-client.private.env.json` (copy it from the `.example` file), then restart Cargo.
 
-The pages sign in with the public clients `flight-frontend` and `cargo-frontend` (authorization code with PKCE). Both planners can read everything. Only a flight planner can change Flight data and only a load planner can change Cargo data. Cargo reads Flight with its own service token.
+The pages sign in with the public clients `flight-frontend` and `cargo-frontend` (authorization code with PKCE). Both planners can read everything. Only a flight planner can change Flight data and only a load planner can change Cargo data. Cargo reads Flight with its own service token. Cargo's pages, health endpoints and `/error` need no token; every other path without its own rule is refused (401 without a token, 403 with one).
 
 ## API
 
-Every request needs a bearer token. Times are UTC. In the paths below, `{flight}` stands for `{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}`, for example `HJ221/2026-10-19/BRU`. Example requests are in [http/local.http](http/local.http).
+Every API request needs a bearer token. Times are UTC. In the paths below, `{flight}` stands for `{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}`, for example `HJ221/2026-10-19/BRU`. Example requests are in [http/local.http](http/local.http).
 
 | Service | Method | Path | Role needed |
 | --- | --- | --- | --- |
@@ -138,4 +138,4 @@ npm ci                     # installs the Husky git hooks, needs Node.js
 ./gradlew check assemble   # format check, lint, tests and JARs
 ```
 
-Tools: Spotless, Checkstyle, JUnit, ArchUnit, Testcontainers, JaCoCo and Vitest (Flight pages). Coverage reports are in `<project>/build/reports/jacoco/test/`. Database tests (`*IT`) need Docker and are skipped without it, as in GitLab CI.
+Tools: Spotless, Checkstyle, JUnit, ArchUnit, Testcontainers, JaCoCo and Vitest (Flight and Cargo pages). Coverage reports are in `<project>/build/reports/jacoco/test/`. Database tests (`*IT`) need Docker and are skipped without it, as in GitLab CI.
