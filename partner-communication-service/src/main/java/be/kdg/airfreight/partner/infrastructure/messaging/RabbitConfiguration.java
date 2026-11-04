@@ -31,6 +31,7 @@ public class RabbitConfiguration {
     static final String FLM = "flm";
     static final String MVT_ED = "mvt.ed";
     static final String MVT_EA = "mvt.ea";
+    static final String CPM = "cpm";
 
     @Bean
     TopicExchange formatterEvents() {

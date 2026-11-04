@@ -114,6 +114,7 @@ public class PartnerMessagePublisher {
             case "FLM" -> RabbitConfiguration.FLM;
             case "MVT_ED" -> RabbitConfiguration.MVT_ED;
             case "MVT_EA" -> RabbitConfiguration.MVT_EA;
+            case "CPM" -> RabbitConfiguration.CPM;
             default ->
                     throw new IllegalArgumentException(
                             "Unsupported partner message type: " + message.content().type());
@@ -127,7 +128,8 @@ public class PartnerMessagePublisher {
         properties.setDeliveryMode(MessageDeliveryMode.PERSISTENT);
 
         byte[] body;
-        if ("FLM".equals(message.content().type())) {
+        // flm and cpm are json so the metadata goes in an envelope, mvt text keeps headers
+        if (isJson(message.content().type())) {
             var envelope =
                     new PartnerMessageEnvelope(
                             message.id().value(),
@@ -147,6 +149,10 @@ public class PartnerMessagePublisher {
         }
 
         return new Message(body, properties);
+    }
+
+    private static boolean isJson(String type) {
+        return "FLM".equals(type) || "CPM".equals(type);
     }
 
     private static void awaitConfirmation(PartnerMessage message, CorrelationData correlation)
