@@ -95,6 +95,8 @@ function replanned(replacementCreated: boolean): Flight {
         scheduledArrival: '2026-11-10T22:00:00Z',
         estimatedDeparture: '2026-11-11T02:40:00Z',
         estimatedArrival: '2026-11-11T08:00:00Z',
+        actualDeparture: null,
+        actualArrival: null,
         departureDelays: [],
         arrivalDelays: [],
         replaces: null,

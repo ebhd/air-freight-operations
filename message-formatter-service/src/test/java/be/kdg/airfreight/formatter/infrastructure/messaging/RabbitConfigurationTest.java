@@ -34,18 +34,22 @@ class RabbitConfigurationTest {
                                         tuple(
                                                 "flight.events",
                                                 "flight.landed",
-                                                "formatter.flight-landed")));
+                                                "formatter.flight-landed"),
+                                        tuple(
+                                                "flight.events",
+                                                "flight.replaced",
+                                                "formatter.flight-replaced")));
     }
 
     // durable with the dead letter exchange so invalid events end up in partner.dlq
     @Test
-    void actualTimeQueuesAreDurableWithTheDeadLetterExchange() {
+    void formatterFlightQueuesAreDurableWithTheDeadLetterExchange() {
         runner.run(
                 context ->
                         assertThat(context.getBeansOfType(Queue.class).values())
                                 .filteredOn(
                                         queue -> queue.getName().startsWith("formatter.flight-"))
-                                .hasSize(2)
+                                .hasSize(3)
                                 .allSatisfy(
                                         queue -> {
                                             assertThat(queue.isDurable()).isTrue();

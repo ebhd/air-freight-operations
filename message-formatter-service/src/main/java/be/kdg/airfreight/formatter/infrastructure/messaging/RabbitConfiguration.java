@@ -27,7 +27,7 @@ public class RabbitConfiguration {
     static final String FLIGHT_LANDED = "flight.landed";
     static final String FLIGHT_LANDED_QUEUE = "formatter.flight-landed";
     static final String FLIGHT_REPLACED = "flight.replaced";
-    static final String FLIGHT_REPLACED_QUEUE = "partner.flight-replaced";
+    static final String FLIGHT_REPLACED_QUEUE = "formatter.flight-replaced";
 
     // ----- Incoming Cargo events -----
     static final String CARGO_EVENTS = "cargo.events";
