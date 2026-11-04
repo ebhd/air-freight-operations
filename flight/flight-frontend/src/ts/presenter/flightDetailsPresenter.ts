@@ -1,22 +1,25 @@
 import type { Delay } from '../domain/Delay';
 import type { DelayReason } from '../domain/DelayReason';
-import type { Flight, FlightKey } from '../domain/Flight';
+import type { Flight, FlightKey, ReplanFlightRequest } from '../domain/Flight';
 import { hasRole } from '../infrastructure/auth';
 import { getDelayReasons } from '../infrastructure/delayReasonRest';
 import {
     addDepartureDelay,
     addArrivalDelay,
+    flightDetailsPage,
     getFlight,
     recordArrival,
     recordDeparture,
     removeDepartureDelay,
     removeArrivalDelay,
+    replanFlight,
     updateDepartureDelay,
     updateArrivalDelay,
 } from '../infrastructure/flightRest';
 import { ResponseError } from '../infrastructure/restUtils';
 import { actualTimeRefusalText } from './actualTimeText';
 import { clearError, showError } from './messagePresenter';
+import { flightLabel, replacementKey, replannedText, replanningOffer, replanQuestion } from './replanning';
 import { brusselsNowForInput, brusselsToInstant, formatBrusselsDateTime } from './timeFormat';
 import { initializeUser } from './userPresenter';
 
@@ -45,6 +48,8 @@ const actualDepartureInput = document.querySelector<HTMLInputElement>('#actual-d
 const arrivalForm = document.querySelector<HTMLFormElement>('#arrival-form')!;
 const arrivalFields = document.querySelector<HTMLFieldSetElement>('#arrival-fields')!;
 const actualArrivalInput = document.querySelector<HTMLInputElement>('#actual-arrival-input')!;
+const historySection = document.querySelector<HTMLElement>('#history')!;
+const historyLines = document.querySelector<HTMLUListElement>('#history-lines')!;
 let flightKey: FlightKey;
 let currentFlight: Flight | null = null;
 let delayReasons: DelayReason[] = [];
@@ -160,7 +165,9 @@ function displayDelays(delays: Delay[], tableBody: HTMLTableSectionElement, depa
 }
 
 function displayPermissions(flight: Flight): void {
-    if (!hasRole('flight-planner')) {
+    if (flight.status === 'REPLANNED') {
+        permissionsMessage.textContent = `${replannedText(flight)} Its delays are frozen.`;
+    } else if (!hasRole('flight-planner')) {
         permissionsMessage.textContent = 'Read-only access. Flight planners can manage delays.';
     } else if (flight.status === 'LANDED') {
         permissionsMessage.textContent = 'This flight has landed. All delays are frozen.';
@@ -182,6 +189,50 @@ function displayFlight(flight: Flight): void {
     displayActualTimeForms(flight);
     resetDelayEditor();
     content.hidden = false;
+    void displayHistory(flight);
+}
+
+// the chain of replanned flights in both directions, each step one GET by key
+async function displayHistory(flight: Flight): Promise<void> {
+    historyLines.replaceChildren();
+    historySection.hidden = true;
+    const lines: HTMLLIElement[] = [];
+    let earlier = flight.replaces;
+    while (earlier !== null) {
+        lines.unshift(historyLine('Replaces', earlier));
+        earlier = (await flightOrNull(earlier))?.replaces ?? null;
+    }
+    let later = replacementKey(flight);
+    while (later !== null) {
+        lines.push(historyLine('Replanned to', later));
+        const next = await flightOrNull(later);
+        later = next === null ? null : replacementKey(next);
+    }
+    if (currentFlight !== flight) {
+        // the page moved on to another flight while the chain was loading
+        return;
+    }
+    historyLines.append(...lines);
+    historySection.hidden = lines.length === 0;
+}
+
+// a flight in the chain that cannot be read ends the chain instead of breaking the page
+async function flightOrNull(key: FlightKey): Promise<Flight | null> {
+    try {
+        return await getFlight(key);
+    } catch {
+        return null;
+    }
+}
+
+function historyLine(text: string, key: FlightKey): HTMLLIElement {
+    const link = document.createElement('a');
+    link.href = flightDetailsPage(key);
+    link.className = 'font-medium text-blue-800 underline hover:text-blue-600';
+    link.textContent = flightLabel(key);
+    const line = document.createElement('li');
+    line.append(`${text} `, link);
+    return line;
 }
 
 function createDelayRow(delay: Delay, departure: boolean): HTMLTableRowElement {
@@ -328,6 +379,8 @@ async function saveDelay(event: Event): Promise<void> {
     } catch (error) {
         if (delaySaved) {
             showError(new Error('The delay was saved, but the flight could not be refreshed. Reload the page.'));
+        } else if (await offerReplanning(error, departure, minutes, description)) {
+            // the refusal became a replanning so there is no error to show
         } else {
             showError(error);
             await reloadAfterRefusal(error);
@@ -335,6 +388,37 @@ async function saveDelay(event: Event): Promise<void> {
     } finally {
         setBusy(false);
     }
+}
+
+// a 409 over 12 hours asks the replan question at once, with the flight and times the server
+// proposed; the server checks everything again on the replan request
+async function offerReplanning(error: unknown, departure: boolean, minutes: number, description: string): Promise<boolean> {
+    if (!(error instanceof ResponseError) || currentFlight === null) {
+        return false;
+    }
+    const offer = replanningOffer(error.problem, hasRole('flight-planner'));
+    if (offer === null) {
+        return false;
+    }
+    if (!confirm(replanQuestion(currentFlight.flightNumber, offer))) {
+        showError(error);
+        return true;
+    }
+    const request: ReplanFlightRequest = {
+        delayType: departure ? 'DEPARTURE' : 'ARRIVAL',
+        delayId: delayBeingEdited?.id ?? null,
+        minutes,
+        reasonCode: delayBeingEdited === null ? reasonInput.value : null,
+        description,
+    };
+    try {
+        displayFlight(await replanFlight(flightKey, request));
+        pageStatus.textContent = 'Flight replanned. The new flight appears when the planning system has processed it.';
+    } catch (replanError) {
+        showError(replanError);
+        await reloadAfterRefusal(replanError);
+    }
+    return true;
 }
 
 async function deleteDelay(delay: Delay, departure: boolean): Promise<void> {
@@ -375,8 +459,8 @@ function actualTimeError(error: unknown, entered: string | null, departure: bool
         return error;
     }
     const text = actualTimeRefusalText({
-        refusal: error.refusal,
-        latestAllowed: error.latestAllowed,
+        refusal: error.problem.refusal,
+        latestAllowed: error.problem.latestAllowed,
         departure,
         entered,
         actualDeparture: currentFlight?.actualDeparture ?? null,

@@ -18,6 +18,7 @@ import {
     loadNotFinalizedText,
     positionNotChangedText,
 } from './refusal-text.js';
+import { movedToLink, movedToText, type MovedTo } from './replanning.js';
 import { formatBrusselsDateTime } from './time.js';
 import type { UldBookingResponse } from './uld-booking.js';
 
@@ -25,8 +26,11 @@ import type { UldBookingResponse } from './uld-booking.js';
 type CargoPlanResponse = {
     flight: FlightOverview;
     bookings: UldBookingResponse[];
+    state: 'DRAFT' | 'FINALIZED' | 'REPLANNED';
     // null while the plan is a draft
     finalizedAt: string | null;
+    // the new flight the cargo moved to, null unless the state is REPLANNED
+    movedTo: MovedTo | null;
 };
 
 // the answer of a successful finalize as sent by FinalizationResponse
@@ -53,6 +57,9 @@ const loadCheckSection = requiredElement('#load-check', HTMLElement);
 const checkButton = requiredElement('#check-load', HTMLButtonElement);
 const finalizeButton = requiredElement('#finalize-load', HTMLButtonElement);
 const finalizedNote = requiredElement('#finalized', HTMLElement);
+const movedToNote = requiredElement('#moved-to', HTMLElement);
+const movedToTextElement = requiredElement('#moved-to-text', HTMLElement);
+const movedToLinkElement = requiredElement('#moved-to-link', HTMLAnchorElement);
 const loadCheckStatus = requiredElement('#load-check-status', HTMLElement);
 const loadCheckRows = requiredElement('#load-check-results', HTMLTableSectionElement);
 readOnlyNote.textContent = `You can view this cargo plan. ${LOAD_PLANNER_ONLY}`;
@@ -85,6 +92,7 @@ async function loadCargoPlan(): Promise<void> {
     readOnlyNote.hidden = true;
     loadCheckSection.hidden = true;
     finalizedNote.hidden = true;
+    movedToNote.hidden = true;
     rows.replaceChildren();
     const flightKey = readFlightKey(new URLSearchParams(location.search));
     if (!flightKey) {
@@ -114,14 +122,17 @@ async function loadCargoPlan(): Promise<void> {
     }
     renderFlight(cargoPlan.data.flight);
     renderFinalized(cargoPlan.data.finalizedAt);
+    renderMovedTo(cargoPlan.data.movedTo);
     renderLoadingWindow(windowBlock, loadingWindow.data);
     const loadPlanner = hasRole('load-planner');
     // a flight planner may read the plan but gets no dropdowns so the page says why
     readOnlyNote.hidden = loadPlanner;
-    const editablePath = loadPlanner && loadingWindow.data.loadingAllowed ? path : null;
+    // the cargo of a replanned flight lives on the new flight so nothing can change here
+    const moved = cargoPlan.data.state === 'REPLANNED';
+    const editablePath = loadPlanner && loadingWindow.data.loadingAllowed && !moved ? path : null;
     renderBookings(cargoPlan.data.bookings, positions.data, editablePath);
     // checks only run while loading is allowed so the report shows the current load
-    if (loadingWindow.data.loadingAllowed) {
+    if (loadingWindow.data.loadingAllowed && !moved) {
         checkButton.hidden = !loadPlanner;
         finalizeButton.hidden = !loadPlanner;
         loadCheckSection.hidden = false;
@@ -135,6 +146,15 @@ function renderFinalized(finalizedAt: string | null): void {
         finalizedAt === null
             ? ''
             : `Load finalized at ${formatBrusselsDateTime(finalizedAt)}. Positions can no longer change.`;
+}
+
+function renderMovedTo(movedTo: MovedTo | null): void {
+    movedToNote.hidden = movedTo === null;
+    if (movedTo !== null) {
+        movedToTextElement.textContent = movedToText(movedTo);
+        movedToLinkElement.href = movedToLink(movedTo);
+        movedToLinkElement.textContent = `${movedTo.flightNumber} cargo plan`;
+    }
 }
 
 // every reload checks again so the report never shows an older load
