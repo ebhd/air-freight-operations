@@ -1,4 +1,4 @@
-import { clearError, getJson, showError } from './api.js';
+import { clearError, getJson, postJson, showError } from './api.js';
 import { hasRole } from './auth.js';
 import { requiredElement } from './dom.js';
 import type { FlightOverview } from './flight-overview.js';
@@ -12,7 +12,12 @@ import {
     takenPositions,
     type LoadingPositionResponse,
 } from './positions.js';
-import { LOAD_PLANNER_ONLY, loadNotCheckedText, positionNotChangedText } from './refusal-text.js';
+import {
+    LOAD_PLANNER_ONLY,
+    loadNotCheckedText,
+    loadNotFinalizedText,
+    positionNotChangedText,
+} from './refusal-text.js';
 import { formatBrusselsDateTime } from './time.js';
 import type { UldBookingResponse } from './uld-booking.js';
 
@@ -20,6 +25,14 @@ import type { UldBookingResponse } from './uld-booking.js';
 type CargoPlanResponse = {
     flight: FlightOverview;
     bookings: UldBookingResponse[];
+    // null while the plan is a draft
+    finalizedAt: string | null;
+};
+
+// the answer of a successful finalize as sent by FinalizationResponse
+type FinalizationResponse = {
+    finalizedAt: string;
+    report: LoadCheckReport;
 };
 
 type FlightKey = {
@@ -38,6 +51,8 @@ const retryButton = requiredElement('#retry', HTMLButtonElement);
 const readOnlyNote = requiredElement('#read-only', HTMLElement);
 const loadCheckSection = requiredElement('#load-check', HTMLElement);
 const checkButton = requiredElement('#check-load', HTMLButtonElement);
+const finalizeButton = requiredElement('#finalize-load', HTMLButtonElement);
+const finalizedNote = requiredElement('#finalized', HTMLElement);
 const loadCheckStatus = requiredElement('#load-check-status', HTMLElement);
 const loadCheckRows = requiredElement('#load-check-results', HTMLTableSectionElement);
 readOnlyNote.textContent = `You can view this cargo plan. ${LOAD_PLANNER_ONLY}`;
@@ -69,6 +84,7 @@ async function loadCargoPlan(): Promise<void> {
     windowBlock.hidden = true;
     readOnlyNote.hidden = true;
     loadCheckSection.hidden = true;
+    finalizedNote.hidden = true;
     rows.replaceChildren();
     const flightKey = readFlightKey(new URLSearchParams(location.search));
     if (!flightKey) {
@@ -97,6 +113,7 @@ async function loadCargoPlan(): Promise<void> {
         return;
     }
     renderFlight(cargoPlan.data.flight);
+    renderFinalized(cargoPlan.data.finalizedAt);
     renderLoadingWindow(windowBlock, loadingWindow.data);
     const loadPlanner = hasRole('load-planner');
     // a flight planner may read the plan but gets no dropdowns so the page says why
@@ -106,14 +123,25 @@ async function loadCargoPlan(): Promise<void> {
     // checks only run while loading is allowed so the report shows the current load
     if (loadingWindow.data.loadingAllowed) {
         checkButton.hidden = !loadPlanner;
+        finalizeButton.hidden = !loadPlanner;
         loadCheckSection.hidden = false;
         await checkLoad(path);
     }
 }
 
+function renderFinalized(finalizedAt: string | null): void {
+    finalizedNote.hidden = finalizedAt === null;
+    finalizedNote.textContent =
+        finalizedAt === null
+            ? ''
+            : `Load finalized at ${formatBrusselsDateTime(finalizedAt)}. Positions can no longer change.`;
+}
+
 // every reload checks again so the report never shows an older load
 async function checkLoad(cargoPlanPath: string): Promise<void> {
     checkButton.disabled = true;
+    // usable only after a report without a hard failure, the server checks again anyway
+    finalizeButton.disabled = true;
     loadCheckStatus.textContent = 'Checking…';
     loadCheckRows.replaceChildren();
     // the check belongs to the cargo plan so its path continues the plan path
@@ -124,9 +152,32 @@ async function checkLoad(cargoPlanPath: string): Promise<void> {
         return;
     }
     renderLoadCheck(loadCheckRows, report.data);
+    finalizeButton.disabled = !report.data.hardChecksPassed;
     loadCheckStatus.textContent = report.data.hardChecksPassed
         ? 'All hard checks passed.'
         : 'A hard check failed, so the load cannot be finalized yet.';
+}
+
+async function finalizeLoad(cargoPlanPath: string): Promise<void> {
+    if (!confirm('Finalize the load? Positions cannot be changed afterwards.')) {
+        return;
+    }
+    checkButton.disabled = true;
+    finalizeButton.disabled = true;
+    loadCheckStatus.textContent = 'Finalizing…';
+    const result = await postJson<FinalizationResponse>(`${cargoPlanPath}/finalization`);
+    if (!result.ok && result.loadCheckReport !== undefined) {
+        // the checks ran again and a hard one failed so show that report
+        renderLoadCheck(loadCheckRows, result.loadCheckReport);
+        checkButton.disabled = false;
+        loadCheckStatus.textContent = loadNotFinalizedText(result);
+        return;
+    }
+    // reload after success and after other refusals so the page shows what the server stored
+    await loadCargoPlan();
+    if (!result.ok) {
+        showError(loadNotFinalizedText(result));
+    }
 }
 
 function renderFlight(flight: FlightOverview): void {
@@ -237,6 +288,12 @@ checkButton.addEventListener('click', () => {
     const flightKey = readFlightKey(new URLSearchParams(location.search));
     if (flightKey) {
         void checkLoad(cargoPlanPath(flightKey));
+    }
+});
+finalizeButton.addEventListener('click', () => {
+    const flightKey = readFlightKey(new URLSearchParams(location.search));
+    if (flightKey) {
+        void finalizeLoad(cargoPlanPath(flightKey));
     }
 });
 void initializePage(loadCargoPlan);
