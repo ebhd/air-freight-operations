@@ -1,5 +1,6 @@
 package be.kdg.airfreight.flight.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -128,6 +129,25 @@ class DelayControllerTest {
         updateDelay(PLANNED, unknown, 20, "Fog at departure")
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Unknown delay " + unknown));
+    }
+
+    @Test
+    void delayOverTheTotalOfTwelveHoursIsAConflictWithTheNumbers() throws Exception {
+        addDelay(600, "71", "Fog at departure").andExpect(status().isOk());
+
+        addDelay(140, "71", "Hydraulic leak")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.refusal").value("TOTAL_DELAY_EXCEEDED"))
+                .andExpect(jsonPath("$.totalMinutes").value(740))
+                .andExpect(jsonPath("$.maxTotalMinutes").value(720))
+                .andExpect(jsonPath("$.replanningPossible").value(true))
+                .andExpect(
+                        jsonPath("$.detail")
+                                .value(
+                                        "All delays together would be 740 minutes (12 h 20 min)."
+                                                + " At most 720 minutes (12 h) is allowed. You can"
+                                                + " replan this flight instead."));
+        assertThat(flights.get(PLANNED).totalDelayMinutes()).isEqualTo(600);
     }
 
     @Test

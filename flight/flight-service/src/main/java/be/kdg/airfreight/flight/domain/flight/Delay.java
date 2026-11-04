@@ -4,6 +4,9 @@ import java.util.Objects;
 import java.util.UUID;
 
 public final class Delay {
+    // one delay is at most 12 hours, flt-08
+    public static final int MAX_MINUTES = 720;
+
     private final UUID id;
     private int minutes;
     private final String reasonCode;
@@ -31,9 +34,10 @@ public final class Delay {
         this.description = validatedDescription;
     }
 
-    private static int requireMinutes(int minutes) {
-        if (minutes < 1 || minutes > 720) {
-            throw new InvalidDelayException("delay minutes must be between 1 and 720");
+    // package private so flight can validate the minutes before it checks the total
+    static int requireMinutes(int minutes) {
+        if (minutes < 1 || minutes > MAX_MINUTES) {
+            throw new InvalidDelayException("delay minutes must be between 1 and " + MAX_MINUTES);
         }
         return minutes;
     }

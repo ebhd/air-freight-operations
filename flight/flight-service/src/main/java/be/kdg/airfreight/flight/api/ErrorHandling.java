@@ -3,9 +3,11 @@ package be.kdg.airfreight.flight.api;
 import be.kdg.airfreight.flight.domain.DomainRuleViolationException;
 import be.kdg.airfreight.flight.domain.NotFoundException;
 import be.kdg.airfreight.flight.domain.flight.ActualTimeRefusedException;
+import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.InvalidActualTimeException;
 import be.kdg.airfreight.flight.domain.flight.InvalidDelayException;
 import be.kdg.airfreight.flight.domain.flight.InvalidScheduleException;
+import be.kdg.airfreight.flight.domain.flight.TotalDelayExceededException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
@@ -43,6 +45,18 @@ class ErrorHandling {
         if (exception.latestAllowed() != null) {
             problemDetail.setProperty("latestAllowed", exception.latestAllowed().toString());
         }
+        return problemDetail;
+    }
+
+    // more specific than the handler above so spring picks this one
+    // the extra properties let the flight page offer replanning
+    @ExceptionHandler(TotalDelayExceededException.class)
+    ProblemDetail totalDelayExceeded(TotalDelayExceededException exception) {
+        ProblemDetail problemDetail = problem(HttpStatus.CONFLICT, exception.getMessage());
+        problemDetail.setProperty("refusal", "TOTAL_DELAY_EXCEEDED");
+        problemDetail.setProperty("totalMinutes", exception.totalMinutes());
+        problemDetail.setProperty("maxTotalMinutes", Flight.MAX_TOTAL_DELAY_MINUTES);
+        problemDetail.setProperty("replanningPossible", exception.replanningPossible());
         return problemDetail;
     }
 
