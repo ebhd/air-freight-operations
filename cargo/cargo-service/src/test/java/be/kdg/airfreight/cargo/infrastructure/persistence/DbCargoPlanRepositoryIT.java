@@ -124,6 +124,46 @@ class DbCargoPlanRepositoryIT {
                 .isEqualTo("FINALIZED");
     }
 
+    // save makes the stored bookings equal to the plan, also when one is gone
+    @Test
+    void saveDeletesABookingThatLeftThePlan() {
+        repository.save(
+                CargoPlan.restore(
+                        KEY,
+                        CargoPlanState.DRAFT,
+                        List.of(
+                                booking("AKE12345KL", LoadingPosition.RL),
+                                booking("PMC00001KL", null))));
+        entityManager.flush();
+        entityManager.clear();
+
+        repository.save(
+                CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of(booking("PMC00001KL", null))));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.findByFlightKey(KEY).orElseThrow().getBookings())
+                .extracting(stored -> stored.getCode().value())
+                .containsExactly("PMC00001KL");
+    }
+
+    @Test
+    void storesAndRestoresTheReplannedStateAndTheNewFlight() {
+        FlightKey movedTo = new FlightKey("HJ221A", DAY.plusDays(1), BRU);
+        repository.save(CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of()));
+        entityManager.flush();
+        repository.save(CargoPlan.restore(KEY, CargoPlanState.REPLANNED, null, movedTo, List.of()));
+        entityManager.flush();
+        entityManager.clear();
+
+        CargoPlan stored = repository.findByFlightKey(KEY).orElseThrow();
+
+        assertThat(stored.getState()).isEqualTo(CargoPlanState.REPLANNED);
+        assertThat(stored.getMovedTo()).contains(movedTo);
+        assertThat(jdbc.sql("SELECT state FROM cargo_plans").query(String.class).single())
+                .isEqualTo("REPLANNED");
+    }
+
     @Test
     void databaseRefusesTwoUldsOnOnePosition() {
         repository.save(

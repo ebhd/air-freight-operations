@@ -1,7 +1,9 @@
 package be.kdg.airfreight.cargo.infrastructure.messaging;
 
+import be.kdg.airfreight.cargo.application.cargoplan.MoveCargoPlanService;
 import be.kdg.airfreight.cargo.application.flight.FlightCopyService;
 import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.cargoplan.BookingRejectedException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
@@ -30,14 +32,17 @@ class FlightEventListener {
     private static final int SUPPORTED_VERSION = 1;
 
     private final FlightCopyService flightCopyService;
+    private final MoveCargoPlanService moveCargoPlanService;
     private final RejectedMessageStore rejectedMessageStore;
     private final JsonMapper jsonMapper;
 
     FlightEventListener(
             FlightCopyService flightCopyService,
+            MoveCargoPlanService moveCargoPlanService,
             RejectedMessageStore rejectedMessageStore,
             JsonMapper jsonMapper) {
         this.flightCopyService = flightCopyService;
+        this.moveCargoPlanService = moveCargoPlanService;
         this.rejectedMessageStore = rejectedMessageStore;
         this.jsonMapper = jsonMapper;
     }
@@ -98,6 +103,39 @@ class FlightEventListener {
                                         landed.departureAirportCode())));
     }
 
+    @RabbitListener(queues = RabbitConfiguration.FLIGHT_REPLANNED_QUEUE)
+    void receiveReplanned(Message message) {
+        process(
+                message,
+                FlightReplannedMessage.class,
+                FlightReplannedMessage::version,
+                replanned ->
+                        flightCopyService.recordReplanned(
+                                flightKey(
+                                        replanned.flightNumber(),
+                                        replanned.scheduledDepartureDate(),
+                                        replanned.departureAirportCode()),
+                                required(replanned.occurredOn(), "Occurred on")));
+    }
+
+    @RabbitListener(queues = RabbitConfiguration.FLIGHT_REPLACED_QUEUE)
+    void receiveReplaced(Message message) {
+        process(
+                message,
+                FlightReplacedMessage.class,
+                FlightReplacedMessage::version,
+                replaced ->
+                        moveCargoPlanService.move(
+                                flightKey(
+                                        replaced.flightNumber(),
+                                        replaced.scheduledDepartureDate(),
+                                        replaced.departureAirportCode()),
+                                flightKey(
+                                        replaced.newFlightNumber(),
+                                        replaced.newScheduledDepartureDate(),
+                                        replaced.newDepartureAirportCode())));
+    }
+
     // one path for every event: parse, check the version, apply, then reject or retry
     private <T> void process(
             Message message, Class<T> type, Function<T, Integer> version, Consumer<T> apply) {
@@ -128,7 +166,9 @@ class FlightEventListener {
                 | TransactionException outage) {
             // outage so throw and let rabbit retry
             throw outage;
-        } catch (InvalidCargoValueException | FlightLookupRejectedException invalid) {
+        } catch (InvalidCargoValueException
+                | FlightLookupRejectedException
+                | BookingRejectedException invalid) {
             // the reason column cant be null and not every exception has a message
             String reason =
                     Objects.requireNonNullElse(

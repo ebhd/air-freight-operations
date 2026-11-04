@@ -1,7 +1,9 @@
 package be.kdg.airfreight.cargo.infrastructure.persistence.jpa;
 
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanState;
+import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -28,12 +30,27 @@ public class JpaCargoPlan {
     @Column(name = "finalized_at")
     private Instant finalizedAt;
 
+    // the key of the new flight, the same three columns under other names, all null unless moved
+    @Embedded
+    @AttributeOverride(
+            name = "flightNumber",
+            column = @Column(name = "moved_to_flight_number", length = 32))
+    @AttributeOverride(
+            name = "scheduledDepartureDate",
+            column = @Column(name = "moved_to_departure_date"))
+    @AttributeOverride(
+            name = "departureAirportCode",
+            column = @Column(name = "moved_to_departure_airport_code", length = 3))
+    private JpaCargoPlanId movedTo;
+
     protected JpaCargoPlan() {}
 
-    public JpaCargoPlan(JpaCargoPlanId id, CargoPlanState state, Instant finalizedAt) {
+    public JpaCargoPlan(
+            JpaCargoPlanId id, CargoPlanState state, Instant finalizedAt, JpaCargoPlanId movedTo) {
         this.id = id;
         this.state = state;
         this.finalizedAt = finalizedAt;
+        this.movedTo = movedTo;
     }
 
     public CargoPlanState getState() {
@@ -44,9 +61,14 @@ public class JpaCargoPlan {
         return finalizedAt;
     }
 
+    public JpaCargoPlanId getMovedTo() {
+        return movedTo;
+    }
+
     // a managed entity so hibernate writes the change at commit
-    public void changeState(CargoPlanState state, Instant finalizedAt) {
+    public void changeState(CargoPlanState state, Instant finalizedAt, JpaCargoPlanId movedTo) {
         this.state = state;
         this.finalizedAt = finalizedAt;
+        this.movedTo = movedTo;
     }
 }

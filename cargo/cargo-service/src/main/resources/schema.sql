@@ -4,10 +4,23 @@ CREATE TABLE IF NOT EXISTS cargo_plans (
     scheduled_departure_date DATE NOT NULL,
     departure_airport_code CHAR(3) NOT NULL,
     version BIGINT NOT NULL,
-    state VARCHAR(16) NOT NULL CHECK (state IN ('DRAFT', 'FINALIZED')),
+    state VARCHAR(16) NOT NULL,
     finalized_at TIMESTAMP WITH TIME ZONE,
-    PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code)
+    -- the new flight the cargo moved to, filled when the state is REPLANNED
+    moved_to_flight_number VARCHAR(32),
+    moved_to_departure_date DATE,
+    moved_to_departure_airport_code CHAR(3),
+    PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code),
+    CONSTRAINT cargo_plans_state_check CHECK (state IN ('DRAFT', 'FINALIZED', 'REPLANNED'))
 );
+
+-- the move columns and state came later, so an existing database gets them without a reset
+ALTER TABLE cargo_plans ADD COLUMN IF NOT EXISTS moved_to_flight_number VARCHAR(32);
+ALTER TABLE cargo_plans ADD COLUMN IF NOT EXISTS moved_to_departure_date DATE;
+ALTER TABLE cargo_plans ADD COLUMN IF NOT EXISTS moved_to_departure_airport_code CHAR(3);
+ALTER TABLE cargo_plans DROP CONSTRAINT IF EXISTS cargo_plans_state_check;
+ALTER TABLE cargo_plans ADD CONSTRAINT cargo_plans_state_check
+    CHECK (state IN ('DRAFT', 'FINALIZED', 'REPLANNED'));
 
 CREATE TABLE IF NOT EXISTS uld_bookings (
     flight_number VARCHAR(32) NOT NULL,

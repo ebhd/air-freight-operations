@@ -24,6 +24,10 @@ class RabbitConfiguration {
     static final String FLIGHT_DEPARTED_QUEUE = "cargo.flight-departed";
     static final String FLIGHT_LANDED = "flight.landed";
     static final String FLIGHT_LANDED_QUEUE = "cargo.flight-landed";
+    static final String FLIGHT_REPLANNED = "flight.replanned";
+    static final String FLIGHT_REPLANNED_QUEUE = "cargo.flight-replanned";
+    static final String FLIGHT_REPLACED = "flight.replaced";
+    static final String FLIGHT_REPLACED_QUEUE = "cargo.flight-replaced";
 
     @Bean
     Queue uldQueue() {
@@ -79,6 +83,28 @@ class RabbitConfiguration {
     @Bean
     Binding flightLandedBinding(Queue flightLandedQueue, TopicExchange flightEvents) {
         return BindingBuilder.bind(flightLandedQueue).to(flightEvents).with(FLIGHT_LANDED);
+    }
+
+    // the old flight of a replanning: only its status changes in the copy
+    @Bean
+    Queue flightReplannedQueue() {
+        return QueueBuilder.durable(FLIGHT_REPLANNED_QUEUE).build();
+    }
+
+    @Bean
+    Binding flightReplannedBinding(Queue flightReplannedQueue, TopicExchange flightEvents) {
+        return BindingBuilder.bind(flightReplannedQueue).to(flightEvents).with(FLIGHT_REPLANNED);
+    }
+
+    // the new flight exists: move the cargo of the old one
+    @Bean
+    Queue flightReplacedQueue() {
+        return QueueBuilder.durable(FLIGHT_REPLACED_QUEUE).build();
+    }
+
+    @Bean
+    Binding flightReplacedBinding(Queue flightReplacedQueue, TopicExchange flightEvents) {
+        return BindingBuilder.bind(flightReplacedQueue).to(flightEvents).with(FLIGHT_REPLACED);
     }
 
     // after the retries put the message back on the queue instead of dropping it
