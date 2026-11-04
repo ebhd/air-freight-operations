@@ -45,6 +45,9 @@ public class JpaFlight {
     @Column(nullable = false, length = 16)
     private FlightStatus status;
 
+    @Column(name = "finalized_load_processed", nullable = false)
+    private boolean finalizedLoadProcessed;
+
     @OneToMany(
             mappedBy = "flight",
             cascade = CascadeType.ALL,
@@ -71,13 +74,15 @@ public class JpaFlight {
             String aircraftRegistration,
             Instant scheduledDeparture,
             Instant scheduledArrival,
-            FlightStatus status) {
+            FlightStatus status,
+            boolean finalizedLoadProcessed) {
         this.id = id;
         this.arrivalAirportCode = arrivalAirportCode;
         this.aircraftRegistration = aircraftRegistration;
         this.scheduledDeparture = scheduledDeparture;
         this.scheduledArrival = scheduledArrival;
         this.status = status;
+        this.finalizedLoadProcessed = finalizedLoadProcessed;
     }
 
     public static JpaFlight fromDomain(Flight flight) {
@@ -88,7 +93,8 @@ public class JpaFlight {
                         flight.aircraftRegistration(),
                         flight.scheduledDeparture(),
                         flight.scheduledArrival(),
-                        flight.status());
+                        flight.status(),
+                        flight.finalizedLoadProcessed());
         for (Delay delay : flight.departureDelays()) {
             jpaFlight.departureDelays.add(JpaDepartureDelay.fromDomain(delay, jpaFlight));
         }
@@ -107,6 +113,7 @@ public class JpaFlight {
                 scheduledArrival,
                 status,
                 departureDelays.stream().map(JpaDepartureDelay::toDomain).toList(),
-                arrivalDelays.stream().map(JpaArrivalDelay::toDomain).toList());
+                arrivalDelays.stream().map(JpaArrivalDelay::toDomain).toList(),
+                finalizedLoadProcessed);
     }
 }

@@ -19,6 +19,8 @@ public final class Flight {
     private final FlightStatus status;
     private final List<Delay> departureDelays;
     private final List<Delay> arrivalDelays;
+    // true once the cpm of the finalized load from cargo is received and processed
+    private boolean finalizedLoadProcessed;
 
     private Flight(
             FlightKey key,
@@ -75,6 +77,28 @@ public final class Flight {
             FlightStatus status,
             List<Delay> departureDelays,
             List<Delay> arrivalDelays) {
+        return restore(
+                key,
+                arrivalAirportCode,
+                aircraftRegistration,
+                scheduledDeparture,
+                scheduledArrival,
+                status,
+                departureDelays,
+                arrivalDelays,
+                false);
+    }
+
+    public static Flight restore(
+            FlightKey key,
+            String arrivalAirportCode,
+            String aircraftRegistration,
+            Instant scheduledDeparture,
+            Instant scheduledArrival,
+            FlightStatus status,
+            List<Delay> departureDelays,
+            List<Delay> arrivalDelays,
+            boolean finalizedLoadProcessed) {
         Flight flight =
                 new Flight(
                         key,
@@ -87,6 +111,7 @@ public final class Flight {
                 Objects.requireNonNull(departureDelays, "departure delays must not be null"));
         flight.arrivalDelays.addAll(
                 Objects.requireNonNull(arrivalDelays, "arrival delays must not be null"));
+        flight.finalizedLoadProcessed = finalizedLoadProcessed;
         return flight;
     }
 
@@ -127,6 +152,31 @@ public final class Flight {
 
     public List<Delay> arrivalDelays() {
         return Collections.unmodifiableList(arrivalDelays);
+    }
+
+    public boolean finalizedLoadProcessed() {
+        return finalizedLoadProcessed;
+    }
+
+    // false when the cpm was already processed so a second delivery has no effect
+    public boolean recordFinalizedLoad() {
+        if (finalizedLoadProcessed) {
+            return false;
+        }
+        if (status != FlightStatus.PLANNED) {
+            throw new DomainRuleViolationException(
+                    "a finalized load can only be recorded while the flight is planned");
+        }
+        finalizedLoadProcessed = true;
+        return true;
+    }
+
+    // the departure gate for registering atd in issue 28
+    public void requireFinalizedLoadProcessed() {
+        if (!finalizedLoadProcessed) {
+            throw new DomainRuleViolationException(
+                    "departure needs the processed CPM of the finalized load from Cargo Loading");
+        }
     }
 
     public void addDepartureDelay(int minutes, String reasonCode, String description) {
