@@ -5,6 +5,7 @@ import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -16,6 +17,11 @@ import org.springframework.stereotype.Repository;
 @Repository
 @Slf4j
 class LocalFlightRepository implements FlightRepository {
+    // flight stamps an event before its commit so a change can be stamped earlier than our call
+    // but still be missing from the answer, an older event applied later is harmless because
+    // the newest one still wins
+    static final Duration COMMIT_MARGIN = Duration.ofSeconds(5);
+
     private final FlightCopyRepository copies;
     private final FlightOperationsClient flightOperations;
     private final Clock clock;
@@ -33,8 +39,9 @@ class LocalFlightRepository implements FlightRepository {
         if (copy.isPresent()) {
             return copy;
         }
-        // the time before the call so an event flight sends during the call still counts as newer
-        Instant askedAt = clock.instant();
+        // before the call and minus the margin so an event of a change not in the answer stays
+        // newer
+        Instant askedAt = clock.instant().minus(COMMIT_MARGIN);
         // a 404 is not stored because the flight can be created a moment later
         Optional<FlightInformation> fetched = flightOperations.fetch(flightKey);
         if (fetched.isPresent()) {

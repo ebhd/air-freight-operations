@@ -53,9 +53,10 @@ class LocalFlightRepositoryTest {
         verifyNoInteractions(flightOperations);
     }
 
-    // the clock is read before flight is asked so a change during the call stays newer
+    // flight stamps a change before its commit, so a change stamped up to the margin before the
+    // call can be missing from the answer and its event must still count as newer
     @Test
-    void unknownFlightIsAskedOnceAndKeptWithTheTimeBeforeTheCall() {
+    void unknownFlightIsKeptWithATimeBeforeTheCallMinusTheMargin() {
         when(copies.findCopy(KEY)).thenReturn(Optional.empty());
         when(clock.instant()).thenReturn(NOW);
         when(flightOperations.fetch(KEY)).thenReturn(Optional.of(FLIGHT));
@@ -65,7 +66,7 @@ class LocalFlightRepositoryTest {
         InOrder order = inOrder(clock, flightOperations, copies);
         order.verify(clock).instant();
         order.verify(flightOperations).fetch(KEY);
-        order.verify(copies).saveIfNewer(FLIGHT, NOW);
+        order.verify(copies).saveIfNewer(FLIGHT, NOW.minus(LocalFlightRepository.COMMIT_MARGIN));
     }
 
     @Test
