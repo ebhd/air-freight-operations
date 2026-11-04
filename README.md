@@ -104,7 +104,7 @@ Every API request needs a bearer token. Times are UTC. In the paths below, `{fli
 
 Errors use `ProblemDetail`: 400 for invalid input, 404 for an unknown flight, 409 when a business rule refuses the action (with the reason), 503 when Cargo cannot reach Flight.
 
-Cargo keeps its own copy of Flight's flights, filled by Flight's events (see [Messages](#messages)), and asks Flight over HTTP only for a flight that is not in the copy yet. So Cargo's pages keep working while Flight is down, except for a flight Cargo has never seen. A flight created before Cargo's queues first existed is missing from Cargo's day overview until someone opens it by its key (cargo plan or ULD booking). Start Cargo at least once before sending SSMs, or reset with `docker compose down -v`. Until Flight registers departures (US-28), every flight in Cargo's copy stays `PLANNED`.
+Cargo keeps its own copy of Flight's flights, filled by Flight's events (see [Messages](#messages)), and asks Flight over HTTP only for a flight that is not in the copy yet. So Cargo's pages keep working while Flight is down, except for a flight Cargo has never seen. Cargo's `/actuator/health` still reports `DOWN` then, because `FlightApiHealthIndicator` checks Flight, so Docker marks `cargo-service` unhealthy. A flight created before Cargo's queues first existed is missing from Cargo's day overview until someone opens it by its key (cargo plan or ULD booking). Start Cargo at least once before sending SSMs, or reset with `docker compose down -v`. Until Flight registers departures (US-28), every flight in Cargo's copy stays `PLANNED`.
 
 ## Messages
 
@@ -130,7 +130,7 @@ ULD booking:
 }
 ```
 
-Every message has a stable ID and is processed only once. Cargo stores invalid ULD and flight messages in its `rejected_messages` table. Flight and Partner send invalid messages to a dead-letter queue (`flight.dlq`, `partner.dlq`) and requeue temporary database failures on the original queue after the configured short retries.
+Every message has a stable ID. Cargo processes a ULD message only once: it remembers the ID in `processed_messages`. Flight's events are not deduplicated by ID in Cargo but are idempotent: Cargo only changes a flight for a newer change time (`last_change_at`), so the same event twice changes nothing. Cargo stores invalid ULD and flight messages in its `rejected_messages` table. Flight and Partner send invalid messages to a dead-letter queue (`flight.dlq`, `partner.dlq`) and requeue temporary database failures on the original queue after the configured short retries.
 
 ## Checks
 

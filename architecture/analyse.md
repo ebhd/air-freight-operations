@@ -95,7 +95,7 @@ flowchart LR
 
 | Relationship |Pattern | Why |
 | --- | --- | --- |
-| Flight Operations -> Cargo Loading | Published Language (flight events) and Open Host Service for one unknown flight; Cargo anti-corruption layer | Cargo Loading keeps its own copy of the flights it needs, filled by `flight.created` and `flight.estimates-changed`, so it keeps working while Flight Operations is down. It asks the flight-information API only for a flight that is not in the copy yet, for example when a ULD booking arrives before `flight.created`. Both paths are translated into Cargo's own model. |
+| Flight Operations -> Cargo Loading | Published Language (flight events) and Open Host Service for one unknown flight; Cargo anti-corruption layer | Cargo Loading keeps its own copy of the flights it needs, filled by `flight.created` and `flight.estimates-changed`, so it keeps working while Flight Operations is down. Its health endpoint still reports `DOWN` then, because `FlightApiHealthIndicator` checks Flight. It asks the flight-information API only for a flight that is not in the copy yet, for example when a ULD booking arrives before `flight.created`. Both paths are translated into Cargo's own model. |
 | Cargo Loading -> Flight Operations | Published Language; Flight anti-corruption layer | Cargo Loading publishes CPM; Flight Operations translates it into its departure prerequisite. |
 | Flight Operations -> Partner Communication | Published Language | Partner Communication formats flight facts into FLM/MVT messages. |
 | Cargo Loading -> Partner Communication | Published Language | Partner Communication receives its own CPM copy for partner delivery. |
