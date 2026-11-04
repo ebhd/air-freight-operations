@@ -62,7 +62,7 @@ flowchart LR
 
     subgraph CL_CTX["Cargo Loading (downstream)"]
         CL["Cargo Loading"]
-        FlightACL["RestFlightRepository<br/>«anti-corruption layer»"]
+        FlightACL["Flight copy + FlightOperationsClient<br/>«anti-corruption layer»"]
 
         CL --> FlightACL
     end
@@ -86,7 +86,8 @@ flowchart LR
 
     IAM["Identity and Access Management <br/>external"]
 
-    FlightACL -->|"REST"| FlightAPI
+    FlightACL -->|"REST, only a flight not in the copy"| FlightAPI
+    FlightACL -->|"Flight facts - RabbitMQ<br/>«published language»"| FO
 
     CPMReceiver -->|"Finalized load cargo.load-finalized - RabbitMQ<br/>«published language»"| CL
 
@@ -99,7 +100,7 @@ flowchart LR
 
 | Relationship |Pattern | Why |
 | --- | --- | --- |
-| Flight Operations -> Cargo Loading | Open Host Service, Published Language; Cargo anti-corruption layer | Flight Operations exposes a flight-information contract; Cargo Loading translates it into its own model. |
+| Flight Operations -> Cargo Loading | Published Language (flight events) and Open Host Service for one unknown flight; Cargo anti-corruption layer | Cargo Loading keeps its own copy of the flights it needs, filled by `flight.created` and `flight.estimates-changed`, so it keeps working while Flight Operations is down. Its health endpoint still reports `DOWN` then, because `FlightApiHealthIndicator` checks Flight. It asks the flight-information API only for a flight that is not in the copy yet, for example when a ULD booking arrives before `flight.created`. Both paths are translated into Cargo's own model. |
 | Cargo Loading -> Flight Operations | Published Language; Flight anti-corruption layer | Cargo Loading publishes the finalized load (`cargo.load-finalized`); Flight's `CpmReceiver` translates it into its departure prerequisite. |
 | Flight Operations / Cargo Loading -> Message Formatter | Published Language | Formatter consumes Flight facts for FLM/MVT and Cargo's finalized load for the partner CPM. Cargo never formats the partner CPM. |
 | Message Formatter -> Partner Communication | Sender anti-corruption layer | Sender translates prepared batches into its own message model, persists them and publishes them. |
@@ -131,11 +132,11 @@ flowchart TB
     F --> FDB
     C -->|plan and outbox in one transaction| CDB
     P --> PDB
-    C -->|Flight API - HTTP :8080| F
+    C -->|Flight API - HTTP :8080, only a flight not in the copy| F
 
     Sim["Simulator<br/>(non-production)"] -->|SSM and ULD messages| MQ["RabbitMQ<br/>AMQP :5672 / UI :15672"]
     MQ -->|SSM| F
-    MQ -->|ULD message| C
+    MQ -->|ULD message and flight changes| C
     F -->|flight changes| MQ
     C -->|finalized load - outbox, cargo.events| MQ
     MQ -->|flight facts| MF
@@ -588,7 +589,9 @@ A service serves its own web pages as static files from its JAR. Cargo and Fligh
 
 Sign-in and rights: the page (bundled with `keycloak-js`) sends the user to Keycloak's own login page (OpenID Connect, Authorization Code with PKCE), keeps the tokens in memory and renews the access token before an API call when it is about to expire. Flight and Cargo are stateless resource servers: each checks every JWT itself with Keycloak's public keys (signature, issuer, its own audience, expiry) and maps the realm roles `flight-planner` and `load-planner` to Spring roles. The rules live in each service's `SecurityConfiguration`: both roles may read (`GET /api/**`), other API calls need `load-planner` in Cargo and `flight-planner` in Flight. Cargo lets only its page files, health and `/error` through without a token and refuses every other path. A missing or invalid token gives 401, a wrong role 403; a refusal by the domain rules stays 409. The pages hide actions the role may not use, but the server decides. Cargo reads Flight with its own client-credentials token.
 
-Cargo signals a missing or invalid input value with its own `InvalidCargoValueException` from the value objects. The ULD listener stores such a message in `rejected_messages` without retrying; a REST controller turns it into 400 only while it builds the domain values from the URL, so bad data from Flight stays a 500. `CargoApiExceptionHandler` gives every Cargo endpoint the same answers: 404 for a flight Flight does not know, 503 when Flight is unreachable, 409 with a refusal code when the loading rules refuse an action (`LoadingNotAllowedException`), and 409 with `HARD_CHECKS_FAILED` plus the check report when finalizing fails a hard check (`LoadNotFinalizedException`). Read use cases such as the cargo plan view (`CargoPlanQueryService`) load the aggregate through its repository and add Flight's data; they check no flight state, so the plan stays readable after departure.
+Cargo signals a missing or invalid input value with its own `InvalidCargoValueException` from the value objects. The ULD listener stores such a message in `rejected_messages` without retrying; a REST controller turns it into 400 only while it builds the domain values from the URL, so bad data from Flight stays a 500. Flight's events go through the same reject or retry rules. `CargoApiExceptionHandler` gives every Cargo endpoint the same answers: 404 for a flight Flight does not know, 503 when Flight is unreachable, 409 with a refusal code when the loading rules refuse an action (`LoadingNotAllowedException`), and 409 with `HARD_CHECKS_FAILED` plus the check report when finalizing fails a hard check (`LoadNotFinalizedException`). Read use cases such as the cargo plan view (`CargoPlanQueryService`) load the aggregate through its repository and add Flight's data; they check no flight state, so the plan stays readable after departure.
+
+Cargo reads flight data from its own `flights` table (`FlightRepository`, implemented by `LocalFlightRepository`). `FlightEventListener` and `FlightCopyService` keep that copy up to date. Only a flight that is not in the copy is fetched once over HTTP (`FlightOperationsClient`) and then stored. Every row stores when Flight made its last change (`last_change_at`). `flight.created` and an HTTP lookup write the whole row with one SQL upsert; `flight.estimates-changed` updates only the two estimate columns, so it never overwrites another field. Both only change a row whose last change is older, so a retried or late event never takes the copy back in time. The row has one change time, so once status events arrive (US-28) an estimate that is older than a newer status change would be refused; that needs a change time per group of columns. Flight stamps an event before its commit, so a change can carry a time just before Cargo's HTTP call and still be missing from the answer. For an HTTP lookup Cargo therefore stores the time before the call minus five seconds (`COMMIT_MARGIN`): the event of such a change still counts as newer, and an older event that arrives later is harmless because the newest event of the same queue comes after it. This assumes the clocks of Flight and Cargo differ by less than that margin, which holds in Docker on one machine. The copy is a read model without business rules, so it uses `JdbcClient`: JPA cannot express the conditional upsert and update. Until Flight publishes departure and arrival events (US-28, US-29), every flight in the copy stays `PLANNED`.
 
 ## 10. Running it 
 

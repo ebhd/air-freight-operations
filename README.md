@@ -108,13 +108,15 @@ Every API request needs a bearer token. Times are UTC. In the paths below, `{fli
 
 Errors use `ProblemDetail`: 400 for invalid input, 404 for an unknown flight, 409 when a business rule refuses the action (with the reason), 503 when Cargo cannot reach Flight. A finalize that fails a hard check gives 409 with `refusal: HARD_CHECKS_FAILED` and the same `report` as the load check. Check and finalize also refuse with the loading refusals (`PLAN_FINALIZED`, `WINDOW_CLOSED`, ...).
 
+Cargo keeps its own copy of Flight's flights, filled by Flight's events (see [Messages](#messages)), and asks Flight over HTTP only for a flight that is not in the copy yet. So Cargo's pages keep working while Flight is down, except for a flight Cargo has never seen. Cargo's `/actuator/health` still reports `DOWN` then, because `FlightApiHealthIndicator` checks Flight, so Docker marks `cargo-service` unhealthy. A flight created before Cargo's queues first existed is missing from Cargo's day overview until someone opens it by its key (cargo plan or ULD booking). Start Cargo at least once before sending SSMs, or reset with `docker compose down -v`. Until Flight registers departures (US-28), every flight in Cargo's copy stays `PLANNED`.
+
 ## Messages
 
 | Queue or exchange | Routing keys | Content |
 | --- | --- | --- |
 | `flight.ssm` | | SSM from the simulator |
 | `cargo.uld` | | ULD bookings, provisional format below (Q01) |
-| `flight.events` | `flight.created`, `flight.estimates-changed` | From Flight to Formatter, sent through Flight's outbox; Formatter hands batches to Partner using `formatter.events` / `partner-messages.prepared` / `partner.messages-prepared` |
+| `flight.events` | `flight.created`, `flight.estimates-changed` | From Flight to Formatter and Cargo, sent through Flight's outbox; Formatter hands batches to Partner using `formatter.events` / `partner-messages.prepared` / `partner.messages-prepared`. Cargo reads them on `cargo.flight-created` and `cargo.flight-estimates-changed` |
 | `cargo.events` | `cargo.load-finalized` | From Cargo's outbox after finalizing, contract below. Flight (`flight.cargo-load-finalized`) records it as departure condition; Formatter (`formatter.cargo-load-finalized`) makes the partner CPM |
 | `partner.messages` | `flm`, `mvt.ed`, `mvt.ea`, `cpm` | To partners: FLM and CPM as JSON with `messageId`, `createdAt`, `formatVersion`, `type` and `payload`, MVT as three lines of text with UTC times |
 
@@ -149,7 +151,7 @@ Load finalized, version 1 (only positioned ULDs, weight in the booked unit, the 
 }
 ```
 
-Every message has a stable ID and is processed only once. Cargo stores invalid ULD messages in its `rejected_messages` table, also a booking for a finalized cargo plan ("Cargo plan of flight ... is finalized, no ULD can be added"). Flight, Formatter and Partner send invalid messages to a dead-letter queue (`flight.dlq`, Formatter's `partner.dlq`, Sender's `partner.sender.dlq`) and requeue temporary database failures and Formatter publication failures on the original queue after the configured short retries.
+Every message has a stable ID. Cargo processes a ULD message only once: it remembers the ID in `processed_messages`. Flight's events are not deduplicated by ID in Cargo but are idempotent: Cargo only changes a flight for a newer change time (`last_change_at`), so the same event twice changes nothing. Cargo stores invalid ULD and flight messages in its `rejected_messages` table, also a booking for a finalized cargo plan ("Cargo plan of flight ... is finalized, no ULD can be added"). Flight, Formatter and Partner send invalid messages to a dead-letter queue (`flight.dlq`, Formatter's `partner.dlq`, Sender's `partner.sender.dlq`) and requeue temporary database failures and Formatter publication failures on the original queue after the configured short retries.
 
 ## Checks
 
