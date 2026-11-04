@@ -14,3 +14,8 @@ node {
 tasks.named('assemble') {
     dependsOn('npm_run_build')
 }
+
+// vitest runs the page module tests in node without a browser
+tasks.named('check') {
+    dependsOn('npm_run_test')
+}

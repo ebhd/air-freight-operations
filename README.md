@@ -138,4 +138,4 @@ npm ci                     # installs the Husky git hooks, needs Node.js
 ./gradlew check assemble   # format check, lint, tests and JARs
 ```
 
-Tools: Spotless, Checkstyle, JUnit, ArchUnit, Testcontainers, JaCoCo and Vitest (Flight pages). Coverage reports are in `<project>/build/reports/jacoco/test/`. Database tests (`*IT`) need Docker and are skipped without it, as in GitLab CI.
+Tools: Spotless, Checkstyle, JUnit, ArchUnit, Testcontainers, JaCoCo and Vitest (Flight and Cargo pages). Coverage reports are in `<project>/build/reports/jacoco/test/`. Database tests (`*IT`) need Docker and are skipped without it, as in GitLab CI.
