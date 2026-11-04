@@ -134,10 +134,15 @@ flowchart TB
     C -->|CPM| MQ
     MQ -->|flight facts and CPM copy| P
     MQ -->|CPM for departure check| F
+
+    IAM --> KDB[("Keycloak MySQL database<br/>host :3307")]
+    F -.->|signing keys| IAM
+    C -.->|signing keys and service token| IAM
 ```
 
 - One PostgreSQL instance hosts three databases: one for Flight Operations, one for Cargo Loading and one for Partner Communication.
 - Each service accesses only its own database. Services share information through APIs or RabbitMQ messages.
+- Keycloak keeps its realm, clients and users in its own MySQL database, as in the course example.
 
 ## 6. Tactical design: Cargo Loading
 
@@ -282,7 +287,7 @@ classDiagram
 Invariants on `CargoPlan`:
 
 1. Unique ULD code per flight; one ULD per valid position, one position per ULD.
-2. Booking only while planned. Placement, checking and finalization require a load planner, a planned flight, an open loading period and an unfinalized plan. `requireLoadingAllowed(context)` enforces the last three and is the first call of every such method; role checks belong to the API (#2).
+2. Booking only while planned. Placement, checking and finalization require a load planner, a planned flight, an open loading period and an unfinalized plan. `requireLoadingAllowed(context)` enforces the last three and is the first call of every such method; the load-planner role is checked before, by Spring Security (section 9).
 3. Finalization reruns all checks; hard failures block it, soft failures warn.
 4. Finalized load cannot change.
 
@@ -507,8 +512,10 @@ Each service uses `domain` for business rules and repository interfaces, `applic
 
 A service serves its own web pages as static files from its JAR. Cargo and Flight each have separate frontend and backend Gradle projects under `cargo/` and `flight/`. Vite builds each frontend's HTML, TypeScript and Tailwind CSS into its `build/dist/` directory. The backend's resource processing adds that output to its JAR as `static/`, without writing generated files into `src/`. Cargo preserves its page URLs and its `static/js` and `static/css` asset paths. The pages render on the client: the TypeScript modules call the service's REST API with `fetch` and a bearer token.
 
+Sign-in and rights: the page (bundled with `keycloak-js`) sends the user to Keycloak's own login page (OpenID Connect, Authorization Code with PKCE), keeps the tokens in memory and renews the access token before an API call when it is about to expire. Flight and Cargo are stateless resource servers: each checks every JWT itself with Keycloak's public keys (signature, issuer, its own audience, expiry) and maps the realm roles `flight-planner` and `load-planner` to Spring roles. The rules live in each service's `SecurityConfiguration`: both roles may read (`GET /api/**`), other API calls need `load-planner` in Cargo and `flight-planner` in Flight. Cargo lets only its page files, health and `/error` through without a token and refuses every other path. A missing or invalid token gives 401, a wrong role 403; a refusal by the domain rules stays 409. The pages hide actions the role may not use, but the server decides. Cargo reads Flight with its own client-credentials token.
+
 Cargo signals a missing or invalid input value with its own `InvalidCargoValueException` from the value objects. The ULD listener stores such a message in `rejected_messages` without retrying; a REST controller turns it into 400 only while it builds the domain values from the URL, so bad data from Flight stays a 500. `CargoApiExceptionHandler` gives every Cargo endpoint the same answers: 404 for a flight Flight does not know, 503 when Flight is unreachable, 409 with a refusal code when the loading rules refuse an action (`LoadingNotAllowedException`). Read use cases such as the cargo plan view (`CargoPlanQueryService`) load the aggregate through its repository and add Flight's data; they check no flight state, so the plan stays readable after departure.
 
 ## 10. Running it 
 
-Run `docker compose up -d --build` from the repository root. See [README](../README.md) for ports, development credentials, IntelliJ setup and the current implementation limits. Health endpoints verify PostgreSQL and RabbitMQ; Cargo also checks its HTTP connection to Flight. Keycloak token validation is configured for Flight and Cargo. Domain message flows and action-specific authorization are still to be implemented.
+Run `docker compose up -d --build` from the repository root. See [README](../README.md) for ports, development credentials, IntelliJ setup and the current implementation limits. Configure Keycloak first as the README describes. Health endpoints verify PostgreSQL and RabbitMQ; Cargo also checks its HTTP connection to Flight. Flight and Cargo validate Keycloak tokens and enforce the planner roles (section 9).
