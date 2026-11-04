@@ -23,6 +23,11 @@ public record Weight(BigDecimal value, WeightUnit unit) {
         }
     }
 
+    // the checks compare weights in kilograms so kg and lb can be added up
+    public BigDecimal inKilograms() {
+        return unit.toKilograms(value);
+    }
+
     @Override
     public String toString() {
         return value.toPlainString() + " " + unit;
