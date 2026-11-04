@@ -97,6 +97,32 @@ class DbFlightCopyRepository implements FlightCopyRepository {
         return changed == 1;
     }
 
+    // an update not an upsert because an estimate alone is not enough for a new row
+    @Override
+    @Transactional
+    public boolean saveEstimatesIfNewer(
+            FlightKey flightKey,
+            Instant estimatedDeparture,
+            Instant estimatedArrival,
+            Instant changedAt) {
+        int changed =
+                jdbc.sql(
+                                "UPDATE flights SET estimated_departure = :etd,"
+                                        + " estimated_arrival = :eta, last_change_at = :changedAt"
+                                        + " WHERE flight_number = :flightNumber"
+                                        + " AND scheduled_departure_date = :date"
+                                        + " AND departure_airport_code = :departure"
+                                        + " AND last_change_at < :changedAt")
+                        .param("etd", timestamp(estimatedDeparture))
+                        .param("eta", timestamp(estimatedArrival))
+                        .param("changedAt", timestamp(changedAt))
+                        .param("flightNumber", flightKey.flightNumber())
+                        .param("date", flightKey.scheduledDepartureDate())
+                        .param("departure", flightKey.departureAirportCode().value())
+                        .update();
+        return changed == 1;
+    }
+
     private static FlightInformation toFlight(ResultSet row, int rowNumber) throws SQLException {
         FlightKey key =
                 new FlightKey(

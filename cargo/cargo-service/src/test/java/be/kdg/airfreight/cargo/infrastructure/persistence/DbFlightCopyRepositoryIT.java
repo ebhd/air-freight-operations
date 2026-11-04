@@ -32,6 +32,8 @@ class DbFlightCopyRepositoryIT {
     private static final FlightKey KEY = new FlightKey("HJ221", DAY, BRU);
     private static final Instant CREATED = Instant.parse("2026-10-18T12:00:00Z");
     private static final Instant DELAYED = Instant.parse("2026-10-19T07:00:00Z");
+    private static final Instant ETD = Instant.parse("2026-10-19T08:45:00Z");
+    private static final Instant ETA = Instant.parse("2026-10-19T09:55:00Z");
 
     // same postgresql image as docker compose
     @Container @ServiceConnection
@@ -62,11 +64,7 @@ class DbFlightCopyRepositoryIT {
     @Test
     void newerChangeReplacesTheCopy() {
         repository.saveIfNewer(flight(KEY, "08:00"), CREATED);
-        FlightInformation delayed =
-                flight(KEY, "08:00")
-                        .withEstimates(
-                                Instant.parse("2026-10-19T08:45:00Z"),
-                                Instant.parse("2026-10-19T09:55:00Z"));
+        FlightInformation delayed = flight(KEY, FlightStatus.PLANNED, ETD, ETA);
 
         assertThat(repository.saveIfNewer(delayed, DELAYED)).isTrue();
 
@@ -76,11 +74,7 @@ class DbFlightCopyRepositoryIT {
     // a retried or late event must not take the copy back in time
     @Test
     void olderChangeIsIgnored() {
-        FlightInformation delayed =
-                flight(KEY, "08:00")
-                        .withEstimates(
-                                Instant.parse("2026-10-19T08:45:00Z"),
-                                Instant.parse("2026-10-19T09:55:00Z"));
+        FlightInformation delayed = flight(KEY, FlightStatus.PLANNED, ETD, ETA);
         repository.saveIfNewer(delayed, DELAYED);
 
         assertThat(repository.saveIfNewer(flight(KEY, "08:00"), CREATED)).isFalse();
@@ -93,6 +87,40 @@ class DbFlightCopyRepositoryIT {
         repository.saveIfNewer(flight(KEY, "08:00"), CREATED);
 
         assertThat(repository.saveIfNewer(flight(KEY, "08:00"), CREATED)).isFalse();
+    }
+
+    // a status from another event must stay when only the estimates change
+    @Test
+    void newerEstimatesChangeOnlyTheEstimates() {
+        repository.saveIfNewer(flight(KEY, FlightStatus.DEPARTED, null, null), CREATED);
+
+        assertThat(repository.saveEstimatesIfNewer(KEY, ETD, ETA, DELAYED)).isTrue();
+
+        assertThat(repository.findCopy(KEY)).contains(flight(KEY, FlightStatus.DEPARTED, ETD, ETA));
+    }
+
+    @Test
+    void olderEstimatesAreIgnored() {
+        FlightInformation delayed = flight(KEY, FlightStatus.PLANNED, ETD, ETA);
+        repository.saveIfNewer(delayed, DELAYED);
+
+        assertThat(
+                        repository.saveEstimatesIfNewer(
+                                KEY,
+                                delayed.scheduledDeparture(),
+                                delayed.scheduledArrival(),
+                                CREATED))
+                .isFalse();
+
+        assertThat(repository.findCopy(KEY)).contains(delayed);
+    }
+
+    // an estimate alone is not a whole flight so no row is made
+    @Test
+    void estimatesForAFlightNotInTheCopyStoreNothing() {
+        assertThat(repository.saveEstimatesIfNewer(KEY, ETD, ETA, DELAYED)).isFalse();
+
+        assertThat(repository.findCopy(KEY)).isEmpty();
     }
 
     @Test
@@ -122,5 +150,22 @@ class DbFlightCopyRepositoryIT {
                 arrival,
                 departure,
                 arrival);
+    }
+
+    // the 08:00 flight of the key with the given status and estimates
+    private static FlightInformation flight(
+            FlightKey key,
+            FlightStatus status,
+            Instant estimatedDeparture,
+            Instant estimatedArrival) {
+        FlightInformation planned = flight(key, "08:00");
+        return new FlightInformation(
+                key,
+                planned.arrivalAirportCode(),
+                status,
+                planned.scheduledDeparture(),
+                planned.scheduledArrival(),
+                estimatedDeparture,
+                estimatedArrival);
     }
 }

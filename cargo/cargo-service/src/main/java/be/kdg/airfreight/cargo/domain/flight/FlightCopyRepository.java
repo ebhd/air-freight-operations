@@ -15,4 +15,14 @@ public interface FlightCopyRepository {
 
     // changedAt is when flight made the change; false when the copy already has a newer change
     boolean saveIfNewer(FlightInformation flight, Instant changedAt);
+
+    // only the estimates so a newer status from another event is never overwritten
+    // false when the copy has no such flight or already has a newer change
+    // one change time for the whole row, so with status events (US-28) an older estimate after a
+    // newer status is refused; that needs its own change time per group of columns
+    boolean saveEstimatesIfNewer(
+            FlightKey flightKey,
+            Instant estimatedDeparture,
+            Instant estimatedArrival,
+            Instant changedAt);
 }

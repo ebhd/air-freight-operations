@@ -5,12 +5,11 @@ import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
 import java.time.Instant;
-import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 // keeps cargos flight copy up to date with flights events
-// no transaction here because saveIfNewer is one atomic statement that refuses an older change
+// no transaction here because each save is one atomic statement that refuses an older change
 @Service
 @Slf4j
 public class FlightCopyService {
@@ -36,11 +35,10 @@ public class FlightCopyService {
             Instant estimatedDeparture,
             Instant estimatedArrival,
             Instant occurredOn) {
-        Optional<FlightInformation> current = copies.findCopy(flightKey);
-        if (current.isEmpty()) {
-            // FlightCreated not seen yet so take the current state from flight once
-            current = flights.findByFlightKey(flightKey);
-            if (current.isEmpty()) {
+        if (copies.findCopy(flightKey).isEmpty()) {
+            // FlightCreated not seen yet so take the current state from flight once, the lookup
+            // stores it in the copy
+            if (flights.findByFlightKey(flightKey).isEmpty()) {
                 log.warn(
                         "Flight Operations does not know flight {} from its own estimate event",
                         flightKey);
@@ -49,9 +47,8 @@ public class FlightCopyService {
         }
         // also after the lookup: the created listener runs on its own thread and can store the
         // schedule as estimates between the two reads, then only this event brings the delay
-        FlightInformation updated =
-                current.get().withEstimates(estimatedDeparture, estimatedArrival);
-        if (copies.saveIfNewer(updated, occurredOn)) {
+        if (copies.saveEstimatesIfNewer(
+                flightKey, estimatedDeparture, estimatedArrival, occurredOn)) {
             log.info(
                     "Updated estimates of flight {} to ETD {} and ETA {}",
                     flightKey,

@@ -36,18 +36,6 @@ public record FlightInformation(
                 scheduledArrival);
     }
 
-    // a new estimate from flight keeps everything else of the copy
-    public FlightInformation withEstimates(Instant estimatedDeparture, Instant estimatedArrival) {
-        return new FlightInformation(
-                flightKey,
-                arrivalAirportCode,
-                status,
-                scheduledDeparture,
-                scheduledArrival,
-                estimatedDeparture,
-                estimatedArrival);
-    }
-
     public boolean planned() {
         return status == FlightStatus.PLANNED;
     }

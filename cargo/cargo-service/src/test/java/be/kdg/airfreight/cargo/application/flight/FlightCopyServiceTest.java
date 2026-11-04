@@ -47,13 +47,15 @@ class FlightCopyServiceTest {
         verifyNoInteractions(flights);
     }
 
+    // only the estimates so the rest of the copy is never written from an estimate event
     @Test
     void newEstimatesAreAppliedToTheCopy() {
         when(copies.findCopy(KEY)).thenReturn(Optional.of(FLIGHT));
 
         service.recordEstimates(KEY, ETD, ETA, DELAYED);
 
-        verify(copies).saveIfNewer(FLIGHT.withEstimates(ETD, ETA), DELAYED);
+        verify(copies).saveEstimatesIfNewer(KEY, ETD, ETA, DELAYED);
+        verify(copies, never()).saveIfNewer(any(), any());
         verifyNoInteractions(flights);
     }
 
@@ -61,11 +63,11 @@ class FlightCopyServiceTest {
     @Test
     void olderEstimatesAreLeftToTheRepositoryToRefuse() {
         when(copies.findCopy(KEY)).thenReturn(Optional.of(FLIGHT));
-        when(copies.saveIfNewer(any(), any())).thenReturn(false);
+        when(copies.saveEstimatesIfNewer(any(), any(), any(), any())).thenReturn(false);
 
         service.recordEstimates(KEY, ETD, ETA, CREATED);
 
-        verify(copies).saveIfNewer(FLIGHT.withEstimates(ETD, ETA), CREATED);
+        verify(copies).saveEstimatesIfNewer(KEY, ETD, ETA, CREATED);
     }
 
     // the created listener stores the schedule as estimates between the two reads, so the lookup
@@ -78,7 +80,7 @@ class FlightCopyServiceTest {
         service.recordEstimates(KEY, ETD, ETA, DELAYED);
 
         verify(flights).findByFlightKey(KEY);
-        verify(copies).saveIfNewer(FLIGHT.withEstimates(ETD, ETA), DELAYED);
+        verify(copies).saveEstimatesIfNewer(KEY, ETD, ETA, DELAYED);
     }
 
     @Test
@@ -89,5 +91,6 @@ class FlightCopyServiceTest {
         service.recordEstimates(KEY, ETD, ETA, DELAYED);
 
         verify(copies, never()).saveIfNewer(any(), any());
+        verify(copies, never()).saveEstimatesIfNewer(any(), any(), any(), any());
     }
 }
