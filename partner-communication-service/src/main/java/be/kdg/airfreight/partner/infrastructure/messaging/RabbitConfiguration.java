@@ -21,9 +21,10 @@ public class RabbitConfiguration {
     static final String FLIGHT_EVENTS = "flight.events";
     static final String FLIGHT_CREATED = "flight.created";
     static final String FLIGHT_CREATED_QUEUE = "partner.flight-created";
+    static final String FLIGHT_ESTIMATES_CHANGED = "flight.estimates-changed";
+    static final String FLIGHT_ESTIMATES_CHANGED_QUEUE = "partner.flight-estimates-changed";
 
-    // ----- Incoming message retry and dead-letter handling -----
-    static final String FLIGHT_CREATED_RETRY_QUEUE = "partner.flight-created.retry";
+    // ----- Incoming message dead-letter handling -----
     static final String DEAD_LETTER_EXCHANGE = "partner.dlx";
     static final String DEAD_LETTER_QUEUE = "partner.dlq";
 
@@ -31,6 +32,8 @@ public class RabbitConfiguration {
     static final String PARTNER_MESSAGES = "partner.messages";
     static final String PARTNER_OUTGOING_QUEUE = "partner.outgoing";
     static final String FLM = "flm";
+    static final String MVT_ED = "mvt.ed";
+    static final String MVT_EA = "mvt.ea";
 
     // ----- Incoming Flight events -----
     @Bean
@@ -50,19 +53,22 @@ public class RabbitConfiguration {
         return BindingBuilder.bind(flightCreatedQueue).to(flightEvents).with(FLIGHT_CREATED);
     }
 
-    // ----- incoming message retry and dead-letter handling -----
     @Bean
-    Queue flightCreatedRetryQueue() {
-        return QueueBuilder.durable(FLIGHT_CREATED_RETRY_QUEUE)
-                .quorum()
-                .ttl(30_000)
-                .withArgument("x-dead-letter-strategy", "at-least-once")
-                .overflow(QueueBuilder.Overflow.rejectPublish)
-                .deadLetterExchange("")
-                .deadLetterRoutingKey(FLIGHT_CREATED_QUEUE)
+    Queue flightEstimatesChangedQueue() {
+        return QueueBuilder.durable(FLIGHT_ESTIMATES_CHANGED_QUEUE)
+                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
                 .build();
     }
 
+    @Bean
+    Binding flightEstimatesChangedBinding(
+            Queue flightEstimatesChangedQueue, TopicExchange flightEvents) {
+        return BindingBuilder.bind(flightEstimatesChangedQueue)
+                .to(flightEvents)
+                .with(FLIGHT_ESTIMATES_CHANGED);
+    }
+
+    // ----- Incoming message dead-letter handling -----
     @Bean
     FanoutExchange deadLetterExchange() {
         return new FanoutExchange(DEAD_LETTER_EXCHANGE);

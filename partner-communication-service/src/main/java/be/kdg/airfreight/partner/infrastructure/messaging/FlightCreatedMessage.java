@@ -13,4 +13,6 @@ public record FlightCreatedMessage(
         String departureAirportCode,
         String arrivalAirportCode,
         Instant scheduledDeparture,
-        Instant scheduledArrival) {}
+        Instant scheduledArrival) {
+    public static final int VERSION = 1;
+}

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Flights to load - Cargo Loading</title>
+    <link rel="stylesheet" href="/src/css/app.css">
+    <script type="module" src="/src/ts/flights-to-load.ts"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+<header class="flex flex-wrap items-center gap-x-6 gap-y-2 bg-blue-950 px-8 py-4 text-white">
+    <h1 class="text-2xl font-semibold">Flights to load</h1>
+    <p class="flex-1">Date: scheduled departure date (UTC). Times: Brussels time (Europe/Brussels).</p>
+    <span id="user-name"></span>
+    <button id="sign-out" class="cursor-pointer rounded border border-white/60 px-3 py-1 hover:bg-white/10" type="button" hidden>Sign out</button>
+</header>
+<main class="px-8 py-4">
+    <div id="error" class="error mb-4" role="alert" hidden></div>
+
+    <section id="content" hidden>
+        <div class="mb-4 flex flex-wrap items-center gap-6">
+            <label>Scheduled departure date (UTC) <input id="date" class="rounded border border-slate-400 bg-white px-2 py-1" type="date" required></label>
+            <label><input id="include-departed" type="checkbox"> Show departed flights</label>
+        </div>
+        <table class="w-full bg-white">
+            <thead>
+            <tr class="bg-slate-200 *:border-b *:border-slate-300 *:px-3 *:py-2 *:text-left">
+                <th>Flight</th>
+                <th>Scheduled departure date (UTC)</th>
+                <th>From</th>
+                <th>Departure (Brussels)</th>
+                <th>To</th>
+                <th>Arrival (Brussels)</th>
+                <th>Status</th>
+            </tr>
+            </thead>
+            <tbody id="flights"></tbody>
+        </table>
+        <p id="table-status" class="mt-3" role="status"></p>
+    </section>
+</main>
+</body>
+</html>
