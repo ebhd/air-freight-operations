@@ -22,3 +22,9 @@ export type Flight = FlightOverview & {
     departureDelays: Delay[];
     arrivalDelays: Delay[];
 };
+
+export type FlightTimeline = {
+    start: string;
+    end: string;
+    flights: FlightOverview[];
+};

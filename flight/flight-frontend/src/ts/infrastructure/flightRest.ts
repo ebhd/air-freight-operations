@@ -1,10 +1,16 @@
 import type { AddDelayRequest, UpdateDelayRequest } from '../domain/Delay';
-import type { Flight, FlightKey, FlightOverview } from '../domain/Flight';
+import type { Flight, FlightKey, FlightOverview, FlightTimeline } from '../domain/Flight';
 import { request } from './restUtils';
 
 export async function getFlights(date: string): Promise<FlightOverview[]> {
     const query = new URLSearchParams({ date });
     const response = await request(`/api/flights?${query}`);
+    return response.json();
+}
+
+export async function getFlightTimeline(date: string): Promise<FlightTimeline> {
+    const query = new URLSearchParams({ date });
+    const response = await request(`/api/flights/timeline?${query}`);
     return response.json();
 }
 
