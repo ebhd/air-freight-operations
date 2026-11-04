@@ -37,7 +37,8 @@ public class PartnerMessagesPreparedListener {
                 throw new IllegalArgumentException("Prepared content must not be null");
             }
             var content = new MessageContent(item.type(), item.payload(), item.formatVersion());
-            if (!Set.of("FLM", "MVT_ED", "MVT_EA", "CPM").contains(content.type())
+            if (!Set.of("FLM", "MVT_ED", "MVT_EA", "MVT_AD", "MVT_AA", "CPM")
+                            .contains(content.type())
                     || !types.add(content.type())) {
                 throw new IllegalArgumentException(
                         "Unsupported or repeated prepared type: " + content.type());

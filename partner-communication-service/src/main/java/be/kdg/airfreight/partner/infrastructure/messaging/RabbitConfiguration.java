@@ -31,6 +31,8 @@ public class RabbitConfiguration {
     static final String FLM = "flm";
     static final String MVT_ED = "mvt.ed";
     static final String MVT_EA = "mvt.ea";
+    static final String MVT_AD = "mvt.ad";
+    static final String MVT_AA = "mvt.aa";
     static final String CPM = "cpm";
 
     @Bean
