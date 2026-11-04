@@ -15,7 +15,7 @@ import {
     updateArrivalDelay,
 } from '../infrastructure/flightRest';
 import { ResponseError } from '../infrastructure/restUtils';
-import { tooLateText } from './actualTimeText';
+import { actualTimeRefusalText } from './actualTimeText';
 import { clearError, showError } from './messagePresenter';
 import { brusselsNowForInput, brusselsToInstant, formatBrusselsDateTime } from './timeFormat';
 import { initializeUser } from './userPresenter';
@@ -369,12 +369,20 @@ async function deleteDelay(delay: Delay, departure: boolean): Promise<void> {
     }
 }
 
-// too late is the one refusal whose text needs the limit in brussels time
-function actualTimeError(error: unknown): unknown {
-    if (error instanceof ResponseError && error.refusal === 'TOO_LATE' && error.latestAllowed) {
-        return new Error(tooLateText(error.latestAllowed));
+// the page shows brussels time, so a refusal with a time in it gets the page's own text
+function actualTimeError(error: unknown, entered: string | null, departure: boolean): unknown {
+    if (!(error instanceof ResponseError) || entered === null) {
+        return error;
     }
-    return error;
+    const text = actualTimeRefusalText({
+        refusal: error.refusal,
+        latestAllowed: error.latestAllowed,
+        departure,
+        entered,
+        actualDeparture: currentFlight?.actualDeparture ?? null,
+        actualArrival: currentFlight?.actualArrival ?? null,
+    });
+    return text === null ? error : new Error(text);
 }
 
 async function registerActualTime(event: Event, departure: boolean): Promise<void> {
@@ -387,8 +395,9 @@ async function registerActualTime(event: Event, departure: boolean): Promise<voi
     clearError();
     pageStatus.textContent = '';
     setBusy(true);
+    let instant: string | null = null;
     try {
-        const instant = brusselsToInstant(input.value);
+        instant = brusselsToInstant(input.value);
         const flight = departure ? await recordDeparture(flightKey, instant) : await recordArrival(flightKey, instant);
         displayFlight(flight);
         pageStatus.textContent = departure
@@ -397,7 +406,7 @@ async function registerActualTime(event: Event, departure: boolean): Promise<voi
     } catch (error) {
         // the reload shows the server text, so the brussels-time text comes after it
         await reloadAfterRefusal(error);
-        showError(actualTimeError(error));
+        showError(actualTimeError(error, instant, departure));
     } finally {
         setBusy(false);
     }
