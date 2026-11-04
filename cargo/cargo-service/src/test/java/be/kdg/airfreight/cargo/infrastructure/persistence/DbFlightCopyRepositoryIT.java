@@ -1,6 +1,7 @@
 package be.kdg.airfreight.cargo.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
@@ -15,8 +16,10 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -41,6 +44,7 @@ class DbFlightCopyRepositoryIT {
 
     @Autowired private DbFlightCopyRepository repository;
     @Autowired private JdbcClient jdbc;
+    @Autowired private PlatformTransactionManager transactionManager;
 
     @BeforeEach
     void emptyCopy() {
@@ -50,6 +54,16 @@ class DbFlightCopyRepositoryIT {
     @Test
     void storesAndReadsBackEveryField() {
         FlightInformation flight = flight(KEY, "08:00");
+
+        assertThat(repository.saveIfNewer(flight, CREATED)).isTrue();
+
+        assertThat(repository.findCopy(KEY)).contains(flight);
+    }
+
+    // flight can leave the estimates empty so null must come back as null
+    @Test
+    void storesAndReadsBackMissingEstimates() {
+        FlightInformation flight = flight(KEY, FlightStatus.PLANNED, null, null);
 
         assertThat(repository.saveIfNewer(flight, CREATED)).isTrue();
 
@@ -121,6 +135,24 @@ class DbFlightCopyRepositoryIT {
         assertThat(repository.saveEstimatesIfNewer(KEY, ETD, ETA, DELAYED)).isFalse();
 
         assertThat(repository.findCopy(KEY)).isEmpty();
+    }
+
+    // a booking refused after the http lookup rolls back, the fetched flight must stay
+    @Test
+    void savedFlightStaysWhenTheOuterTransactionRollsBack() {
+        FlightInformation flight = flight(KEY, "08:00");
+        TransactionTemplate booking = new TransactionTemplate(transactionManager);
+
+        assertThatThrownBy(
+                        () ->
+                                booking.executeWithoutResult(
+                                        status -> {
+                                            repository.saveIfNewer(flight, CREATED);
+                                            throw new IllegalStateException("booking refused");
+                                        }))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(repository.findCopy(KEY)).contains(flight);
     }
 
     @Test
