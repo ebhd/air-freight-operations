@@ -4,6 +4,7 @@ import be.kdg.airfreight.cargo.domain.flight.FlightCopyRepository;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
+import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -56,6 +57,33 @@ public class FlightCopyService {
                     estimatedArrival);
         } else {
             log.debug("Ignored older estimates for flight {}", flightKey);
+        }
+    }
+
+    public void recordDeparted(FlightKey flightKey) {
+        advance(flightKey, FlightStatus.DEPARTED);
+    }
+
+    public void recordLanded(FlightKey flightKey) {
+        advance(flightKey, FlightStatus.LANDED);
+    }
+
+    // no time check: the status only moves forward, so a redelivery or an older event changes
+    // nothing and landed before departed ends in landed
+    private void advance(FlightKey flightKey, FlightStatus status) {
+        if (copies.findCopy(flightKey).isEmpty()) {
+            // the lookup stores the flight with its current status, which is already the new one
+            if (flights.findByFlightKey(flightKey).isEmpty()) {
+                log.warn(
+                        "Flight Operations does not know flight {} from its own status event",
+                        flightKey);
+                return;
+            }
+        }
+        if (copies.advanceStatus(flightKey, status)) {
+            log.info("Flight {} is now {} in the copy", flightKey, status);
+        } else {
+            log.debug("Flight {} was already {} or further in the copy", flightKey, status);
         }
     }
 }

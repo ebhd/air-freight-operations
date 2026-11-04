@@ -63,6 +63,8 @@ class DbFlightCopyRepository implements FlightCopyRepository {
     // own transaction so a flight fetched over http stays in the copy when the booking that
     // needed it is refused
     // the where keeps the newer row, an equal time is the same change delivered twice
+    // the status of an existing row is left alone: it only changes through advanceStatus, which
+    // does not bump last_change_at, so a late created event or lookup must not undo a departure
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean saveIfNewer(FlightInformation flight, Instant changedAt) {
@@ -76,7 +78,6 @@ class DbFlightCopyRepository implements FlightCopyRepository {
                                         + " ON CONFLICT (flight_number, scheduled_departure_date,"
                                         + " departure_airport_code) DO UPDATE SET"
                                         + " arrival_airport_code = EXCLUDED.arrival_airport_code,"
-                                        + " status = EXCLUDED.status,"
                                         + " scheduled_departure = EXCLUDED.scheduled_departure,"
                                         + " scheduled_arrival = EXCLUDED.scheduled_arrival,"
                                         + " estimated_departure = EXCLUDED.estimated_departure,"
@@ -119,6 +120,30 @@ class DbFlightCopyRepository implements FlightCopyRepository {
                         .param("flightNumber", flightKey.flightNumber())
                         .param("date", flightKey.scheduledDepartureDate())
                         .param("departure", flightKey.departureAirportCode().value())
+                        .update();
+        return changed == 1;
+    }
+
+    // status in (earlier statuses) makes it one atomic statement that is idempotent
+    @Override
+    @Transactional
+    public boolean advanceStatus(FlightKey flightKey, FlightStatus status) {
+        List<String> earlier = status.predecessors().stream().map(FlightStatus::name).toList();
+        if (earlier.isEmpty()) {
+            return false;
+        }
+        int changed =
+                jdbc.sql(
+                                "UPDATE flights SET status = :status"
+                                        + " WHERE flight_number = :flightNumber"
+                                        + " AND scheduled_departure_date = :date"
+                                        + " AND departure_airport_code = :departure"
+                                        + " AND status IN (:earlier)")
+                        .param("status", status.name())
+                        .param("flightNumber", flightKey.flightNumber())
+                        .param("date", flightKey.scheduledDepartureDate())
+                        .param("departure", flightKey.departureAirportCode().value())
+                        .param("earlier", earlier)
                         .update();
         return changed == 1;
     }

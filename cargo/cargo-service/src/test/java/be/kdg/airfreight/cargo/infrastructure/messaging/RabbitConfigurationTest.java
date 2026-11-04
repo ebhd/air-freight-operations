@@ -15,7 +15,7 @@ class RabbitConfigurationTest {
 
     // the names as flight publishes them, so a typo in a constant fails here
     @Test
-    void bindsBothFlightQueuesToFlightsExchange() {
+    void bindsTheFlightQueuesToFlightsExchange() {
         runner.run(
                 context ->
                         assertThat(context.getBeansOfType(Binding.class).values())
@@ -31,7 +31,15 @@ class RabbitConfigurationTest {
                                         tuple(
                                                 "flight.events",
                                                 "flight.estimates-changed",
-                                                "cargo.flight-estimates-changed")));
+                                                "cargo.flight-estimates-changed"),
+                                        tuple(
+                                                "flight.events",
+                                                "flight.departed",
+                                                "cargo.flight-departed"),
+                                        tuple(
+                                                "flight.events",
+                                                "flight.landed",
+                                                "cargo.flight-landed")));
     }
 
     // durable so events wait in the queue while cargo is down
@@ -41,7 +49,7 @@ class RabbitConfigurationTest {
                 context ->
                         assertThat(context.getBeansOfType(Queue.class).values())
                                 .filteredOn(queue -> queue.getName().startsWith("cargo.flight-"))
-                                .hasSize(2)
+                                .hasSize(4)
                                 .allMatch(Queue::isDurable));
     }
 }

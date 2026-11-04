@@ -70,7 +70,35 @@ class FlightEventListener {
                                 required(changed.occurredOn(), "Occurred on")));
     }
 
-    // one path for both events: parse, check the version, apply, then reject or retry
+    @RabbitListener(queues = RabbitConfiguration.FLIGHT_DEPARTED_QUEUE)
+    void receiveDeparted(Message message) {
+        process(
+                message,
+                FlightDepartedMessage.class,
+                FlightDepartedMessage::version,
+                departed ->
+                        flightCopyService.recordDeparted(
+                                flightKey(
+                                        departed.flightNumber(),
+                                        departed.scheduledDepartureDate(),
+                                        departed.departureAirportCode())));
+    }
+
+    @RabbitListener(queues = RabbitConfiguration.FLIGHT_LANDED_QUEUE)
+    void receiveLanded(Message message) {
+        process(
+                message,
+                FlightLandedMessage.class,
+                FlightLandedMessage::version,
+                landed ->
+                        flightCopyService.recordLanded(
+                                flightKey(
+                                        landed.flightNumber(),
+                                        landed.scheduledDepartureDate(),
+                                        landed.departureAirportCode())));
+    }
+
+    // one path for every event: parse, check the version, apply, then reject or retry
     private <T> void process(
             Message message, Class<T> type, Function<T, Integer> version, Consumer<T> apply) {
         String payload = new String(message.getBody(), StandardCharsets.UTF_8);

@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.application.flight;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -11,6 +12,7 @@ import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightCopyRepository;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
+import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import java.time.Instant;
@@ -81,6 +83,61 @@ class FlightCopyServiceTest {
 
         verify(flights).findByFlightKey(KEY);
         verify(copies).saveEstimatesIfNewer(KEY, ETD, ETA, DELAYED);
+    }
+
+    // the status moves forward without a time, the repository refuses what is not earlier
+    @Test
+    void departedMovesTheStatusOfAKnownCopy() {
+        when(copies.findCopy(KEY)).thenReturn(Optional.of(FLIGHT));
+
+        service.recordDeparted(KEY);
+
+        verify(copies).advanceStatus(KEY, FlightStatus.DEPARTED);
+        verifyNoInteractions(flights);
+    }
+
+    @Test
+    void landedMovesTheStatusOfAKnownCopy() {
+        when(copies.findCopy(KEY)).thenReturn(Optional.of(FLIGHT));
+
+        service.recordLanded(KEY);
+
+        verify(copies).advanceStatus(KEY, FlightStatus.LANDED);
+        verifyNoInteractions(flights);
+    }
+
+    // an unknown flight is fetched once, the lookup stores it with its current status
+    @Test
+    void departedForAnUnknownCopyAsksFlightOnceThenAdvances() {
+        when(copies.findCopy(KEY)).thenReturn(Optional.empty());
+        when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(FLIGHT));
+
+        service.recordDeparted(KEY);
+
+        verify(flights).findByFlightKey(KEY);
+        verify(copies).advanceStatus(KEY, FlightStatus.DEPARTED);
+    }
+
+    @Test
+    void departedForAFlightFlightDoesNotKnowChangesNothing() {
+        when(copies.findCopy(KEY)).thenReturn(Optional.empty());
+        when(flights.findByFlightKey(KEY)).thenReturn(Optional.empty());
+
+        service.recordDeparted(KEY);
+
+        verify(copies, never()).advanceStatus(any(), any());
+    }
+
+    // flight down: the exception reaches the listener, which lets rabbit retry
+    @Test
+    void departedWhileFlightIsDownPropagatesTheOutage() {
+        when(copies.findCopy(KEY)).thenReturn(Optional.empty());
+        when(flights.findByFlightKey(KEY))
+                .thenThrow(new FlightLookupUnavailableException(KEY, null));
+
+        assertThatThrownBy(() -> service.recordDeparted(KEY))
+                .isInstanceOf(FlightLookupUnavailableException.class);
+        verify(copies, never()).advanceStatus(any(), any());
     }
 
     @Test

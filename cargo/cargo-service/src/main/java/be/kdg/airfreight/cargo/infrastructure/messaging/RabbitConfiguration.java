@@ -20,6 +20,10 @@ class RabbitConfiguration {
     static final String FLIGHT_CREATED_QUEUE = "cargo.flight-created";
     static final String FLIGHT_ESTIMATES_CHANGED = "flight.estimates-changed";
     static final String FLIGHT_ESTIMATES_CHANGED_QUEUE = "cargo.flight-estimates-changed";
+    static final String FLIGHT_DEPARTED = "flight.departed";
+    static final String FLIGHT_DEPARTED_QUEUE = "cargo.flight-departed";
+    static final String FLIGHT_LANDED = "flight.landed";
+    static final String FLIGHT_LANDED_QUEUE = "cargo.flight-landed";
 
     @Bean
     Queue uldQueue() {
@@ -55,6 +59,26 @@ class RabbitConfiguration {
         return BindingBuilder.bind(flightEstimatesChangedQueue)
                 .to(flightEvents)
                 .with(FLIGHT_ESTIMATES_CHANGED);
+    }
+
+    @Bean
+    Queue flightDepartedQueue() {
+        return QueueBuilder.durable(FLIGHT_DEPARTED_QUEUE).build();
+    }
+
+    @Bean
+    Binding flightDepartedBinding(Queue flightDepartedQueue, TopicExchange flightEvents) {
+        return BindingBuilder.bind(flightDepartedQueue).to(flightEvents).with(FLIGHT_DEPARTED);
+    }
+
+    @Bean
+    Queue flightLandedQueue() {
+        return QueueBuilder.durable(FLIGHT_LANDED_QUEUE).build();
+    }
+
+    @Bean
+    Binding flightLandedBinding(Queue flightLandedQueue, TopicExchange flightEvents) {
+        return BindingBuilder.bind(flightLandedQueue).to(flightEvents).with(FLIGHT_LANDED);
     }
 
     // after the retries put the message back on the queue instead of dropping it

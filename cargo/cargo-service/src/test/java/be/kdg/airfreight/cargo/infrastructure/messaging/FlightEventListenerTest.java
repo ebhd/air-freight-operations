@@ -74,6 +74,55 @@ class FlightEventListenerTest {
         verifyNoInteractions(rejectedMessages);
     }
 
+    // flights full departed json, cargo reads only the key
+    @Test
+    void departedFlightIsRecordedByItsKey() {
+        listener.receiveDeparted(message(departed("version", 1)));
+
+        verify(copyService).recordDeparted(KEY);
+        verifyNoInteractions(rejectedMessages);
+    }
+
+    @Test
+    void landedFlightIsRecordedByItsKey() {
+        listener.receiveLanded(message(landed("version", 1)));
+
+        verify(copyService).recordLanded(KEY);
+        verifyNoInteractions(rejectedMessages);
+    }
+
+    @Test
+    void departedWithAnUnknownVersionIsRejected() {
+        String payload = departed("version", 2);
+
+        listener.receiveDeparted(message(payload));
+
+        verify(rejectedMessages).store(MESSAGE_ID, payload, "Message version must be 1, was 2");
+        verifyNoInteractions(copyService);
+    }
+
+    @Test
+    void landedWithoutAnAirportIsRejectedWithTheReason() {
+        String payload = landed("departureAirportCode", null);
+
+        listener.receiveLanded(message(payload));
+
+        verify(rejectedMessages).store(eq(MESSAGE_ID), eq(payload), anyString());
+        verifyNoInteractions(copyService);
+    }
+
+    @Test
+    void databaseOutageDuringDepartedIsRetriedNotRejected() {
+        doThrow(new DataAccessResourceFailureException("database down"))
+                .when(copyService)
+                .recordDeparted(any());
+
+        assertThatThrownBy(() -> listener.receiveDeparted(message(departed("version", 1))))
+                .isInstanceOf(DataAccessResourceFailureException.class);
+
+        verify(rejectedMessages, never()).store(any(), anyString(), anyString());
+    }
+
     // returning normally acknowledges the message so rabbit never retries it
     @Test
     void unreadableMessageIsRejectedNotRetried() {
@@ -203,6 +252,37 @@ class FlightEventListenerTest {
         message.put("previousEstimatedArrival", STA.toString());
         message.put("estimatedDeparture", ETD.toString());
         message.put("estimatedArrival", ETA.toString());
+        message.put(field, value);
+        return JSON.writeValueAsString(message);
+    }
+
+    // flights full departed json, one field replaced
+    private static String departed(String field, Object value) {
+        Map<String, Object> message = new LinkedHashMap<>();
+        message.put("messageId", MESSAGE_ID);
+        message.put("version", 1);
+        message.put("occurredOn", OCCURRED_ON.toString());
+        message.put("flightNumber", "HJ221");
+        message.put("scheduledDepartureDate", "2026-10-19");
+        message.put("departureAirportCode", "BRU");
+        message.put("arrivalAirportCode", "AMS");
+        message.put("aircraftRegistration", "OO-ABC");
+        message.put("actualDeparture", "2026-10-19T08:03:00Z");
+        message.put(field, value);
+        return JSON.writeValueAsString(message);
+    }
+
+    private static String landed(String field, Object value) {
+        Map<String, Object> message = new LinkedHashMap<>();
+        message.put("messageId", MESSAGE_ID);
+        message.put("version", 1);
+        message.put("occurredOn", OCCURRED_ON.toString());
+        message.put("flightNumber", "HJ221");
+        message.put("scheduledDepartureDate", "2026-10-19");
+        message.put("departureAirportCode", "BRU");
+        message.put("arrivalAirportCode", "AMS");
+        message.put("aircraftRegistration", "OO-ABC");
+        message.put("actualArrival", "2026-10-19T09:58:00Z");
         message.put(field, value);
         return JSON.writeValueAsString(message);
     }

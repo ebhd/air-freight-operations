@@ -155,6 +155,58 @@ class DbFlightCopyRepositoryIT {
         assertThat(repository.findCopy(KEY)).contains(flight);
     }
 
+    // ----- advanceStatus: the status only moves forward -----
+
+    @Test
+    void plannedFlightBecomesDepartedOnce() {
+        repository.saveIfNewer(flight(KEY, "08:00"), CREATED);
+
+        assertThat(repository.advanceStatus(KEY, FlightStatus.DEPARTED)).isTrue();
+        assertThat(repository.advanceStatus(KEY, FlightStatus.DEPARTED)).isFalse();
+
+        assertThat(repository.findCopy(KEY).orElseThrow().status())
+                .isEqualTo(FlightStatus.DEPARTED);
+    }
+
+    // landed before departed ends in landed, the late departed changes nothing
+    @Test
+    void landedBeforeDepartedStaysLanded() {
+        repository.saveIfNewer(flight(KEY, "08:00"), CREATED);
+
+        assertThat(repository.advanceStatus(KEY, FlightStatus.LANDED)).isTrue();
+        assertThat(repository.advanceStatus(KEY, FlightStatus.DEPARTED)).isFalse();
+
+        assertThat(repository.findCopy(KEY).orElseThrow().status()).isEqualTo(FlightStatus.LANDED);
+    }
+
+    @Test
+    void unknownFlightCannotAdvance() {
+        assertThat(repository.advanceStatus(KEY, FlightStatus.DEPARTED)).isFalse();
+    }
+
+    // the change time stays so an older estimate that arrives later is still applied
+    @Test
+    void advancingTheStatusLeavesTheChangeTimeAlone() {
+        repository.saveIfNewer(flight(KEY, "08:00"), CREATED);
+
+        repository.advanceStatus(KEY, FlightStatus.DEPARTED);
+
+        assertThat(repository.saveEstimatesIfNewer(KEY, ETD, ETA, DELAYED)).isTrue();
+        assertThat(repository.findCopy(KEY)).contains(flight(KEY, FlightStatus.DEPARTED, ETD, ETA));
+    }
+
+    // a late created event or lookup after the departure must not take the status back
+    @Test
+    void newerWholeRowWriteKeepsTheStatusOfAnExistingRow() {
+        repository.saveIfNewer(flight(KEY, "08:00"), CREATED);
+        repository.advanceStatus(KEY, FlightStatus.DEPARTED);
+
+        assertThat(repository.saveIfNewer(flight(KEY, FlightStatus.PLANNED, ETD, ETA), DELAYED))
+                .isTrue();
+
+        assertThat(repository.findCopy(KEY)).contains(flight(KEY, FlightStatus.DEPARTED, ETD, ETA));
+    }
+
     @Test
     void dayOverviewHasOnlyThatDayOrderedByDeparture() {
         FlightKey late = new FlightKey("HJ300", DAY, BRU);
