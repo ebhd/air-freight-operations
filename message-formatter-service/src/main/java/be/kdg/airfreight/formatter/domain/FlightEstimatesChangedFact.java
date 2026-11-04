@@ -16,10 +16,10 @@ public record FlightEstimatesChangedFact(
         Instant estimatedArrival,
         Instant occurredOn) {
     public FlightEstimatesChangedFact {
-        requireTelegramText(flightNumber, "flight number");
-        requireTelegramText(aircraftRegistration, "aircraft registration");
-        requireAirportCode(departureAirportCode);
-        requireAirportCode(arrivalAirportCode);
+        TelegramText.requireTelegramText(flightNumber, "flight number");
+        TelegramText.requireTelegramText(aircraftRegistration, "aircraft registration");
+        TelegramText.requireAirportCode(departureAirportCode);
+        TelegramText.requireAirportCode(arrivalAirportCode);
         Objects.requireNonNull(scheduledDepartureDate, "scheduled departure date must not be null");
         Objects.requireNonNull(previousEstimatedDeparture, "previous ETD must not be null");
         Objects.requireNonNull(previousEstimatedArrival, "previous ETA must not be null");
@@ -38,24 +38,5 @@ public record FlightEstimatesChangedFact(
 
     public boolean arrivalChanged() {
         return !previousEstimatedArrival.equals(estimatedArrival);
-    }
-
-    // slash and dot separate the parts of mvt line 2 so they cannot be inside a part
-    private static void requireTelegramText(String value, String name) {
-        if (value == null
-                || value.isBlank()
-                || value.contains("\n")
-                || value.contains("\r")
-                || value.contains("/")
-                || value.contains(".")) {
-            throw new IllegalArgumentException(
-                    name + " must be nonblank single-line text without / or .");
-        }
-    }
-
-    private static void requireAirportCode(String code) {
-        if (code == null || !code.matches("[A-Z]{3}")) {
-            throw new IllegalArgumentException("airport code must be a three-letter IATA code");
-        }
     }
 }
