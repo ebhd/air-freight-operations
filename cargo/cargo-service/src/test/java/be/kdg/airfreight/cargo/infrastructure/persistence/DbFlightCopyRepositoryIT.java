@@ -129,6 +129,30 @@ class DbFlightCopyRepositoryIT {
         assertThat(repository.findCopy(KEY)).contains(delayed);
     }
 
+    // replanning changes only the status, the estimates of the old flight stay
+    @Test
+    void newerStatusChangesOnlyTheStatus() {
+        repository.saveIfNewer(flight(KEY, FlightStatus.PLANNED, ETD, ETA), CREATED);
+
+        assertThat(repository.saveStatusIfNewer(KEY, FlightStatus.REPLANNED, DELAYED)).isTrue();
+
+        assertThat(repository.findCopy(KEY))
+                .contains(flight(KEY, FlightStatus.REPLANNED, ETD, ETA));
+    }
+
+    @Test
+    void olderStatusIsIgnoredAndUnknownFlightGetsNoStatusRow() {
+        repository.saveIfNewer(flight(KEY, FlightStatus.PLANNED, ETD, ETA), DELAYED);
+
+        assertThat(repository.saveStatusIfNewer(KEY, FlightStatus.REPLANNED, CREATED)).isFalse();
+        assertThat(
+                        repository.saveStatusIfNewer(
+                                new FlightKey("HJ999", DAY, BRU), FlightStatus.REPLANNED, DELAYED))
+                .isFalse();
+
+        assertThat(repository.findCopy(KEY)).contains(flight(KEY, FlightStatus.PLANNED, ETD, ETA));
+    }
+
     // an estimate alone is not a whole flight so no row is made
     @Test
     void estimatesForAFlightNotInTheCopyStoreNothing() {
