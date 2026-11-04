@@ -68,16 +68,17 @@ class FlightCopyServiceTest {
         verify(copies).saveIfNewer(FLIGHT.withEstimates(ETD, ETA), CREATED);
     }
 
-    // the lookup at flight already brings the current estimates and keeps them in the copy
+    // the created listener stores the schedule as estimates between the two reads, so the lookup
+    // finds that row without asking flight and the delay must still be applied
     @Test
-    void estimatesForAFlightNotInTheCopyAskFlightOnce() {
+    void estimatesAreAppliedWhenTheFlightAppearsBetweenTheTwoReads() {
         when(copies.findCopy(KEY)).thenReturn(Optional.empty());
         when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(FLIGHT));
 
         service.recordEstimates(KEY, ETD, ETA, DELAYED);
 
         verify(flights).findByFlightKey(KEY);
-        verify(copies, never()).saveIfNewer(any(), any());
+        verify(copies).saveIfNewer(FLIGHT.withEstimates(ETD, ETA), DELAYED);
     }
 
     @Test

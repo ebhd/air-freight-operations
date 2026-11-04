@@ -36,17 +36,21 @@ public class FlightCopyService {
             Instant estimatedDeparture,
             Instant estimatedArrival,
             Instant occurredOn) {
-        Optional<FlightInformation> copy = copies.findCopy(flightKey);
-        if (copy.isEmpty()) {
+        Optional<FlightInformation> current = copies.findCopy(flightKey);
+        if (current.isEmpty()) {
             // FlightCreated not seen yet so take the current state from flight once
-            if (flights.findByFlightKey(flightKey).isEmpty()) {
+            current = flights.findByFlightKey(flightKey);
+            if (current.isEmpty()) {
                 log.warn(
                         "Flight Operations does not know flight {} from its own estimate event",
                         flightKey);
+                return;
             }
-            return;
         }
-        FlightInformation updated = copy.get().withEstimates(estimatedDeparture, estimatedArrival);
+        // also after the lookup: the created listener runs on its own thread and can store the
+        // schedule as estimates between the two reads, then only this event brings the delay
+        FlightInformation updated =
+                current.get().withEstimates(estimatedDeparture, estimatedArrival);
         if (copies.saveIfNewer(updated, occurredOn)) {
             log.info(
                     "Updated estimates of flight {} to ETD {} and ETA {}",
