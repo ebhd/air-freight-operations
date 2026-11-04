@@ -63,6 +63,7 @@ class MvtFormatterTest {
                         new FlmFormatter(JsonMapper.builder().findAndAddModules().build()),
                         edFormatter,
                         eaFormatter,
+                        new CpmFormatter(JsonMapper.builder().findAndAddModules().build()),
                         publisher);
         var sourceId = UUID.randomUUID();
         var changed =
@@ -87,6 +88,7 @@ class MvtFormatterTest {
                         new FlmFormatter(JsonMapper.builder().findAndAddModules().build()),
                         edFormatter,
                         eaFormatter,
+                        new CpmFormatter(JsonMapper.builder().findAndAddModules().build()),
                         publisher);
         var sourceId = UUID.randomUUID();
         var changed =

@@ -2,6 +2,7 @@ package be.kdg.airfreight.formatter.application;
 
 import be.kdg.airfreight.formatter.domain.FlightCreatedFact;
 import be.kdg.airfreight.formatter.domain.FlightEstimatesChangedFact;
+import be.kdg.airfreight.formatter.domain.LoadFinalizedFact;
 import be.kdg.airfreight.formatter.domain.MessageContent;
 import be.kdg.airfreight.formatter.domain.MessageFormatter;
 import be.kdg.airfreight.formatter.domain.MessagePublisher;
@@ -16,21 +17,29 @@ public class MessageFormattingService {
     private final MessageFormatter<FlightCreatedFact> flmFormatter;
     private final MessageFormatter<FlightEstimatesChangedFact> edFormatter;
     private final MessageFormatter<FlightEstimatesChangedFact> eaFormatter;
+    private final MessageFormatter<LoadFinalizedFact> cpmFormatter;
     private final MessagePublisher publisher;
 
     public MessageFormattingService(
             MessageFormatter<FlightCreatedFact> flmFormatter,
             @Qualifier("mvtEdFormatter") MessageFormatter<FlightEstimatesChangedFact> edFormatter,
             @Qualifier("mvtEaFormatter") MessageFormatter<FlightEstimatesChangedFact> eaFormatter,
+            MessageFormatter<LoadFinalizedFact> cpmFormatter,
             MessagePublisher publisher) {
         this.flmFormatter = flmFormatter;
         this.edFormatter = edFormatter;
         this.eaFormatter = eaFormatter;
+        this.cpmFormatter = cpmFormatter;
         this.publisher = publisher;
     }
 
     public void prepareFlm(UUID sourceMessageId, FlightCreatedFact fact) {
         publisher.publish(sourceMessageId, List.of(flmFormatter.format(fact)));
+    }
+
+    // the cargo message id is the source id so partner stores one cpm per finalized load
+    public void prepareCpm(UUID sourceMessageId, LoadFinalizedFact fact) {
+        publisher.publish(sourceMessageId, List.of(cpmFormatter.format(fact)));
     }
 
     public void prepareEstimates(UUID sourceMessageId, FlightEstimatesChangedFact fact) {
