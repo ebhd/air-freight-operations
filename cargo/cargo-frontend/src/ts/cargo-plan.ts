@@ -11,6 +11,7 @@ import {
     takenPositions,
     type LoadingPositionResponse,
 } from './positions.js';
+import { LOAD_PLANNER_ONLY, positionNotChangedText } from './refusal-text.js';
 import { formatBrusselsDateTime } from './time.js';
 import type { UldBookingResponse } from './uld-booking.js';
 
@@ -33,6 +34,8 @@ const windowBlock = requiredElement('#loading-window', HTMLDListElement);
 const rows = requiredElement('#bookings', HTMLTableSectionElement);
 const tableStatus = requiredElement('#table-status', HTMLElement);
 const retryButton = requiredElement('#retry', HTMLButtonElement);
+const readOnlyNote = requiredElement('#read-only', HTMLElement);
+readOnlyNote.textContent = `You can view this cargo plan. ${LOAD_PLANNER_ONLY}`;
 
 // shows the booked weight as is without converting units
 const weightFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 3 });
@@ -59,6 +62,7 @@ async function loadCargoPlan(): Promise<void> {
     retryButton.hidden = true;
     flightBlock.hidden = true;
     windowBlock.hidden = true;
+    readOnlyNote.hidden = true;
     rows.replaceChildren();
     const flightKey = readFlightKey(new URLSearchParams(location.search));
     if (!flightKey) {
@@ -88,7 +92,10 @@ async function loadCargoPlan(): Promise<void> {
     }
     renderFlight(cargoPlan.data.flight);
     renderLoadingWindow(windowBlock, loadingWindow.data);
-    const editablePath = hasRole('load-planner') && loadingWindow.data.loadingAllowed ? path : null;
+    const loadPlanner = hasRole('load-planner');
+    // a flight planner may read the plan but gets no dropdowns so the page says why
+    readOnlyNote.hidden = loadPlanner;
+    const editablePath = loadPlanner && loadingWindow.data.loadingAllowed ? path : null;
     renderBookings(cargoPlan.data.bookings, positions.data, editablePath);
 }
 
@@ -166,7 +173,7 @@ async function savePosition(cargoPlanPath: string, uldCode: string, select: HTML
     // reload after success and after a refusal so the page shows what the server stored
     await loadCargoPlan();
     if (!result.ok) {
-        showError(`Position of ${uldCode} not changed: ${result.message}`);
+        showError(positionNotChangedText(uldCode, result));
     }
 }
 
