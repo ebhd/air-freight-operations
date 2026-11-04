@@ -494,7 +494,7 @@ Invariants on `Flight`:
 1. `FlightKey`, scheduled departure and scheduled arrival cannot change. The key's `scheduledDepartureDate` is the UTC date of the original scheduled departure.
 2. A flight moves only from `PLANNED` to `DEPARTED` to `LANDED`.
 3. Departure delays can change only while planned, arrival delays can change while planned or departed. All delays freeze after landing.
-4. Each delay is 1–720 minutes. ETD and ETA are calculated from the current delays, never entered manually.
+4. Each delay is 1–720 minutes, and all delays of a flight together (departure and arrival) are at most 720 minutes (coach). A change that would pass that total is refused with 409 `TOTAL_DELAY_EXCEEDED`. ETD and ETA are calculated from the current delays, never entered manually.
 5. Actual times are registered once and never change; a second registration is refused.
 6. ATD needs the processed CPM, is at most `now` and at most ETD plus the tolerance; ATA is later than ATD, at most `now` and at most ETA plus the tolerance. The limit itself is accepted. The tolerance (`ActualTimePolicy`, 5 minutes) is configuration; `now` comes from the service's clock, so the aggregate stays testable.
 
