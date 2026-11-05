@@ -136,6 +136,11 @@ class FlightActualTimeServiceTest {
         }
 
         @Override
+        public List<Flight> findScheduledBefore(Instant end) {
+            return List.of();
+        }
+
+        @Override
         public Flight save(Flight flight) {
             saves++;
             flights.put(flight.key(), flight);

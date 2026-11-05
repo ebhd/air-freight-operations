@@ -218,6 +218,11 @@ class ReplanControllerTest {
         }
 
         @Override
+        public List<Flight> findScheduledBefore(Instant end) {
+            return List.of();
+        }
+
+        @Override
         public Flight save(Flight flight) {
             flights.put(flight.key(), flight);
             return flight;
