@@ -1,6 +1,6 @@
 package be.kdg.airfreight.cargo.domain.loading;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.exception.InvalidCargoValueException;
 import java.time.Duration;
 import java.time.Instant;
 

@@ -8,10 +8,10 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import be.kdg.airfreight.cargo.domain.exception.FlightLookupRejectedException;
+import be.kdg.airfreight.cargo.domain.exception.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
-import be.kdg.airfreight.cargo.domain.flight.FlightLookupRejectedException;
-import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import java.io.IOException;
 import java.time.Instant;

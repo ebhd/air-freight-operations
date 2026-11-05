@@ -1,9 +1,9 @@
 package be.kdg.airfreight.cargo.infrastructure.flight;
 
+import be.kdg.airfreight.cargo.domain.exception.FlightLookupRejectedException;
+import be.kdg.airfreight.cargo.domain.exception.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
-import be.kdg.airfreight.cargo.domain.flight.FlightLookupRejectedException;
-import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;

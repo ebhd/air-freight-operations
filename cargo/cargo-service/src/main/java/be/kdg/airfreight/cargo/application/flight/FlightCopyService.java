@@ -35,18 +35,13 @@ public class FlightCopyService {
             Instant estimatedDeparture,
             Instant estimatedArrival,
             Instant occurredOn) {
-        if (copies.findCopy(flightKey).isEmpty()) {
-            // FlightCreated not seen yet so take the current state from flight once, the lookup
-            // stores it in the copy
-            if (flights.findByFlightKey(flightKey).isEmpty()) {
-                log.warn(
-                        "Flight Operations does not know flight {} from its own estimate event",
-                        flightKey);
-                return;
-            }
+        // a flight the copy does not have yet is fetched and stored by this lookup
+        if (flights.findByFlightKey(flightKey).isEmpty()) {
+            log.warn(
+                    "Flight Operations does not know flight {} from its own estimate event",
+                    flightKey);
+            return;
         }
-        // also after the lookup: the created listener runs on its own thread and can store the
-        // schedule as estimates between the two reads, then only this event brings the delay
         if (copies.saveEstimatesIfNewer(
                 flightKey, estimatedDeparture, estimatedArrival, occurredOn)) {
             log.info(
@@ -70,14 +65,12 @@ public class FlightCopyService {
     // no time check: the status only moves forward, so a redelivery or an older event changes
     // nothing and landed before departed ends in landed
     private void advance(FlightKey flightKey, FlightStatus status) {
-        if (copies.findCopy(flightKey).isEmpty()) {
-            // the lookup stores the flight with its current status, which is already the new one
-            if (flights.findByFlightKey(flightKey).isEmpty()) {
-                log.warn(
-                        "Flight Operations does not know flight {} from its own status event",
-                        flightKey);
-                return;
-            }
+        // a flight the copy does not have yet is fetched and stored by this lookup
+        if (flights.findByFlightKey(flightKey).isEmpty()) {
+            log.warn(
+                    "Flight Operations does not know flight {} from its own status event",
+                    flightKey);
+            return;
         }
         if (copies.advanceStatus(flightKey, status)) {
             log.info("Flight {} is now {} in the copy", flightKey, status);

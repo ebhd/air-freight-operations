@@ -1,0 +1,13 @@
+package be.kdg.airfreight.cargo.infrastructure.messaging.flight;
+
+import java.time.LocalDate;
+
+// the fields cargo reads from the flight.replaced json version 1: both keys
+record FlightReplacedMessage(
+        Integer version,
+        String flightNumber,
+        LocalDate scheduledDepartureDate,
+        String departureAirportCode,
+        String newFlightNumber,
+        LocalDate newScheduledDepartureDate,
+        String newDepartureAirportCode) {}

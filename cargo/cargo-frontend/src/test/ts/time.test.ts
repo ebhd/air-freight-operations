@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { formatBrusselsDateTime, utcToday } from '../../ts/time.js';
+import { formatBrusselsDateTime, utcToday } from '../../ts/shared/time.js';
 
 describe('formatBrusselsDateTime', () => {
     it.each([

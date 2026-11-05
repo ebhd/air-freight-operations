@@ -1,6 +1,11 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.exception.BookingRejectedException;
+import be.kdg.airfreight.cargo.domain.exception.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.exception.LoadNotFinalizedException;
+import be.kdg.airfreight.cargo.domain.exception.LoadingNotAllowedException;
+import be.kdg.airfreight.cargo.domain.exception.PositionOccupiedException;
+import be.kdg.airfreight.cargo.domain.exception.UldNotBookedException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
@@ -8,7 +13,6 @@ import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadCheckReport;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadChecks;
 import be.kdg.airfreight.cargo.domain.loading.LoadingContext;
-import be.kdg.airfreight.cargo.domain.loading.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.loading.LoadingRefusal;
 import java.time.Instant;
 import java.util.Comparator;
@@ -114,11 +118,11 @@ public final class CargoPlan {
             if (target.bookings.containsKey(booking.getCode())) {
                 continue;
             }
+            LoadingPosition position = booking.getPosition().orElse(null);
             // a taken position is not stolen, the load planner places that uld again
-            LoadingPosition position =
-                    booking.getPosition()
-                            .filter(taken -> target.bookingAt(taken).isEmpty())
-                            .orElse(null);
+            if (position != null && target.bookingAt(position).isPresent()) {
+                position = null;
+            }
             target.bookings.put(
                     booking.getCode(),
                     new UldBooking(
@@ -243,7 +247,7 @@ public final class CargoPlan {
 
     private Optional<UldBooking> bookingAt(LoadingPosition position) {
         for (UldBooking booking : bookings.values()) {
-            if (booking.getPosition().equals(Optional.of(position))) {
+            if (booking.getPosition().orElse(null) == position) {
                 return Optional.of(booking);
             }
         }

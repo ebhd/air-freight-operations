@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { outcomeText, severityText, type LoadCheckResult } from '../../ts/load-check.js';
+import { outcomeText, severityText, type LoadCheckResult } from '../../ts/cargo/load-check.js';
 
 function result(severity: 'HARD' | 'SOFT', passed: boolean): LoadCheckResult {
     return { name: 'Lateral balance', severity, passed, reason: 'reason' };

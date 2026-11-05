@@ -1,7 +1,7 @@
 package be.kdg.airfreight.cargo.domain.loadcheck;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldBooking;
+import be.kdg.airfreight.cargo.domain.exception.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import java.util.ArrayList;
 import java.util.List;

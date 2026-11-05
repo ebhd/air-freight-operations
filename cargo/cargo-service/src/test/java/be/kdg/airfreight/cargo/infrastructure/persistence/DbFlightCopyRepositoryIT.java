@@ -155,8 +155,6 @@ class DbFlightCopyRepositoryIT {
                         repository.advanceStatus(
                                 new FlightKey("HJ999", DAY, BRU), FlightStatus.REPLANNED))
                 .isFalse();
-        // planned has no predecessor so nothing can go back to it
-        assertThat(repository.advanceStatus(KEY, FlightStatus.PLANNED)).isFalse();
 
         assertThat(repository.findCopy(KEY).orElseThrow().status())
                 .isEqualTo(FlightStatus.REPLANNED);

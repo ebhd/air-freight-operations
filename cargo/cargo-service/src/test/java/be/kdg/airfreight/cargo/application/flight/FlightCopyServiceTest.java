@@ -8,11 +8,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import be.kdg.airfreight.cargo.domain.exception.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightCopyRepository;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
-import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import java.time.Instant;
@@ -52,64 +52,35 @@ class FlightCopyServiceTest {
     // only the estimates so the rest of the copy is never written from an estimate event
     @Test
     void newEstimatesAreAppliedToTheCopy() {
-        when(copies.findCopy(KEY)).thenReturn(Optional.of(FLIGHT));
+        when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(FLIGHT));
 
         service.recordEstimates(KEY, ETD, ETA, DELAYED);
 
         verify(copies).saveEstimatesIfNewer(KEY, ETD, ETA, DELAYED);
         verify(copies, never()).saveIfNewer(any(), any());
-        verifyNoInteractions(flights);
-    }
-
-    // the created listener stores the schedule as estimates between the two reads, so the lookup
-    // finds that row without asking flight and the delay must still be applied
-    @Test
-    void estimatesAreAppliedWhenTheFlightAppearsBetweenTheTwoReads() {
-        when(copies.findCopy(KEY)).thenReturn(Optional.empty());
-        when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(FLIGHT));
-
-        service.recordEstimates(KEY, ETD, ETA, DELAYED);
-
-        verify(flights).findByFlightKey(KEY);
-        verify(copies).saveEstimatesIfNewer(KEY, ETD, ETA, DELAYED);
     }
 
     // the status moves forward without a time, the repository refuses what is not earlier
     @Test
     void departedMovesTheStatusOfAKnownCopy() {
-        when(copies.findCopy(KEY)).thenReturn(Optional.of(FLIGHT));
-
-        service.recordDeparted(KEY);
-
-        verify(copies).advanceStatus(KEY, FlightStatus.DEPARTED);
-        verifyNoInteractions(flights);
-    }
-
-    @Test
-    void landedMovesTheStatusOfAKnownCopy() {
-        when(copies.findCopy(KEY)).thenReturn(Optional.of(FLIGHT));
-
-        service.recordLanded(KEY);
-
-        verify(copies).advanceStatus(KEY, FlightStatus.LANDED);
-        verifyNoInteractions(flights);
-    }
-
-    // an unknown flight is fetched once, the lookup stores it with its current status
-    @Test
-    void departedForAnUnknownCopyAsksFlightOnceThenAdvances() {
-        when(copies.findCopy(KEY)).thenReturn(Optional.empty());
         when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(FLIGHT));
 
         service.recordDeparted(KEY);
 
-        verify(flights).findByFlightKey(KEY);
         verify(copies).advanceStatus(KEY, FlightStatus.DEPARTED);
     }
 
     @Test
+    void landedMovesTheStatusOfAKnownCopy() {
+        when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(FLIGHT));
+
+        service.recordLanded(KEY);
+
+        verify(copies).advanceStatus(KEY, FlightStatus.LANDED);
+    }
+
+    @Test
     void departedForAFlightFlightDoesNotKnowChangesNothing() {
-        when(copies.findCopy(KEY)).thenReturn(Optional.empty());
         when(flights.findByFlightKey(KEY)).thenReturn(Optional.empty());
 
         service.recordDeparted(KEY);
@@ -120,7 +91,6 @@ class FlightCopyServiceTest {
     // flight down: the exception reaches the listener, which lets rabbit retry
     @Test
     void departedWhileFlightIsDownPropagatesTheOutage() {
-        when(copies.findCopy(KEY)).thenReturn(Optional.empty());
         when(flights.findByFlightKey(KEY))
                 .thenThrow(new FlightLookupUnavailableException(KEY, null));
 
@@ -131,7 +101,6 @@ class FlightCopyServiceTest {
 
     @Test
     void estimatesForAFlightFlightDoesNotKnowStoreNothing() {
-        when(copies.findCopy(KEY)).thenReturn(Optional.empty());
         when(flights.findByFlightKey(KEY)).thenReturn(Optional.empty());
 
         service.recordEstimates(KEY, ETD, ETA, DELAYED);
@@ -142,23 +111,10 @@ class FlightCopyServiceTest {
 
     @Test
     void replannedFlightGetsTheStatusInTheCopy() {
-        when(copies.findCopy(KEY)).thenReturn(Optional.of(FLIGHT));
-
-        service.recordReplanned(KEY);
-
-        verify(copies).advanceStatus(KEY, FlightStatus.REPLANNED);
-        verifyNoInteractions(flights);
-    }
-
-    // not in the copy yet so flight is asked once, its answer already says replanned
-    @Test
-    void replannedFlightNotInTheCopyIsFetchedOnce() {
-        when(copies.findCopy(KEY)).thenReturn(Optional.empty());
         when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(FLIGHT));
 
         service.recordReplanned(KEY);
 
-        verify(flights).findByFlightKey(KEY);
         verify(copies).advanceStatus(KEY, FlightStatus.REPLANNED);
     }
 }

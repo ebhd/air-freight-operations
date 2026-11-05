@@ -4,6 +4,8 @@ import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import be.kdg.airfreight.cargo.domain.exception.LoadNotFinalizedException;
+import be.kdg.airfreight.cargo.domain.exception.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
@@ -12,7 +14,6 @@ import be.kdg.airfreight.cargo.domain.loadcheck.LateralBalanceCheck;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadCheckResult;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadChecks;
 import be.kdg.airfreight.cargo.domain.loading.LoadingContext;
-import be.kdg.airfreight.cargo.domain.loading.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.loading.LoadingRefusal;
 import be.kdg.airfreight.cargo.domain.loading.LoadingWindowPolicy;
 import java.math.BigDecimal;

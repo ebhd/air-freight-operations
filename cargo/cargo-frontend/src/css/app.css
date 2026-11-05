@@ -4,7 +4,7 @@
 @import "@fortawesome/fontawesome-free/css/solid.min.css";
 @import "tailwindcss" source(none);
 @source "../../*.html";
-@source "../ts/*.ts";
+@source "../ts/**/*.ts";
 
 
 /* the logo colours replace tailwind's blue scale, so every page follows without changing a class */

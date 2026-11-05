@@ -6,7 +6,7 @@ import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanRepository;
 import be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldBooking;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldCode;
-import be.kdg.airfreight.cargo.domain.cargoplan.UldNotBookedException;
+import be.kdg.airfreight.cargo.domain.exception.UldNotBookedException;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.loading.LoadingContext;
 import java.util.Optional;

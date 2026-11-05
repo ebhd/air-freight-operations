@@ -1,9 +1,9 @@
 package be.kdg.airfreight.cargo.application.booking;
 
-import be.kdg.airfreight.cargo.domain.cargoplan.BookingRejectedException;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanRepository;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldBooking;
+import be.kdg.airfreight.cargo.domain.exception.BookingRejectedException;
 import be.kdg.airfreight.cargo.domain.flight.DayOfMonthDateRule;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;

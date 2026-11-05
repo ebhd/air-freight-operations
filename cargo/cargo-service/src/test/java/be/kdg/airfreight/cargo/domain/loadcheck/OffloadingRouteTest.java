@@ -33,8 +33,8 @@ import static be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition.UR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition;
+import be.kdg.airfreight.cargo.domain.exception.InvalidCargoValueException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

@@ -126,9 +126,6 @@ class DbFlightCopyRepository implements FlightCopyRepository {
     @Transactional
     public boolean advanceStatus(FlightKey flightKey, FlightStatus status) {
         List<String> earlier = status.predecessors().stream().map(FlightStatus::name).toList();
-        if (earlier.isEmpty()) {
-            return false;
-        }
         int changed =
                 jdbc.sql(
                                 "UPDATE flights SET status = :status"

@@ -1,6 +1,6 @@
 package be.kdg.airfreight.cargo.domain.loadcheck;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.exception.InvalidCargoValueException;
 
 // one line of the report with the reason also when the check passed
 public record LoadCheckResult(String name, CheckSeverity severity, boolean passed, String reason) {

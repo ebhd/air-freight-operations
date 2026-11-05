@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { movedToLink, movedToText } from '../../ts/replanning.js';
+import { movedToLink, movedToText } from '../../ts/cargo/replanning.js';
 
 const MOVED_TO = { flightNumber: 'HJ500A', scheduledDepartureDate: '2026-11-11', departureAirportCode: 'BRU' };
 

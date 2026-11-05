@@ -1,6 +1,6 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.exception.InvalidCargoValueException;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.stream.Collectors;

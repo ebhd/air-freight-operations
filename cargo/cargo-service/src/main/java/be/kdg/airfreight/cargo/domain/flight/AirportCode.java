@@ -1,6 +1,6 @@
 package be.kdg.airfreight.cargo.domain.flight;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.exception.InvalidCargoValueException;
 import java.util.Locale;
 
 public record AirportCode(String value) {
