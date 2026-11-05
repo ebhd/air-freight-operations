@@ -3,7 +3,7 @@ package be.kdg.airfreight.cargo.domain.flight;
 import java.util.Map;
 import java.util.Set;
 
-// cargos own copy of the flight states
+// cargo's own copy of the flight states
 public enum FlightStatus {
     PLANNED,
     DEPARTED,

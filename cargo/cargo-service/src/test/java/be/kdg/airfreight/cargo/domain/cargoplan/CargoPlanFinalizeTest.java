@@ -100,7 +100,7 @@ class CargoPlanFinalizeTest {
         assertThat(cargoPlan.finalizeLoad(context(INSIDE), CHECKS).ulds()).hasSize(3);
     }
 
-    // d3: nothing positioned is only a soft warning and gives an empty cpm
+    // nothing positioned is only a soft warning and gives an empty cpm
     @Test
     void emptyLoadCanBeFinalized() {
         CargoPlan cargoPlan = plan(booking("AKE1", null, "1000", WeightUnit.KG));

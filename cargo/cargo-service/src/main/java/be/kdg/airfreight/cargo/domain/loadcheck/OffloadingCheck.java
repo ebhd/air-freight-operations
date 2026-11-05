@@ -88,7 +88,7 @@ public final class OffloadingCheck implements LoadCheck {
             return canManeuver(LoadingPosition.UL, LoadingPosition.UR, occupied);
         }
         if (position.side() == LoadingPosition.Side.NONE) {
-            // a1 a2 and b1 do not block each other because the case sets no such rule
+            // a1 a2 and b1 do not block each other
             return canManeuver(LoadingPosition.CL, LoadingPosition.CR, occupied);
         }
         return isClear(routeToDoor(position), occupied);
@@ -113,7 +113,6 @@ public final class OffloadingCheck implements LoadCheck {
         return true;
     }
 
-    // package private so the route tests can call it
     static List<LoadingPosition> routeToDoor(LoadingPosition position) {
         if (position.side() == LoadingPosition.Side.NONE) {
             throw new InvalidCargoValueException(

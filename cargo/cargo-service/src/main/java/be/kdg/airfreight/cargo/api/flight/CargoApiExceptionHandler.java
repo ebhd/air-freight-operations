@@ -17,7 +17,6 @@ import org.springframework.transaction.TransactionException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-// one answer per failure for every cargo endpoint
 @RestControllerAdvice
 @Slf4j
 class CargoApiExceptionHandler {
@@ -27,7 +26,7 @@ class CargoApiExceptionHandler {
             "The action was not saved because of a database problem. Try again later.";
     static final String HARD_CHECKS_FAILED = "HARD_CHECKS_FAILED";
 
-    // flight down is a clear 503 and never a fake empty list
+    // flight is down so answer 503 instead of an empty list
     @ExceptionHandler(FlightLookupUnavailableException.class)
     ProblemDetail flightOperationsUnavailable(FlightLookupUnavailableException exception) {
         return ProblemDetail.forStatusAndDetail(

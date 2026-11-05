@@ -27,10 +27,10 @@ public final class DayOfMonthDateRule {
                                         Math.abs(ChronoUnit.DAYS.between(referenceDate, candidate)))
                         .thenComparing(Comparator.reverseOrder());
 
-        // previous current and next month is our take on q02 not a course rule
+        // the nearest date is always in the previous, current or next month
         return Stream.of(
                         referenceMonth.minusMonths(1), referenceMonth, referenceMonth.plusMonths(1))
-                // skip months that dont have this day like the 31st in february
+                // skip months that don't have this day like the 31st in february
                 .filter(month -> month.isValidDay(dayOfMonth))
                 .map(month -> month.atDay(dayOfMonth))
                 .min(nearestThenFuture)

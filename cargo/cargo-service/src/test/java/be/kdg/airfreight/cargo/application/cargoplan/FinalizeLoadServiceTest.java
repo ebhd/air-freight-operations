@@ -105,7 +105,7 @@ class FinalizeLoadServiceTest {
         verifyNoInteractions(events);
     }
 
-    // d3 no bookings yet is an empty load that can still be finalized
+    // no bookings yet is an empty load that can still be finalized
     @Test
     void flightWithoutPlanGetsAFinalizedEmptyPlan() {
         givenFlight();

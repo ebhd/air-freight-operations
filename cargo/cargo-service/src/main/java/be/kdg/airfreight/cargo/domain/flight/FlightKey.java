@@ -17,7 +17,7 @@ public record FlightKey(
             throw new InvalidCargoValueException("Departure airport code is required");
         }
         flightNumber = flightNumber.trim();
-        // same max length as flights column and no characters that break the lookup url
+        // same max length as flight's column and no characters that break the lookup url
         if (!flightNumber.matches("[A-Za-z0-9]{1,32}")) {
             throw new InvalidCargoValueException(
                     "Flight number must be 1 to 32 letters or digits: " + flightNumber);

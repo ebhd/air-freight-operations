@@ -23,7 +23,7 @@ export function loadLoadingWindow(cargoPlanPath: string): Promise<ApiResult<Load
     return getJson<LoadingWindowStatus>(`${cargoPlanPath}/loading-window`);
 }
 
-// loadingAllowed lets later pages disable their controls but the server checks every action
+// the server checks every action, this only shows the status
 export function renderLoadingWindow(element: HTMLDListElement, status: LoadingWindowStatus): void {
     element.replaceChildren(
         term('Opens (Brussels)'),

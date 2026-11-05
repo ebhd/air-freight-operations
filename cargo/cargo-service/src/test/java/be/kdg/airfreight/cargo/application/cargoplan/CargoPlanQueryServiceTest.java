@@ -44,7 +44,7 @@ class CargoPlanQueryServiceTest {
         assertThat(view.cargoPlan().getBookings()).isEmpty();
     }
 
-    // ac4 reading stays possible after departure
+    // reading stays possible after departure
     @ParameterizedTest
     @EnumSource(FlightStatus.class)
     void isReadableInEveryFlightState(FlightStatus status) {

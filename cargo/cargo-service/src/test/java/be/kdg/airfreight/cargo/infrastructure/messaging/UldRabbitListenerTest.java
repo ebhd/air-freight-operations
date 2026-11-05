@@ -162,7 +162,7 @@ class UldRabbitListenerTest {
         verify(rejectedMessages, never()).store(any(), any(), any());
     }
 
-    // d4: a finalized load takes no new uld so the message is kept with the reason
+    // a finalized load takes no new uld so the message is kept with the reason
     @Test
     void bookingForAFinalizedPlanIsRejectedNotRetried() {
         FlightKey flightKey =

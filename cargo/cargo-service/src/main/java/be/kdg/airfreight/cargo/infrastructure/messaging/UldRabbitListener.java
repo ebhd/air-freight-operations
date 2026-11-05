@@ -94,7 +94,7 @@ class UldRabbitListener {
         } catch (BookingRejectedException
                 | FlightLookupRejectedException
                 | InvalidCargoValueException invalid) {
-            // the reason column cant be null and not every exception has a message
+            // the reason column can't be null and not every exception has a message
             String reason =
                     Objects.requireNonNullElse(
                             invalid.getMessage(), invalid.getClass().getSimpleName());

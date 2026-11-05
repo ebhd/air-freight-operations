@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS cargo_plans (
     CONSTRAINT cargo_plans_state_check CHECK (state IN ('DRAFT', 'FINALIZED', 'REPLANNED'))
 );
 
--- the move columns and state came later, so an existing database gets them without a reset
+-- an existing database gets the move columns and state without a reset
 ALTER TABLE cargo_plans ADD COLUMN IF NOT EXISTS moved_to_flight_number VARCHAR(32);
 ALTER TABLE cargo_plans ADD COLUMN IF NOT EXISTS moved_to_departure_date DATE;
 ALTER TABLE cargo_plans ADD COLUMN IF NOT EXISTS moved_to_departure_airport_code CHAR(3);

@@ -240,7 +240,7 @@ class OffloadingCheckTest {
         assertThat(result.unloadingOrder()).containsExactly(UR, X);
     }
 
-    // team reading of q16 so this test flips if the coach answers otherwise
+    // nose positions do not block each other
     @Test
     void nosePositionsDoNotBlockEachOther() {
         OffloadingResult result =

@@ -74,7 +74,6 @@ public enum LoadingPosition {
         try {
             return valueOf(code.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException unknown) {
-            // valueOf throws this for an unknown name
             throw new InvalidCargoValueException(
                     "Unknown loading position " + code.trim() + ", valid positions are " + codes());
         }

@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-// same pattern as flight: a row is published only after rabbitmq confirms it
+// a row counts as published only after rabbitmq confirms it
 @Slf4j
 @Component
 public class OutboxPublisher {

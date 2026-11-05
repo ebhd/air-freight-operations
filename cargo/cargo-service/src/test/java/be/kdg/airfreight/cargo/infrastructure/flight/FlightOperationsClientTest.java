@@ -68,7 +68,7 @@ class FlightOperationsClientTest {
                 .hasValueSatisfying(info -> assertThat(info.planned()).isFalse());
     }
 
-    // flight sends no delays until issue 15 so etd equals std
+    // without estimates in the answer etd equals std
     @Test
     void estimatedDepartureEqualsScheduledDepartureUntilFlightSendsDelays() {
         flight.expect(requestTo(URL))

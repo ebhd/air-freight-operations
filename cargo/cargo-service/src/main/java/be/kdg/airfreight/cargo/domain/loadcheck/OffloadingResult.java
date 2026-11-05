@@ -4,7 +4,7 @@ import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition;
 import java.util.List;
 
-// positions are unique in a plan so they name the uld and read like the case examples
+// positions are unique in a plan so they also name the uld
 public record OffloadingResult(
         List<LoadingPosition> unloadingOrder, List<LoadingPosition> blockedPositions) {
     public OffloadingResult {

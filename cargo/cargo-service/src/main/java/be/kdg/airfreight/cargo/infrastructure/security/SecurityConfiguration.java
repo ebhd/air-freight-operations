@@ -30,7 +30,7 @@ class SecurityConfiguration {
                                                 "/actuator/health",
                                                 "/actuator/health/**")
                                         .permitAll()
-                                        // errors forward here so callers get the real status
+                                        // errors forward here so caller's get the real status
                                         .requestMatchers("/error")
                                         .permitAll()
                                         // a new path stays closed until it gets its own rule

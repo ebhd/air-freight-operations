@@ -6,7 +6,7 @@ import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-/** Checks the REST connection; flight contracts will be added with the first use case. */
+// checks that flight answers
 @Component("flightApi")
 public class FlightApiHealthIndicator implements HealthIndicator {
     private final RestClient client;

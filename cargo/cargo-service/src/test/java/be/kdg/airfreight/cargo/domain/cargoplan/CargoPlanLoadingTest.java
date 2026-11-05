@@ -109,7 +109,7 @@ class CargoPlanLoadingTest {
                 .hasMessage("Loading on HJ221/2026-10-22/BRU is not allowed: " + reason);
     }
 
-    // ac4 the same delay reopens a draft but never a finalized plan
+    // the same delay reopens a draft but never a finalized plan
     @Test
     void laterDelayNeverReopensFinalizedPlan() {
         Instant now = Instant.parse("2026-10-22T07:50:00Z");
@@ -149,7 +149,7 @@ class CargoPlanLoadingTest {
                                 + " HJ221/2026-10-22/BRU");
     }
 
-    // q07 is open so a booking keeps its own rule and the loading window does not limit it
+    // a booking keeps its own rule, the loading window does not limit it
     @Test
     void bookingIsNotLimitedByTheLoadingWindow() {
         CargoPlan draft = new CargoPlan(KEY);
@@ -168,7 +168,7 @@ class CargoPlanLoadingTest {
         assertThat(draft.getBookings()).hasSize(1);
     }
 
-    // d4 our reading of car-14: a finalized load takes no new uld
+    // a finalized load takes no new uld
     @Test
     void finalizedPlanRejectsANewBooking() {
         CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of());
@@ -187,7 +187,7 @@ class CargoPlanLoadingTest {
         assertThat(finalized.getBookings()).isEmpty();
     }
 
-    // car-03 a repeat is ignored and that does not change after finalizing
+    // a repeat is ignored and that does not change after finalizing
     @Test
     void finalizedPlanStillIgnoresARepeatedBooking() {
         UldBooking existing =

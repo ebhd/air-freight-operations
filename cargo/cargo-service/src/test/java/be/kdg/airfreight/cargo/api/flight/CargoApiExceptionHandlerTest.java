@@ -50,7 +50,7 @@ class CargoApiExceptionHandlerTest {
                 .hasRootCauseInstanceOf(DataIntegrityViolationException.class);
     }
 
-    // stands in for a later load changing endpoint like the positions of issue 20
+    // stands in for an endpoint that changes the load
     @RestController
     static class RefusingController {
         @PutMapping("/refused")

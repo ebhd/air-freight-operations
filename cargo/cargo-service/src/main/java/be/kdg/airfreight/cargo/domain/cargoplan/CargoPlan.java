@@ -74,7 +74,7 @@ public final class CargoPlan {
         if (bookings.containsKey(code)) {
             return false;
         }
-        // our reading of q07 and car-14: the finalized load takes no new ulds
+        // a finalized load takes no new ulds
         if (isFinalized()) {
             throw new BookingRejectedException(
                     "Cargo plan of flight " + flightKey + " is finalized, no ULD can be added");
@@ -155,7 +155,7 @@ public final class CargoPlan {
         return state == CargoPlanState.FINALIZED;
     }
 
-    // the one rule for changing checking and finalizing a load
+    // the rule for changing, checking and finalizing a load
     public Optional<LoadingRefusal> loadingRefusal(LoadingContext context) {
         FlightKey contextFlightKey = context.flight().flightKey();
         if (!contextFlightKey.equals(flightKey)) {
@@ -190,7 +190,7 @@ public final class CargoPlan {
         }
     }
 
-    // a uld with a position moves and its old position becomes free as our q16 reading
+    // a uld with a position moves and its old position becomes free
     public void assignPosition(UldCode code, LoadingPosition position, LoadingContext context) {
         requireLoadingAllowed(context);
         UldBooking booking = requireBooking(code);

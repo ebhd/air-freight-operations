@@ -13,13 +13,11 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 
-// cargos copy first so only a flight cargo has never heard of is asked at flight
+// cargo's copy first so only a flight cargo has never heard of is asked at flight
 @Repository
 @Slf4j
 class LocalFlightRepository implements FlightRepository {
-    // flight stamps an event before its commit so a change can be stamped earlier than our call
-    // but still be missing from the answer, an older event applied later is harmless because
-    // the newest one still wins
+    // flight stamps an event before its commit, so the answer can miss an earlier stamped change
     static final Duration COMMIT_MARGIN = Duration.ofSeconds(5);
 
     private final FlightCopyRepository copies;

@@ -28,7 +28,7 @@ import org.springframework.transaction.TransactionException;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
-// flights events translated to cargos model, the same reject or retry rules as ULD messages
+// flight's events translated to cargo's model, the same reject or retry rules as ULD messages
 @Component
 @Slf4j
 class FlightEventListener {
@@ -168,11 +168,11 @@ class FlightEventListener {
                 });
     }
 
-    // one path for every event: parse, check the version, apply, then reject or retry
+    // parse, check the version, apply, then reject or retry
     private <T> void process(
             Message message, Class<T> type, Function<T, Integer> version, Consumer<T> apply) {
         String payload = new String(message.getBody(), StandardCharsets.UTF_8);
-        // flights outbox always sets the amqp message id
+        // flight's outbox always sets the amqp message id
         String messageId = message.getMessageProperties().getMessageId();
         log.debug("Received {} {}: {}", type.getSimpleName(), messageId, payload);
 
@@ -201,7 +201,7 @@ class FlightEventListener {
         } catch (InvalidCargoValueException
                 | FlightLookupRejectedException
                 | BookingRejectedException invalid) {
-            // the reason column cant be null and not every exception has a message
+            // the reason column can't be null and not every exception has a message
             String reason =
                     Objects.requireNonNullElse(
                             invalid.getMessage(), invalid.getClass().getSimpleName());

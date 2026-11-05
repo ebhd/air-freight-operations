@@ -9,7 +9,7 @@ import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-// keeps cargos flight copy up to date with flights events
+// keeps cargo's flight copy up to date with flight's events
 // no transaction here because each save is one atomic statement that refuses an older change
 @Service
 @Slf4j

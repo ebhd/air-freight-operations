@@ -1,6 +1,6 @@
 package be.kdg.airfreight.cargo.domain.flight;
 
-// flight refused the lookup so retrying wont help
+// flight refused the lookup so retrying won't help
 public class FlightLookupRejectedException extends RuntimeException {
     public FlightLookupRejectedException(FlightKey flightKey, int status, Throwable cause) {
         super(

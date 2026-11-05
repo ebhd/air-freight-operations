@@ -12,7 +12,7 @@ import java.util.Optional;
 // hard check: the heavier side weighs at most the lighter side times one plus the tolerance
 public final class LateralBalanceCheck implements LoadCheck {
     static final String NAME = "Lateral balance";
-    // kg as the common unit is our choice since the course names none
+    // both sides are compared in kg
     private static final WeightUnit COMMON_UNIT = WeightUnit.KG;
 
     // 0.10 means 10% of the lighter side
@@ -50,8 +50,8 @@ public final class LateralBalanceCheck implements LoadCheck {
                 right = right.add(kilograms);
             }
         }
-        // the multiplication form needs no division so zero against zero passes and
-        // zero against a positive side fails, derived from the formula and not a course case
+        // multiplying needs no division, so zero against zero passes and zero against a
+        // positive side fails
         BigDecimal maxHeavierSide = left.min(right).multiply(BigDecimal.ONE.add(tolerance));
         return new LateralBalance(left, right, maxHeavierSide, COMMON_UNIT);
     }

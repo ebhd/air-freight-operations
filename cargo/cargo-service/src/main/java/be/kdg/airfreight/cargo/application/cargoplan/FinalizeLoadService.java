@@ -40,7 +40,7 @@ public class FinalizeLoadService {
         // plan and outbox row commit together or not at all
         return transaction.execute(
                 status -> {
-                    // a flight without bookings can be finalized with an empty load (d3)
+                    // a flight without bookings can be finalized with an empty load
                     CargoPlan cargoPlan =
                             cargoPlanRepository
                                     .findByFlightKey(flightKey)

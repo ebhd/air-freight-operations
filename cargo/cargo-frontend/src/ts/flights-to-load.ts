@@ -63,7 +63,6 @@ function flightRow(flight: FlightOverview): HTMLTableRowElement {
     return row;
 }
 
-// append adds text as plain text and never as html
 function statusBadge(status: string): HTMLElement {
     const badge = document.createElement('span');
     badge.className = 'status-badge';
@@ -72,6 +71,7 @@ function statusBadge(status: string): HTMLElement {
     return badge;
 }
 
+// append adds text as plain text and never as html
 function cell(content: string | HTMLElement): HTMLTableCellElement {
     const td = document.createElement('td');
     td.append(content);

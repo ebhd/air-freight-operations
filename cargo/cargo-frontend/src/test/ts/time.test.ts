@@ -21,7 +21,7 @@ describe('formatBrusselsDateTime', () => {
         expect(formatBrusselsDateTime('2026-10-21T22:30:00Z')).toBe('22/10/2026 00:30');
     });
 
-    // open question for the coach so this test changes when the answer adds the offset
+    // both 02:30 hours look the same because no offset is shown
     it('shows the repeated hour on 25 october twice as the same text', () => {
         expect(formatBrusselsDateTime('2026-10-25T00:30:00Z')).toBe('25/10/2026 02:30');
         expect(formatBrusselsDateTime('2026-10-25T01:30:00Z')).toBe('25/10/2026 02:30');

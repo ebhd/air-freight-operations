@@ -14,7 +14,6 @@ public record AirportCode(String value) {
         }
     }
 
-    // keeps logs short
     @Override
     public String toString() {
         return value;

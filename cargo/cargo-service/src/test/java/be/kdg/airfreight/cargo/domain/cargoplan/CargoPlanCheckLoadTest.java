@@ -62,7 +62,7 @@ class CargoPlanCheckLoadTest {
                                         .isEqualTo(LoadingRefusal.WINDOW_CLOSED));
     }
 
-    // our reading of q17: a check belongs to the loading actions so a finalized plan refuses it
+    // a check is a loading action so a finalized plan refuses it
     @Test
     void finalizedPlanRefusesTheCheck() {
         CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of());

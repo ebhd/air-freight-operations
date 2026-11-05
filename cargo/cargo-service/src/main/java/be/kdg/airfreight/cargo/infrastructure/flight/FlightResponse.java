@@ -7,7 +7,7 @@ import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import java.time.Instant;
 import java.time.LocalDate;
 
-// flights json translated to the cargo model
+// flight's json translated to the cargo model
 record FlightResponse(
         String flightNumber,
         LocalDate scheduledDepartureDate,
@@ -24,7 +24,7 @@ record FlightResponse(
                         flightNumber,
                         scheduledDepartureDate,
                         new AirportCode(departureAirportCode));
-        // Temporary compatibility with Flight before US-15 is integrated.
+        // without estimates in the answer the schedule stands
         Instant etd = estimatedDeparture != null ? estimatedDeparture : scheduledDeparture;
         Instant eta = estimatedArrival != null ? estimatedArrival : scheduledArrival;
         return new FlightInformation(

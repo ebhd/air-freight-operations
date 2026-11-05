@@ -4,10 +4,10 @@ import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import java.math.BigDecimal;
 import java.util.Locale;
 
-// kg and lb only is our q15 choice
+// the weight units we accept
 public enum WeightUnit {
     KG(BigDecimal.ONE),
-    // 1 lb is exactly 0.45359237 kg by the international definition, the course gives no factor
+    // 1 lb is exactly 0.45359237 kg by the international definition
     LB(new BigDecimal("0.45359237"));
 
     private final BigDecimal kilogramsPerUnit;
@@ -28,7 +28,6 @@ public enum WeightUnit {
         try {
             return valueOf(unit.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException unknown) {
-            // valueOf throws this for an unknown name
             throw new InvalidCargoValueException("Unsupported weight unit: " + unit);
         }
     }

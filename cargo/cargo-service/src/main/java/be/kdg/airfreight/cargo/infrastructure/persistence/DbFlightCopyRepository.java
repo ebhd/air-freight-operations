@@ -60,11 +60,8 @@ class DbFlightCopyRepository implements FlightCopyRepository {
                 .list();
     }
 
-    // own transaction so a flight fetched over http stays in the copy when the booking that
-    // needed it is refused
-    // the where keeps the newer row, an equal time is the same change delivered twice
-    // the status of an existing row is left alone: it only changes through advanceStatus, which
-    // does not bump last_change_at, so a late created event or lookup must not undo a departure
+    // own transaction so a fetched flight stays in the copy when its booking is refused
+    // the status of an existing row is left alone so a late event cannot undo a departure
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean saveIfNewer(FlightInformation flight, Instant changedAt) {

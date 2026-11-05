@@ -281,7 +281,7 @@ class FlightEventListenerTest {
         return created("version", 1);
     }
 
-    // flights full json, also the fields cargo does not read
+    // flight's full json, also the fields cargo does not read
     // one field replaced, null writes a json null like a missing field
     private static String created(String field, Object value) {
         Map<String, Object> message = new LinkedHashMap<>();
@@ -302,7 +302,7 @@ class FlightEventListenerTest {
         return estimates("version", 1);
     }
 
-    // flights full json like created
+    // flight's full json like created
     private static String estimates(String field, Object value) {
         Map<String, Object> message = new LinkedHashMap<>();
         message.put("messageId", MESSAGE_ID);
@@ -352,7 +352,7 @@ class FlightEventListenerTest {
         return JSON.writeValueAsString(message);
     }
 
-    // flights full json for flight.replanned
+    // flight's full json for flight.replanned
     private static String replanned(String field, Object value) {
         Map<String, Object> message = new LinkedHashMap<>();
         message.put("messageId", MESSAGE_ID);
@@ -373,7 +373,7 @@ class FlightEventListenerTest {
         return JSON.writeValueAsString(message);
     }
 
-    // flights full json for flight.replaced
+    // flight's full json for flight.replaced
     private static String replaced(String field, Object value) {
         Map<String, Object> message = new LinkedHashMap<>();
         message.put("messageId", MESSAGE_ID);

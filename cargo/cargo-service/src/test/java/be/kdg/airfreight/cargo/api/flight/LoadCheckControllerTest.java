@@ -107,7 +107,7 @@ class LoadCheckControllerTest {
                                                 + " heavier side may weigh at most 1100 KG"))
                 .andExpect(jsonPath("$.results[1].name").value("Offloading"))
                 .andExpect(jsonPath("$.results[1].passed").value(true))
-                .andExpect(jsonPath("$.results[2].name").value("All cargo loaded"))
+                .andExpect(jsonPath("$.results[2].name").value("Not all cargo loaded"))
                 .andExpect(jsonPath("$.results[2].severity").value("SOFT"))
                 .andExpect(jsonPath("$.results[2].passed").value(false));
         // checking saves nothing

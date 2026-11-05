@@ -17,7 +17,6 @@ import org.springframework.core.NestedExceptionUtils;
 class RabbitConfiguration {
     static final String ULD_QUEUE = "cargo.uld";
 
-    // ----- Incoming Flight events -----
     static final String FLIGHT_EVENTS = "flight.events";
     static final String FLIGHT_CREATED = "flight.created";
     static final String FLIGHT_CREATED_QUEUE = "cargo.flight-created";
@@ -37,14 +36,13 @@ class RabbitConfiguration {
         return QueueBuilder.durable(ULD_QUEUE).build();
     }
 
-    // ----- Incoming Flight events -----
     // flight declares the same exchange so declaring it here too changes nothing
     @Bean
     TopicExchange flightEvents() {
         return new TopicExchange(FLIGHT_EVENTS);
     }
 
-    // cargos own queues so flight and partner never wait for cargo
+    // cargo's own queues so flight and partner never wait for cargo
     @Bean
     Queue flightCreatedQueue() {
         return QueueBuilder.durable(FLIGHT_CREATED_QUEUE).build();
