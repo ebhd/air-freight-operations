@@ -40,7 +40,7 @@ public class PartnerMessageService {
     private PartnerMessage prepare(UUID sourceMessageId, MessageContent content) {
         var existing = messages.findBySourceMessageIdAndType(sourceMessageId, content.type());
         if (existing.isPresent()) {
-            log.warn(
+            log.info(
                     "Skipping duplicate source message {} for {}", sourceMessageId, content.type());
             return existing.get();
         }

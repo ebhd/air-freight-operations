@@ -26,8 +26,7 @@ public class FlightCopyService {
         if (copies.saveIfNewer(flight, occurredOn)) {
             log.info("Added flight {} to the copy", flight.flightKey());
         } else {
-            log.debug(
-                    "Ignored FlightCreated for {}: the copy is already newer", flight.flightKey());
+            log.info("Ignored FlightCreated for {}: the copy is already newer", flight.flightKey());
         }
     }
 
@@ -56,7 +55,7 @@ public class FlightCopyService {
                     estimatedDeparture,
                     estimatedArrival);
         } else {
-            log.debug("Ignored older estimates for flight {}", flightKey);
+            log.info("Ignored older estimates for flight {}", flightKey);
         }
     }
 
@@ -83,7 +82,7 @@ public class FlightCopyService {
         if (copies.advanceStatus(flightKey, status)) {
             log.info("Flight {} is now {} in the copy", flightKey, status);
         } else {
-            log.debug("Flight {} was already {} or further in the copy", flightKey, status);
+            log.info("Flight {} was already {} or further in the copy", flightKey, status);
         }
     }
 

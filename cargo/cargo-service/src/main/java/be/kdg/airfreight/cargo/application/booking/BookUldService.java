@@ -63,7 +63,11 @@ public class BookUldService {
         if (cargoPlan.bookUld(command.uldCode(), command.weight(), command.destination())) {
             cargoPlanRepository.save(cargoPlan);
             outcome = BookUldResult.Outcome.BOOKED;
-            log.info("Booked ULD {} on flight {}", command.uldCode().value(), flightKey);
+            log.info(
+                    "Booked ULD {} on flight {} from message {}",
+                    command.uldCode().value(),
+                    flightKey,
+                    command.messageId());
         } else {
             outcome = BookUldResult.Outcome.DUPLICATE_ULD;
             logIgnoredRepeat(cargoPlan.findBooking(command.uldCode()).orElseThrow(), command);
