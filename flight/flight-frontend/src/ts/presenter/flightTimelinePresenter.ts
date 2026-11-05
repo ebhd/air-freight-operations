@@ -1,5 +1,5 @@
 import type { FlightOverview, FlightTimeline } from '../domain/Flight';
-import { getFlightTimeline } from '../infrastructure/flightRest';
+import { flightDetailsPage, getFlightTimeline } from '../infrastructure/flightRest';
 import { clearError, showError } from './messagePresenter';
 import { formatBrusselsDateTime } from './timeFormat';
 import { initializeUser } from './userPresenter';
@@ -142,8 +142,13 @@ function addBar(track: HTMLElement, flight: FlightOverview): void {
     const visibleStart = Math.max(start, dayStart);
     const visibleEnd = Math.min(end, dayEnd);
     const visibleScheduledEnd = Math.min(Math.max(scheduledEnd, visibleStart), visibleEnd);
-    const bar = document.createElement('div');
+    const bar = document.createElement('a');
     bar.className = 'timeline-bar';
+    bar.href = flightDetailsPage({
+        flightNumber: flight.flightNumber,
+        scheduledDepartureDate: flight.scheduledDepartureDate,
+        departureAirportCode: flight.departureAirportCode,
+    });
     bar.style.left = `${100 * (visibleStart - dayStart) / (dayEnd - dayStart)}%`;
     bar.style.width = `${100 * (visibleEnd - visibleStart) / (dayEnd - dayStart)}%`;
     bar.style.setProperty('--scheduled-width', `${100 * (visibleScheduledEnd - visibleStart) / (visibleEnd - visibleStart)}%`);
@@ -151,9 +156,7 @@ function addBar(track: HTMLElement, flight: FlightOverview): void {
     if (Date.parse(flight.estimatedDeparture) !== start || end !== scheduledEnd) {
         description += ` · Expected: ${detailFormat.format(new Date(flight.estimatedDeparture))} - ${detailFormat.format(new Date(end))}`;
     }
-    bar.setAttribute('role', 'img');
     bar.setAttribute('aria-label', description);
-    bar.tabIndex = 0;
     if (start < dayStart) {
         bar.classList.add('timeline-continues-before');
     }
