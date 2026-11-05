@@ -16,6 +16,7 @@ class DayOfMonthDateRuleTest {
         "9, 2027-01-09T10:00:00Z, 2027-01-09",
         "9, 2027-01-10T00:02:00Z, 2027-01-09",
         "9, 2027-01-08T23:58:00Z, 2027-01-09",
+        "9, 2027-01-09T23:58:00Z, 2027-01-09",
         // no 31 feb so only jan and mar count
         "31, 2027-02-15T12:00:00Z, 2027-01-31",
         // 1 feb and 1 mar are both 14 days away so the future wins

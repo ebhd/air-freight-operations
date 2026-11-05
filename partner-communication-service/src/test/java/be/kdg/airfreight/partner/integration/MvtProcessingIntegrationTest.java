@@ -114,6 +114,19 @@ class MvtProcessingIntegrationTest {
                         any(CorrelationData.class));
     }
 
+    // the first moment is the reference for the mvt time, so a redelivery must not move it
+    @Test
+    void redeliveredAdKeepsItsFirstCreationTime() {
+        var batch = batch(UUID.randomUUID(), "MVT_AD", AD);
+        listener.receive(batch);
+        var firstCreatedAt = messages.findAll().getFirst().toDomain().createdAtUTC();
+
+        listener.receive(batch);
+
+        var createdAt = messages.findAll().getFirst().toDomain().createdAtUTC();
+        assertThat(createdAt).isEqualTo(firstCreatedAt);
+    }
+
     private static PartnerMessagesPreparedMessage batch(UUID sourceId, String type, String text) {
         return new PartnerMessagesPreparedMessage(
                 1,
