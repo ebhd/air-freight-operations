@@ -405,7 +405,12 @@ async function offerReplanning(error: unknown, departure: boolean, minutes: numb
     if (offer === null) {
         return false;
     }
-    if (!confirm(replanQuestion(currentFlight.flightNumber, offer))) {
+    const confirmed = await confirmDialog({
+        title: 'Replan this flight?',
+        message: replanQuestion(currentFlight.flightNumber, offer),
+        confirmLabel: 'Replan flight',
+    });
+    if (!confirmed) {
         showError(error);
         return true;
     }
