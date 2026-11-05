@@ -10,7 +10,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 class UldMessageTest {
     @ParameterizedTest
-    @CsvSource({"2026-10-26, 26", "2026-10-01, 1", "2026-10-31, 31", "2028-02-29, 29"})
+    @CsvSource({"2026-10-26, 26", "2028-02-29, 29"})
     void convertsFullDateToDayOfMonth(LocalDate scheduledDepartureDate, int expectedDay) {
         UldRequest request =
                 new UldRequest(

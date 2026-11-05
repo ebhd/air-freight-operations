@@ -47,7 +47,10 @@ class ArchitectureTest {
         noClasses()
                 .should()
                 .dependOnClassesThat()
-                .resideInAnyPackage("be.kdg.airfreight.flight..", "be.kdg.airfreight.cargo..")
+                .resideInAnyPackage(
+                        "be.kdg.airfreight.flight..",
+                        "be.kdg.airfreight.cargo..",
+                        "be.kdg.airfreight.formatter..")
                 .check(classes);
     }
 }

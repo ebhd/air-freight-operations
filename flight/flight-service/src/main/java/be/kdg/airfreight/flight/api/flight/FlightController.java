@@ -1,5 +1,6 @@
 package be.kdg.airfreight.flight.api.flight;
 
+import be.kdg.airfreight.flight.application.FlightActualTimeService;
 import be.kdg.airfreight.flight.application.FlightDelayService;
 import be.kdg.airfreight.flight.application.FlightQueryService;
 import be.kdg.airfreight.flight.domain.NotFoundException;
@@ -27,15 +28,47 @@ import org.springframework.web.bind.annotation.RestController;
 public class FlightController {
     private final FlightQueryService flightQueryService;
     private final FlightDelayService flightDelayService;
+    private final FlightActualTimeService flightActualTimeService;
 
     public FlightController(
-            FlightQueryService flightQueryService, FlightDelayService flightDelayService) {
+            FlightQueryService flightQueryService,
+            FlightDelayService flightDelayService,
+            FlightActualTimeService flightActualTimeService) {
         this.flightQueryService = flightQueryService;
         this.flightDelayService = flightDelayService;
+        this.flightActualTimeService = flightActualTimeService;
     }
 
-    @PostMapping("/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/delays")
-    public ResponseEntity<FlightResponse> addDelay(
+    // post because registering is a one-time command that changes the state, never a replace
+    @PostMapping("/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/departure")
+    public ResponseEntity<FlightResponse> recordDeparture(
+            @PathVariable String flightNumber,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate scheduledDepartureDate,
+            @PathVariable String departureAirportCode,
+            @RequestBody RecordDepartureRequest request) {
+        FlightKey key = new FlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
+        FlightResponse response =
+                FlightResponse.from(
+                        flightActualTimeService.recordDeparture(request.toCommand(key)));
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/arrival")
+    public ResponseEntity<FlightResponse> recordArrival(
+            @PathVariable String flightNumber,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate scheduledDepartureDate,
+            @PathVariable String departureAirportCode,
+            @RequestBody RecordArrivalRequest request) {
+        FlightKey key = new FlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
+        FlightResponse response =
+                FlightResponse.from(flightActualTimeService.recordArrival(request.toCommand(key)));
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/departure-delays")
+    public ResponseEntity<FlightResponse> addDepartureDelay(
             @PathVariable String flightNumber,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate scheduledDepartureDate,
@@ -43,14 +76,14 @@ public class FlightController {
             @RequestBody AddDelayRequest request) {
         FlightKey key = new FlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
         FlightResponse response =
-                FlightResponse.from(flightDelayService.addDelay(request.toCommand(key)));
+                FlightResponse.from(flightDelayService.addDepartureDelay(request.toCommand(key)));
         return ResponseEntity.ok(response);
     }
 
     @PatchMapping(
-            "/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/delays/{delayId}")
+            "/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/departure-delays/{delayId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void updateDelay(
+    public void updateDepartureDelay(
             @PathVariable String flightNumber,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate scheduledDepartureDate,
@@ -58,20 +91,60 @@ public class FlightController {
             @PathVariable UUID delayId,
             @RequestBody UpdateDelayRequest request) {
         FlightKey key = new FlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
-        flightDelayService.updateDelay(request.toCommand(key, delayId));
+        flightDelayService.updateDepartureDelay(request.toCommand(key, delayId));
     }
 
     @DeleteMapping(
-            "/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/delays/{delayId}")
+            "/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/departure-delays/{delayId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void removeDelay(
+    public void removeDepartureDelay(
             @PathVariable String flightNumber,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                     LocalDate scheduledDepartureDate,
             @PathVariable String departureAirportCode,
             @PathVariable UUID delayId) {
         FlightKey key = new FlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
-        flightDelayService.removeDelay(key, delayId);
+        flightDelayService.removeDepartureDelay(key, delayId);
+    }
+
+    @PostMapping("/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/arrival-delays")
+    public ResponseEntity<FlightResponse> addArrivalDelay(
+            @PathVariable String flightNumber,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate scheduledDepartureDate,
+            @PathVariable String departureAirportCode,
+            @RequestBody AddDelayRequest request) {
+        FlightKey key = new FlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
+        FlightResponse response =
+                FlightResponse.from(flightDelayService.addArrivalDelay(request.toCommand(key)));
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping(
+            "/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/arrival-delays/{delayId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void updateArrivalDelay(
+            @PathVariable String flightNumber,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate scheduledDepartureDate,
+            @PathVariable String departureAirportCode,
+            @PathVariable UUID delayId,
+            @RequestBody UpdateDelayRequest request) {
+        FlightKey key = new FlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
+        flightDelayService.updateArrivalDelay(request.toCommand(key, delayId));
+    }
+
+    @DeleteMapping(
+            "/{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}/arrival-delays/{delayId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeArrivalDelay(
+            @PathVariable String flightNumber,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate scheduledDepartureDate,
+            @PathVariable String departureAirportCode,
+            @PathVariable UUID delayId) {
+        FlightKey key = new FlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
+        flightDelayService.removeArrivalDelay(key, delayId);
     }
 
     // day overview like /api/flights?date=2026-10-19

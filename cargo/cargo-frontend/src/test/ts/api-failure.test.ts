@@ -36,6 +36,22 @@ describe('failureFromProblem', () => {
         expect(failure.loadingRefusal).toBeUndefined();
     });
 
+    // the body that CargoApiExceptionHandler sends when a hard check blocks finalizing
+    it('reads the report of a refused finalize', () => {
+        const report = {
+            hardChecksPassed: false,
+            results: [{ name: 'Lateral balance', severity: 'HARD' as const, passed: false, reason: 'Right side is too heavy' }],
+        };
+        const failure = failureFromProblem(409, {
+            detail: 'Load of flight HJ221/2026-10-22/BRU is not finalized: a hard check failed',
+            refusal: 'HARD_CHECKS_FAILED',
+            report,
+        });
+
+        expect(failure.loadCheckReport).toEqual(report);
+        expect(failure.loadingRefusal).toBeUndefined();
+    });
+
     it('names the status when there is no problem body', () => {
         expect(failureFromProblem(500, null).message).toBe('Request failed (HTTP 500)');
     });
