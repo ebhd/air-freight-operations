@@ -196,6 +196,7 @@ function renderFlight(flight: FlightOverview): void {
     setText('#flight-arrival', formatBrusselsDateTime(flight.scheduledArrival));
     showEstimate('arrival', flight.scheduledArrival, flight.estimatedArrival);
     setText('#flight-status', flight.status);
+    requiredElement('#flight-status', HTMLElement).dataset.status = flight.status;
     flightBlock.hidden = false;
 }
 

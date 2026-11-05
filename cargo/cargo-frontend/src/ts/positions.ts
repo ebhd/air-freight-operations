@@ -49,7 +49,7 @@ export function renderPositionSelect(
     taken: Map<string, string>,
 ): HTMLSelectElement {
     const select = document.createElement('select');
-    select.className = 'rounded border border-slate-400 bg-white px-2 py-1 disabled:opacity-50';
+    select.className = 'field h-9 w-full max-w-64';
     select.setAttribute('aria-label', `Position of ${booking.uldCode}`);
     // new Option sets plain text and never html
     select.append(new Option('No position', ''));

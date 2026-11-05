@@ -1,7 +1,64 @@
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/montserrat/wght.css";
+@import "@fortawesome/fontawesome-free/css/fontawesome.min.css";
+@import "@fortawesome/fontawesome-free/css/solid.min.css";
 @import "tailwindcss" source(none);
 @source "../../index.html";
 @source "../../html/*.html";
 @source "../ts/**/*.ts";
+
+
+/* the logo colours replace tailwind's blue scale, so every page follows without changing a class */
+@theme {
+    --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-heading: "Montserrat Variable", ui-sans-serif, system-ui, sans-serif;
+    --color-accent: #ff6f00;
+    --color-blue-950: #0b2a4a;
+    --color-blue-900: #0b2a4a;
+    --color-blue-800: #16406b;
+    --color-blue-600: #24619e;
+}
+
+@layer base {
+    h1,
+    h2,
+    h3 {
+        font-family: var(--font-heading);
+    }
+
+    body > header {
+        border-bottom: 3px solid var(--color-accent);
+    }
+
+    /* digits line up in the time and weight columns */
+    table {
+        @apply border border-slate-200 max-md:block max-md:overflow-x-auto;
+        font-variant-numeric: tabular-nums;
+    }
+
+    th {
+        @apply text-sm font-semibold text-slate-600;
+    }
+
+    /* the long reason list must not make a form wider than a small screen */
+    fieldset {
+        min-width: 0;
+    }
+
+    fieldset label {
+        max-width: 100%;
+    }
+
+    input[type="checkbox"] {
+        @apply size-4 cursor-pointer;
+        accent-color: var(--color-blue-900);
+    }
+
+    :focus-visible {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 2px;
+    }
+}
 
 @layer components {
     .error {
@@ -9,15 +66,62 @@
     }
 
     .details-list {
-        @apply grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1;
+        @apply grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-4 gap-y-1 rounded border border-slate-200 bg-white p-4 md:grid-cols-[max-content_1fr_max-content_1fr];
+    }
+
+    /* a label above its input */
+    .field-label {
+        @apply flex flex-col gap-1.5 text-sm font-medium text-slate-700;
     }
 
     .field {
-        @apply rounded border border-slate-400 bg-white px-2 py-1 disabled:bg-slate-100;
+        @apply h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800 shadow-xs transition-colors hover:border-slate-400 focus:border-accent focus:ring-3 focus:ring-accent/20 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500;
+    }
+
+    /* the browser's own select arrow cannot be styled, so a chevron replaces it */
+    select.field {
+        @apply appearance-none pr-9;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2364748b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-position: right 0.75rem center;
+        background-repeat: no-repeat;
+        background-size: 0.7rem;
+    }
+
+    .field::-webkit-calendar-picker-indicator {
+        @apply cursor-pointer opacity-60 hover:opacity-100;
     }
 
     .button {
-        @apply cursor-pointer rounded bg-blue-900 px-3 py-2 font-medium text-white hover:bg-blue-800 disabled:cursor-default disabled:opacity-50;
+        @apply inline-flex h-10 cursor-pointer items-center rounded-md bg-blue-900 px-4 text-sm font-medium text-white hover:bg-blue-800 disabled:cursor-default disabled:opacity-50;
+    }
+
+    /* a flight status as a small coloured label */
+    .status-badge {
+        @apply inline-block justify-self-start rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700;
+    }
+
+    .status-badge[data-status="PLANNED"] {
+        @apply bg-blue-800/10 text-blue-800;
+    }
+
+    .status-badge[data-status="DEPARTED"] {
+        @apply bg-amber-100 text-amber-900;
+    }
+
+    .status-badge[data-status="LANDED"] {
+        @apply bg-green-100 text-green-800;
+    }
+
+    .status-badge[data-status="REPLANNED"] {
+        @apply bg-slate-200 text-slate-700;
+    }
+
+    .tab {
+        @apply inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2.5 text-sm font-medium text-slate-600 hover:text-blue-800;
+    }
+
+    .tab-active {
+        @apply border-accent text-blue-900;
     }
 }
 
@@ -93,12 +197,12 @@
     height: 28px;
     min-width: 2px;
     border-radius: 6px;
-    background-color: rgb(30 64 175 / 35%);
+    background-color: rgb(255 111 0 / 30%);
     background-image:
-        linear-gradient(to right, #1e40af var(--scheduled-width), transparent var(--scheduled-width)),
-        radial-gradient(circle, rgb(30 64 175 / 35%) 1px, transparent 1px);
+        linear-gradient(to right, var(--color-blue-900) var(--scheduled-width), transparent var(--scheduled-width)),
+        radial-gradient(circle, rgb(255 111 0 / 55%) 1px, transparent 1px);
     background-size: 100% 100%, 6px 6px;
-    box-shadow: inset 0 0 0 1px rgb(30 64 175 / 15%), 0 2px 4px rgb(30 64 175 / 10%);
+    box-shadow: inset 0 0 0 1px rgb(11 42 74 / 15%);
 }
 
 .timeline-tooltip {
@@ -108,14 +212,14 @@
     left: 4px;
     max-width: calc(100% - 8px);
     padding: 6px 10px;
-    border: 1px solid #93c5fd;
+    border: 1px solid #cbd5e1;
     border-radius: 6px;
-    background: #eff6ff;
-    color: #1e3a8a;
+    background: white;
+    color: var(--color-blue-900);
     font-size: 0.75rem;
     line-height: 1.5;
     pointer-events: none;
-    box-shadow: 0 2px 6px rgb(30 64 175 / 8%);
+    box-shadow: 0 2px 6px rgb(11 42 74 / 12%);
 }
 
 .timeline-bar:hover + .timeline-tooltip,
@@ -124,19 +228,19 @@
 }
 
 .timeline-scheduled {
-    background: #1e40af;
+    background: var(--color-blue-900);
 }
 
 .timeline-extension {
-    background-color: rgb(30 64 175 / 35%);
-    background-image: radial-gradient(circle, rgb(30 64 175 / 35%) 1px, transparent 1px);
+    background-color: rgb(255 111 0 / 30%);
+    background-image: radial-gradient(circle, rgb(255 111 0 / 55%) 1px, transparent 1px);
     background-size: 6px 6px;
-    border: 1px solid rgb(30 64 175 / 35%);
+    border: 1px solid rgb(255 111 0 / 40%);
 }
 
 .timeline-bar:hover,
 .timeline-bar:focus-visible {
-    outline: 2px solid #60a5fa;
+    outline: 2px solid var(--color-accent);
     outline-offset: 2px;
 }
 
@@ -159,10 +263,10 @@
 .timeline-arrow-swatch {
     width: 22px;
     height: 28px;
-    border: 1px solid #93c5fd;
+    border: 1px solid #cbd5e1;
     border-radius: 6px;
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: #f1f5f9;
+    color: var(--color-blue-900);
     font-size: 17px;
     font-weight: bold;
     line-height: 26px;
@@ -186,5 +290,6 @@
 }
 
 .timeline-times.timeline-delay {
-    color: #1d4ed8;
+    /* darker than the accent so small text stays readable */
+    color: #b84f00;
 }

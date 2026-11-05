@@ -58,12 +58,20 @@ function flightRow(flight: FlightOverview): HTMLTableRowElement {
         cell(formatBrusselsDateTime(flight.scheduledDeparture)),
         cell(flight.arrivalAirportCode),
         cell(formatBrusselsDateTime(flight.scheduledArrival)),
-        cell(flight.status),
+        cell(statusBadge(flight.status)),
     );
     return row;
 }
 
 // append adds text as plain text and never as html
+function statusBadge(status: string): HTMLElement {
+    const badge = document.createElement('span');
+    badge.className = 'status-badge';
+    badge.dataset.status = status;
+    badge.textContent = status;
+    return badge;
+}
+
 function cell(content: string | HTMLElement): HTMLTableCellElement {
     const td = document.createElement('td');
     td.append(content);

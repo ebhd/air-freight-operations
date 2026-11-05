@@ -62,9 +62,17 @@ function createFlightRow(flight: FlightOverview): HTMLTableRowElement {
         createTimeCell(flight.scheduledDeparture, flight.estimatedDeparture),
         createCell(flight.arrivalAirportCode),
         createTimeCell(flight.scheduledArrival, flight.estimatedArrival),
-        createCell(flight.status),
+        createCell(statusBadge(flight.status)),
     );
     return row;
+}
+
+function statusBadge(status: string): HTMLElement {
+    const badge = document.createElement('span');
+    badge.className = 'status-badge';
+    badge.dataset.status = status;
+    badge.textContent = status;
+    return badge;
 }
 
 function createCell(content: string | HTMLElement): HTMLTableCellElement {
