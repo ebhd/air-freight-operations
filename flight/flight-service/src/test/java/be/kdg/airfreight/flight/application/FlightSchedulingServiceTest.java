@@ -7,9 +7,11 @@ import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightSchedule;
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -140,6 +142,14 @@ class FlightSchedulingServiceTest {
         public List<Flight> findByScheduledDepartureDate(LocalDate date) {
             return flights.values().stream()
                     .filter(flight -> flight.key().scheduledDepartureDate().equals(date))
+                    .toList();
+        }
+
+        @Override
+        public List<Flight> findScheduledBefore(Instant end) {
+            return flights.values().stream()
+                    .filter(flight -> flight.scheduledDeparture().isBefore(end))
+                    .sorted(Comparator.comparing(Flight::scheduledDeparture))
                     .toList();
         }
 

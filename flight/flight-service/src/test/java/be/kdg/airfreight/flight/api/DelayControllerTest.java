@@ -27,6 +27,7 @@ import jakarta.servlet.ServletException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -319,6 +320,14 @@ class DelayControllerTest {
         @Override
         public List<Flight> findByScheduledDepartureDate(LocalDate date) {
             return List.of();
+        }
+
+        @Override
+        public List<Flight> findScheduledBefore(Instant end) {
+            return flights.values().stream()
+                    .filter(flight -> flight.scheduledDeparture().isBefore(end))
+                    .sorted(Comparator.comparing(Flight::scheduledDeparture))
+                    .toList();
         }
 
         @Override

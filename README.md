@@ -97,7 +97,7 @@ Every API request needs a bearer token. Times are UTC. In the paths below, `{fli
 
 | Service | Method | Path | Role needed |
 | --- | --- | --- | --- |
-| Flight | GET | `/api/flights?date=2026-10-19` | any planner |
+| Flight | GET | `/api/flights?date=2026-10-19` (UTC departure day), `/api/flights/timeline?date=2026-10-19` (Brussels day) | any planner |
 | Flight | GET | `/api/flights/{flight}` | any planner |
 | Flight | GET | `/api/delay-reasons` | any planner |
 | Flight | POST | `/api/flights/{flight}/departure-delays`, `/api/flights/{flight}/arrival-delays` | flight planner |

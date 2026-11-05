@@ -57,6 +57,13 @@ class FlightControllerTest {
                     }
 
                     @Override
+                    public List<Flight> findScheduledBefore(Instant end) {
+                        return flight.scheduledDeparture().isBefore(end)
+                                ? List.of(flight)
+                                : List.of();
+                    }
+
+                    @Override
                     public Flight save(Flight saved) {
                         return saved;
                     }

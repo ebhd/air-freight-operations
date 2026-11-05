@@ -32,6 +32,7 @@ export default defineConfig({
             input: {
                 main: resolve(projectDirectory, 'index.html'),
                 details: resolve(projectDirectory, 'html/flight-details.html'),
+                timeline: resolve(projectDirectory, 'html/flight-timeline.html'),
             },
         },
     },
