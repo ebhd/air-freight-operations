@@ -1,7 +1,45 @@
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/montserrat/wght.css";
 @import "tailwindcss" source(none);
 @source "../../index.html";
 @source "../../html/*.html";
 @source "../ts/**/*.ts";
+
+
+/* the logo colours replace tailwind's blue scale, so every page follows without changing a class */
+@theme {
+    --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-heading: "Montserrat Variable", ui-sans-serif, system-ui, sans-serif;
+    --color-accent: #ff6f00;
+    --color-blue-950: #0b2a4a;
+    --color-blue-900: #0b2a4a;
+    --color-blue-800: #16406b;
+    --color-blue-600: #24619e;
+    /* only used for links on the navy header */
+    --color-blue-200: #ffb27a;
+}
+
+@layer base {
+    h1,
+    h2,
+    h3 {
+        font-family: var(--font-heading);
+    }
+
+    body > header {
+        border-bottom: 3px solid var(--color-accent);
+    }
+
+    /* digits line up in the time and weight columns */
+    table {
+        font-variant-numeric: tabular-nums;
+    }
+
+    :focus-visible {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 2px;
+    }
+}
 
 @layer components {
     .error {
