@@ -16,7 +16,6 @@
     </div>
 </header>
 <main class="page-column page-main">
-    <p class="note">Flight and Cargo must be running, and a flight must exist before its ULDs are sent. A 202 answer only means published: the Flight and Cargo pages show what was processed.</p>
     <div class="columns">
         <section class="card">
             <h2><i class="fa-solid fa-plane" aria-hidden="true"></i>Create flight</h2>
@@ -39,7 +38,7 @@
                 <label>Arrival (Brussels time)
                     <input class="field" name="arrival" type="datetime-local" required>
                 </label>
-                <p class="note form-wide">You enter Brussels time and the page sends UTC, because the SSM uses UTC. Keep the departure within two weeks, because a ULD message only carries the day of the month.</p>
+                <p class="note form-wide">Keep the departure within two weeks, so its ULDs can be sent.</p>
                 <div class="actions form-wide">
                     <button class="button" type="submit"><i class="fa-solid fa-plane" aria-hidden="true"></i>Create flight</button>
                     <button id="random-flight" class="button button-secondary" type="button"><i class="fa-solid fa-shuffle" aria-hidden="true"></i>Random flight</button>
