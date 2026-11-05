@@ -11,7 +11,7 @@ import java.util.Optional;
 import java.util.Set;
 
 // destination cargo leaves through the door at rl without moving cargo for other airports
-final class OffloadingCheck {
+public final class OffloadingCheck {
 
     // unloads on a copy of the positions so the plan itself never changes
     public OffloadingResult evaluate(List<UldBooking> bookings, AirportCode arrivalAirport) {

@@ -13,6 +13,7 @@ import be.kdg.airfreight.cargo.domain.cargoplan.WeightUnit;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -61,8 +62,9 @@ class DbCargoPlanRepositoryIT {
         CargoPlan stored = repository.findByFlightKey(KEY).orElseThrow();
 
         assertThat(stored.getFlightKey()).isEqualTo(KEY);
-        // nothing can finalize a plan yet so every stored plan is a draft
+        // a new plan is stored as a draft
         assertThat(stored.isFinalized()).isFalse();
+        assertThat(stored.getFinalizedAt()).isEmpty();
         assertThat(stored.getBookings())
                 .extracting(booking -> booking.getCode().value())
                 .containsExactlyInAnyOrder("AKE12345KL", "PMC00001KL");
@@ -103,6 +105,23 @@ class DbCargoPlanRepositoryIT {
                                 .query(String.class)
                                 .single())
                 .isEqualTo("RL");
+    }
+
+    @Test
+    void storesAndRestoresTheFinalizedState() {
+        Instant finalizedAt = Instant.parse("2026-10-19T06:00:00Z");
+        repository.save(CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of()));
+        entityManager.flush();
+        repository.save(CargoPlan.restore(KEY, CargoPlanState.FINALIZED, finalizedAt, List.of()));
+        entityManager.flush();
+        entityManager.clear();
+
+        CargoPlan stored = repository.findByFlightKey(KEY).orElseThrow();
+
+        assertThat(stored.isFinalized()).isTrue();
+        assertThat(stored.getFinalizedAt()).contains(finalizedAt);
+        assertThat(jdbc.sql("SELECT state FROM cargo_plans").query(String.class).single())
+                .isEqualTo("FINALIZED");
     }
 
     @Test
