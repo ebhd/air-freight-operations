@@ -8,20 +8,6 @@ workflow:
 
 stages: [format, lint, build, test]
 
-simulator-build:
-  stage: build
-  script:
-    - ./gradlew :simulator:spotlessCheck :simulator:checkstyleMain :simulator:checkstyleTest :simulator:bootJar :simulator:test :simulator:jacocoTestReport --console=plain
-  artifacts:
-    when: always
-    expire_in: 1 week
-    reports:
-      junit: simulator/build/test-results/test/TEST-*.xml
-    paths:
-      - simulator/build/libs/*.jar
-      - simulator/build/reports/tests/
-      - simulator/build/reports/jacoco/
-
 default:
   image: eclipse-temurin:22-jdk
   interruptible: true
@@ -52,6 +38,8 @@ variables:
         SERVICE_DIR: message-formatter-service
       - SERVICE: partner-communication-service
         SERVICE_DIR: partner-communication-service
+      - SERVICE: simulator
+        SERVICE_DIR: simulator
 
 format:
   extends: .microservices
@@ -89,6 +77,8 @@ test:
         SERVICE_DIR: message-formatter-service
       - SERVICE: partner-communication-service
         SERVICE_DIR: partner-communication-service
+      - SERVICE: simulator
+        SERVICE_DIR: simulator
   dependencies: []
   script:
     - ./gradlew ":$SERVICE:test" ":$SERVICE:jacocoTestReport" --console=plain
