@@ -19,8 +19,8 @@ services:
       - "127.0.0.1:8080:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://app-postgres:5432/flight
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/air-freight
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/air-freight/protocol/openid-connect/certs
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${VITE_KEYCLOAK_URL:-http://localhost:8180}/realms/${VITE_KEYCLOAK_REALM:-air-freight}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/${VITE_KEYCLOAK_REALM:-air-freight}/protocol/openid-connect/certs
       SPRING_DATASOURCE_USERNAME: user
       SPRING_DATASOURCE_PASSWORD: password
       SPRING_RABBITMQ_HOST: app-rabbitmq
@@ -55,8 +55,8 @@ services:
     environment:
       SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: jdbc:postgresql://app-postgres:5432/cargo
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/air-freight
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/air-freight/protocol/openid-connect/certs
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${VITE_KEYCLOAK_URL:-http://localhost:8180}/realms/${VITE_KEYCLOAK_REALM:-air-freight}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/${VITE_KEYCLOAK_REALM:-air-freight}/protocol/openid-connect/certs
       SPRING_DATASOURCE_USERNAME: user
       SPRING_DATASOURCE_PASSWORD: password
       SPRING_RABBITMQ_HOST: app-rabbitmq
@@ -68,7 +68,7 @@ services:
       CARGO_LOADINGWINDOW_CLOSESBEFOREETD:
       # lateral balance tolerance from the shell when set otherwise from application.properties
       CARGO_LOADCHECK_LATERALBALANCETOLERANCE:
-      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_FLIGHT_TOKENURI: http://keycloak:8080/realms/air-freight/protocol/openid-connect/token
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_FLIGHT_TOKENURI: http://keycloak:8080/realms/${VITE_KEYCLOAK_REALM:-air-freight}/protocol/openid-connect/token
       CARGO_SERVICE_CLIENT_SECRET:
     depends_on:
       keycloak:
@@ -182,7 +182,7 @@ services:
       KC_DB_URL_DATABASE: keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: password
-      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME: ${VITE_KEYCLOAK_URL:-http://localhost:8180}
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
     command: start-dev
