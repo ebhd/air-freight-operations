@@ -28,7 +28,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "h2"})
 class FlightReplannedProcessingIntegrationTest {
     private static final String REPLANNED =
             """

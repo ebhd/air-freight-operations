@@ -13,6 +13,7 @@ import be.kdg.airfreight.cargo.domain.cargoplan.Weight;
 import be.kdg.airfreight.cargo.domain.cargoplan.WeightUnit;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
+import be.kdg.airfreight.cargo.support.PostgresTestConfiguration;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -21,33 +22,27 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 // the move commits for real so the deleted rows, the check constraint and the version count
 @DataJpaTest
-@Testcontainers(disabledWithoutDocker = true)
+@ActiveProfiles({"test", "postgres"})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-@Import({DbCargoPlanRepository.class, MoveCargoPlanService.class})
+@Import({PostgresTestConfiguration.class, DbCargoPlanRepository.class, MoveCargoPlanService.class})
 class MoveCargoPlanIT {
     private static final AirportCode BRU = new AirportCode("BRU");
     private static final FlightKey OLD = new FlightKey("HJ500", LocalDate.of(2026, 11, 10), BRU);
     private static final FlightKey NEW = new FlightKey("HJ500A", LocalDate.of(2026, 11, 11), BRU);
     private static final UldCode AKE = new UldCode("AKE00001HJ");
     private static final UldCode PMC = new UldCode("PMC00002HJ");
-
-    @Container @ServiceConnection
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.6-alpine");
 
     @Autowired private DbCargoPlanRepository repository;
     @Autowired private MoveCargoPlanService moveService;

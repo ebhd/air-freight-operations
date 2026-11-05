@@ -27,7 +27,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "h2"})
 class SsmProcessingIntegrationTest {
     @Autowired private SsmRabbitListener listener;
     @Autowired private JpaFlightRepository flights;

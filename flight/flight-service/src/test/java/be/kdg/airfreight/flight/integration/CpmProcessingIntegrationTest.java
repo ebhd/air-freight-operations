@@ -27,7 +27,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "h2"})
 class CpmProcessingIntegrationTest {
     private static final FlightKey KEY = new FlightKey("HJ221", LocalDate.of(2026, 10, 20), "BRU");
 

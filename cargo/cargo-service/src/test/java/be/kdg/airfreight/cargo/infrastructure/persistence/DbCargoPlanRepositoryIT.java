@@ -12,6 +12,7 @@ import be.kdg.airfreight.cargo.domain.cargoplan.Weight;
 import be.kdg.airfreight.cargo.domain.cargoplan.WeightUnit;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
+import be.kdg.airfreight.cargo.support.PostgresTestConfiguration;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -20,27 +21,20 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.springframework.test.context.ActiveProfiles;
 
 @DataJpaTest
-@Testcontainers(disabledWithoutDocker = true)
-@Import(DbCargoPlanRepository.class)
+@ActiveProfiles({"test", "postgres"})
+@Import({PostgresTestConfiguration.class, DbCargoPlanRepository.class})
 class DbCargoPlanRepositoryIT {
     private static final LocalDate DAY = LocalDate.of(2026, 10, 19);
     private static final AirportCode BRU = new AirportCode("BRU");
     private static final AirportCode AMS = new AirportCode("AMS");
     private static final AirportCode ATH = new AirportCode("ATH");
     private static final FlightKey KEY = new FlightKey("HJ221", DAY, BRU);
-
-    // same postgresql image as docker compose
-    @Container @ServiceConnection
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.6-alpine");
 
     @Autowired private DbCargoPlanRepository repository;
     @Autowired private TestEntityManager entityManager;

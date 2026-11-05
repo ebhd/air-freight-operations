@@ -27,7 +27,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // the ad and aa telegrams from the formatter go out as text with their own routing key
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "h2"})
 class MvtProcessingIntegrationTest {
     private static final String AD = "MVT\nHJ221/09.SXBAA.BRU\nAD0718";
     private static final String AA = "MVT\nHJ221/09.SXBAA.AMS\nAA0921";

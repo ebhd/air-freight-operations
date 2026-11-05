@@ -7,28 +7,28 @@ import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
+import be.kdg.airfreight.cargo.support.PostgresTestConfiguration;
 import java.time.Instant;
 import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 // no test transaction because saveIfNewer commits in its own transaction
 @DataJpaTest
+@ActiveProfiles({"test", "postgres"})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-@Testcontainers(disabledWithoutDocker = true)
-@Import(DbFlightCopyRepository.class)
+@Import({PostgresTestConfiguration.class, DbFlightCopyRepository.class})
 class DbFlightCopyRepositoryIT {
     private static final LocalDate DAY = LocalDate.of(2026, 10, 19);
     private static final AirportCode BRU = new AirportCode("BRU");
@@ -37,10 +37,6 @@ class DbFlightCopyRepositoryIT {
     private static final Instant DELAYED = Instant.parse("2026-10-19T07:00:00Z");
     private static final Instant ETD = Instant.parse("2026-10-19T08:45:00Z");
     private static final Instant ETA = Instant.parse("2026-10-19T09:55:00Z");
-
-    // same postgresql image as docker compose
-    @Container @ServiceConnection
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.6-alpine");
 
     @Autowired private DbFlightCopyRepository repository;
     @Autowired private JdbcClient jdbc;
@@ -170,16 +166,18 @@ class DbFlightCopyRepositoryIT {
     }
 
     // a late flight.created or http row updates the rest but never takes the status back
-    @Test
-    void wholeRowUpdateLeavesTheStatusAlone() {
+    @ParameterizedTest
+    @EnumSource(
+            value = FlightStatus.class,
+            names = {"DEPARTED", "REPLANNED"})
+    void wholeRowUpdateLeavesTheStatusAlone(FlightStatus status) {
         repository.saveIfNewer(flight(KEY, "08:00"), CREATED);
-        repository.advanceStatus(KEY, FlightStatus.REPLANNED);
+        repository.advanceStatus(KEY, status);
 
         assertThat(repository.saveIfNewer(flight(KEY, FlightStatus.PLANNED, ETD, ETA), DELAYED))
                 .isTrue();
 
-        assertThat(repository.findCopy(KEY))
-                .contains(flight(KEY, FlightStatus.REPLANNED, ETD, ETA));
+        assertThat(repository.findCopy(KEY)).contains(flight(KEY, status, ETD, ETA));
     }
 
     // an estimate alone is not a whole flight so no row is made
@@ -245,18 +243,6 @@ class DbFlightCopyRepositoryIT {
         repository.advanceStatus(KEY, FlightStatus.DEPARTED);
 
         assertThat(repository.saveEstimatesIfNewer(KEY, ETD, ETA, DELAYED)).isTrue();
-        assertThat(repository.findCopy(KEY)).contains(flight(KEY, FlightStatus.DEPARTED, ETD, ETA));
-    }
-
-    // a late created event or lookup after the departure must not take the status back
-    @Test
-    void newerWholeRowWriteKeepsTheStatusOfAnExistingRow() {
-        repository.saveIfNewer(flight(KEY, "08:00"), CREATED);
-        repository.advanceStatus(KEY, FlightStatus.DEPARTED);
-
-        assertThat(repository.saveIfNewer(flight(KEY, FlightStatus.PLANNED, ETD, ETA), DELAYED))
-                .isTrue();
-
         assertThat(repository.findCopy(KEY)).contains(flight(KEY, FlightStatus.DEPARTED, ETD, ETA));
     }
 

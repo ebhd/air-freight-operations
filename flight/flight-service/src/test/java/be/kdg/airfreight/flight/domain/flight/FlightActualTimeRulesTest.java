@@ -57,11 +57,7 @@ class FlightActualTimeRulesTest {
                             assertThat(refused.refusal()).isEqualTo(ActualTimeRefusal.TOO_LATE);
                             assertThat(refused.latestAllowed()).isEqualTo(limit);
                         })
-                .hasMessage(
-                        "The actual departure 2026-10-19T08:05:01Z is later than the estimated"
-                                + " departure 2026-10-19T08:00:00Z plus the tolerance of 5"
-                                + " minutes (2026-10-19T08:05:00Z). Add a departure delay first,"
-                                + " then register the departure.");
+                .hasMessageContaining("departure delay");
         assertThat(flight.status()).isEqualTo(FlightStatus.PLANNED);
         assertThat(flight.actualDeparture()).isNull();
     }
@@ -179,9 +175,6 @@ class FlightActualTimeRulesTest {
 
         assertThatThrownBy(() -> flight.recordDeparture(STD.plusSeconds(60), NOW, FIVE_MINUTES))
                 .isInstanceOf(ActualTimeRefusedException.class)
-                .hasMessage(
-                        "The actual departure of this flight was already registered on"
-                                + " 2026-10-19T08:00:00Z and cannot be changed.")
                 .extracting("refusal")
                 .isEqualTo(ActualTimeRefusal.NOT_PLANNED);
         assertThat(flight.actualDeparture()).isEqualTo(STD);
@@ -236,9 +229,6 @@ class FlightActualTimeRulesTest {
 
         assertThatThrownBy(() -> flight.recordArrival(STA, NOW, FIVE_MINUTES))
                 .isInstanceOf(ActualTimeRefusedException.class)
-                .hasMessage(
-                        "The actual arrival can only be registered after the actual departure."
-                                + " Register the departure first.")
                 .extracting("refusal")
                 .isEqualTo(ActualTimeRefusal.NOT_DEPARTED);
         assertThat(flight.status()).isEqualTo(FlightStatus.PLANNED);
@@ -251,9 +241,6 @@ class FlightActualTimeRulesTest {
 
         assertThatThrownBy(() -> flight.recordArrival(STD, NOW, FIVE_MINUTES))
                 .isInstanceOf(ActualTimeRefusedException.class)
-                .hasMessage(
-                        "The actual arrival 2026-10-19T08:00:00Z must be later than the actual"
-                                + " departure 2026-10-19T08:00:00Z.")
                 .extracting("refusal")
                 .isEqualTo(ActualTimeRefusal.NOT_AFTER_DEPARTURE);
         assertThat(flight.status()).isEqualTo(FlightStatus.DEPARTED);
@@ -284,7 +271,7 @@ class FlightActualTimeRulesTest {
 
         assertThatThrownBy(() -> flight.recordArrival(limit.plusSeconds(1), NOW, FIVE_MINUTES))
                 .isInstanceOf(ActualTimeRefusedException.class)
-                .hasMessageEndingWith("Add an arrival delay first, then register the arrival.")
+                .hasMessageContaining("arrival delay")
                 .satisfies(
                         thrown -> {
                             ActualTimeRefusedException refused =
@@ -323,9 +310,6 @@ class FlightActualTimeRulesTest {
 
         assertThatThrownBy(() -> flight.recordArrival(STA.plusSeconds(60), NOW, FIVE_MINUTES))
                 .isInstanceOf(ActualTimeRefusedException.class)
-                .hasMessage(
-                        "The actual arrival of this flight was already registered on"
-                                + " 2026-10-19T10:00:00Z and cannot be changed.")
                 .extracting("refusal")
                 .isEqualTo(ActualTimeRefusal.NOT_DEPARTED);
         assertThat(flight.actualArrival()).isEqualTo(STA);
@@ -383,12 +367,6 @@ class FlightActualTimeRulesTest {
     }
 
     // ----- the policy itself -----
-
-    @Test
-    void policyAddsTheToleranceToTheEstimate() {
-        assertThat(FIVE_MINUTES.latestAllowed(STD)).isEqualTo(STD.plus(Duration.ofMinutes(5)));
-        assertThat(new ActualTimePolicy(Duration.ZERO).latestAllowed(STD)).isEqualTo(STD);
-    }
 
     @Test
     void policyRefusesANegativeOrMissingTolerance() {

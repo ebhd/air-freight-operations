@@ -6,8 +6,8 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -20,9 +20,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import be.kdg.airfreight.cargo.application.cargoplan.CargoPlanQueryService;
-import be.kdg.airfreight.cargo.application.cargoplan.UldPositionService;
-import be.kdg.airfreight.cargo.application.loading.LoadingWindowService;
 import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanRepository;
@@ -38,46 +35,77 @@ import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
-import be.kdg.airfreight.cargo.domain.loading.LoadingWindowPolicy;
+import be.kdg.airfreight.cargo.support.PostgresTestConfiguration;
+import be.kdg.airfreight.cargo.support.TestHelper;
 import java.math.BigDecimal;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.transaction.support.TransactionOperations;
 
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles({"test", "postgres"})
+@Import({PostgresTestConfiguration.class, TestHelper.class})
+@WithMockUser(roles = "load-planner")
 class CargoPlanControllerTest {
     private static final String URL = "/api/cargo-plans/HJ221/2026-10-19/BRU";
     private static final FlightKey KEY =
             new FlightKey("HJ221", LocalDate.of(2026, 10, 19), new AirportCode("BRU"));
 
     private static final String POSITION_URL = URL + "/bookings/AKE12345KL/position";
-    private static final LoadingWindowPolicy POLICY =
-            new LoadingWindowPolicy(Duration.ofHours(12), Duration.ofMinutes(20));
     // inside the window 2026-10-18T20:00Z to 2026-10-19T07:40Z of the flight below
     private static final Instant INSIDE = Instant.parse("2026-10-19T06:00:00Z");
 
-    private final FlightRepository flights = mock(FlightRepository.class);
-    private final CargoPlanRepository cargoPlans = mock(CargoPlanRepository.class);
+    @MockitoBean private FlightRepository flights;
+    @MockitoSpyBean private CargoPlanRepository cargoPlans;
 
-    // security is the same filter chain as every api call which CargoPlanSecurityTest covers
-    private final MockMvc mvc = mvcAt(INSIDE);
+    @Autowired private MockMvc mvc;
+    @Autowired private TestHelper data;
+    @MockitoBean private Clock clock;
+    @MockitoBean private RabbitTemplate rabbit;
+    @MockitoBean private JwtDecoder jwtDecoder;
+
+    @MockitoBean(
+            name = "org.springframework.context.annotation.internalScheduledAnnotationProcessor")
+    private ScheduledAnnotationBeanPostProcessor scheduling;
+
+    @BeforeEach
+    void setUp() {
+        data.cleanUp();
+        data.prepare(clock, rabbit, Instant.parse("2026-10-19T06:00:00Z"));
+    }
+
+    @AfterEach
+    void cleanUp() {
+        data.cleanUp();
+    }
 
     @Test
     void returnsFlightInfoStatusAndBookings() throws Exception {
@@ -114,18 +142,13 @@ class CargoPlanControllerTest {
     @Test
     void replannedPlanSaysWhereTheCargoMovedTo() throws Exception {
         givenFlight(FlightStatus.REPLANNED);
-        when(cargoPlans.findByFlightKey(KEY))
-                .thenReturn(
-                        Optional.of(
-                                CargoPlan.restore(
-                                        KEY,
-                                        CargoPlanState.REPLANNED,
-                                        null,
-                                        new FlightKey(
-                                                "HJ221A",
-                                                LocalDate.of(2026, 10, 20),
-                                                new AirportCode("BRU")),
-                                        List.of())));
+        data.save(
+                CargoPlan.restore(
+                        KEY,
+                        CargoPlanState.REPLANNED,
+                        null,
+                        new FlightKey("HJ221A", LocalDate.of(2026, 10, 20), new AirportCode("BRU")),
+                        List.of()));
 
         mvc.perform(get(URL))
                 .andExpect(status().isOk())
@@ -226,17 +249,14 @@ class CargoPlanControllerTest {
 
     @Test
     void assignAndClearReturnNoContent() throws Exception {
-        CargoPlan cargoPlan =
-                givenFlight(
-                        FlightStatus.PLANNED,
-                        booking("AKE12345KL", "1250.5", WeightUnit.KG, "AMS"));
+        givenFlight(FlightStatus.PLANNED, booking("AKE12345KL", "1250.5", WeightUnit.KG, "AMS"));
 
         mvc.perform(putPosition("{\"position\":\"rl\"}")).andExpect(status().isNoContent());
-        assertThat(positionOf(cargoPlan)).isEqualTo(LoadingPosition.RL);
+        assertThat(positionOf(data.find(KEY))).isEqualTo(LoadingPosition.RL);
 
         mvc.perform(delete(POSITION_URL)).andExpect(status().isNoContent());
-        assertThat(positionOf(cargoPlan)).isNull();
-        verify(cargoPlans, times(2)).save(cargoPlan);
+        assertThat(positionOf(data.find(KEY))).isNull();
+        verify(cargoPlans, times(2)).save(any());
     }
 
     static Stream<Arguments> invalidPositionRequests() {
@@ -291,7 +311,7 @@ class CargoPlanControllerTest {
             throws Exception {
         ResultActions result = mvc.perform(request).andExpect(status().isBadRequest());
         if (reason != null) {
-            result.andExpect(status().reason(reason));
+            result.andExpect(jsonPath("$.detail").value(reason));
         }
 
         verifyNoInteractions(flights, cargoPlans);
@@ -314,7 +334,8 @@ class CargoPlanControllerTest {
     @Test
     void flightWithoutPlanIsNotFound() throws Exception {
         givenFlight(FlightStatus.PLANNED);
-        when(cargoPlans.findByFlightKey(KEY)).thenReturn(Optional.empty());
+        data.delete(KEY);
+        clearInvocations(cargoPlans);
 
         mvc.perform(putPosition("{\"position\":\"RL\"}")).andExpect(status().isNotFound());
     }
@@ -384,19 +405,8 @@ class CargoPlanControllerTest {
     }
 
     private MockMvc mvcAt(Instant now) {
-        LoadingWindowService loadingWindowService =
-                new LoadingWindowService(
-                        flights, cargoPlans, POLICY, Clock.fixed(now, ZoneOffset.UTC));
-        UldPositionService uldPositionService =
-                new UldPositionService(
-                        cargoPlans,
-                        loadingWindowService,
-                        TransactionOperations.withoutTransaction());
-        return MockMvcBuilders.standaloneSetup(
-                        new CargoPlanController(
-                                new CargoPlanQueryService(flights, cargoPlans), uldPositionService))
-                .setControllerAdvice(new CargoApiExceptionHandler())
-                .build();
+        when(clock.instant()).thenReturn(now);
+        return mvc;
     }
 
     private static MockHttpServletRequestBuilder putPosition(String body) {
@@ -412,7 +422,7 @@ class CargoPlanControllerTest {
                 .orElse(null);
     }
 
-    private CargoPlan givenFlight(FlightStatus status, UldBooking... bookings) {
+    private void givenFlight(FlightStatus status, UldBooking... bookings) {
         when(flights.findByFlightKey(KEY))
                 .thenReturn(
                         Optional.of(
@@ -424,8 +434,8 @@ class CargoPlanControllerTest {
                                         Instant.parse("2026-10-19T10:00:00Z"),
                                         Instant.parse("2026-10-19T08:00:00Z"))));
         CargoPlan cargoPlan = CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of(bookings));
-        when(cargoPlans.findByFlightKey(KEY)).thenReturn(Optional.of(cargoPlan));
-        return cargoPlan;
+        data.save(cargoPlan);
+        clearInvocations(cargoPlans);
     }
 
     private static UldBooking booking(

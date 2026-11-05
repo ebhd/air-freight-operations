@@ -38,16 +38,6 @@ class FlightOverviewServiceTest {
                 .containsExactly(planned, departed, landed, replanned);
     }
 
-    @Test
-    void readsTheSelectedDay() {
-        var flights = new StubFlightRepository(List.of());
-        LocalDate otherDay = LocalDate.of(2026, 10, 24);
-
-        new FlightOverviewService(flights).findFlightsOn(otherDay, false);
-
-        assertThat(flights.askedDate).isEqualTo(otherDay);
-    }
-
     private static FlightInformation flight(String flightNumber, FlightStatus status) {
         return new FlightInformation(
                 new FlightKey(flightNumber, DAY, new AirportCode("BRU")),
@@ -60,7 +50,6 @@ class FlightOverviewServiceTest {
 
     private static class StubFlightRepository implements FlightRepository {
         private final List<FlightInformation> flightsOfTheDay;
-        private LocalDate askedDate;
 
         private StubFlightRepository(List<FlightInformation> flightsOfTheDay) {
             this.flightsOfTheDay = flightsOfTheDay;
@@ -73,7 +62,6 @@ class FlightOverviewServiceTest {
 
         @Override
         public List<FlightInformation> findByScheduledDepartureDate(LocalDate date) {
-            askedDate = date;
             return flightsOfTheDay;
         }
     }

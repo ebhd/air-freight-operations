@@ -83,6 +83,12 @@ build:
 test:
   extends: .microservices
   stage: test
+  parallel:
+    matrix:
+      - SERVICE: message-formatter-service
+        SERVICE_DIR: message-formatter-service
+      - SERVICE: partner-communication-service
+        SERVICE_DIR: partner-communication-service
   dependencies: []
   script:
     - ./gradlew ":$SERVICE:test" ":$SERVICE:jacocoTestReport" --console=plain
@@ -94,3 +100,22 @@ test:
     paths:
       - $SERVICE_DIR/build/reports/tests/
       - $SERVICE_DIR/build/reports/jacoco/
+
+postgres-test:
+  extends: test
+  parallel:
+    matrix:
+      - SERVICE: flight:flight-service
+        SERVICE_DIR: flight/flight-service
+      - SERVICE: cargo:cargo-service
+        SERVICE_DIR: cargo/cargo-service
+  services:
+    - name: docker:29.8.0-dind
+      alias: docker
+      command: ["--tls=false"]
+      variables:
+        HEALTHCHECK_TCP_PORT: "2375"
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    TESTCONTAINERS_HOST_OVERRIDE: docker

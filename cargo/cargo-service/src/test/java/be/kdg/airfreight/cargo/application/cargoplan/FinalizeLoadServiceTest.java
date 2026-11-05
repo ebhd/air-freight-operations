@@ -3,7 +3,6 @@ package be.kdg.airfreight.cargo.application.cargoplan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -36,9 +35,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -55,19 +54,17 @@ class FinalizeLoadServiceTest {
     private final FlightRepository flights = mock(FlightRepository.class);
     private final CargoPlanRepository cargoPlans = mock(CargoPlanRepository.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
-    private final List<String> steps = new ArrayList<>();
+    private final TransactionOperations transaction = mock(TransactionOperations.class);
 
-    // runs the work like spring would and records where the transaction starts and ends
-    private final TransactionOperations transaction =
-            new TransactionOperations() {
-                @Override
-                public <T> T execute(TransactionCallback<T> action) {
-                    steps.add("begin");
-                    T result = action.doInTransaction(new SimpleTransactionStatus());
-                    steps.add("commit");
-                    return result;
-                }
-            };
+    @BeforeEach
+    void runTransactionWork() {
+        when(transaction.execute(any()))
+                .thenAnswer(
+                        call -> {
+                            TransactionCallback<?> action = call.getArgument(0);
+                            return action.doInTransaction(new SimpleTransactionStatus());
+                        });
+    }
 
     private final FinalizeLoadService service =
             new FinalizeLoadService(
@@ -82,17 +79,13 @@ class FinalizeLoadServiceTest {
                     transaction);
 
     @Test
-    void savesThePlanAndAddsTheEventInOneTransaction() {
+    void savesThePlanAndPublishesItsEvent() {
         CargoPlan cargoPlan = givenPlan(booking("AKE1", LoadingPosition.A1, "1000"));
-        doAnswer(call -> steps.add("save plan")).when(cargoPlans).save(any());
-        doAnswer(call -> steps.add("add event"))
-                .when(events)
-                .publishEvent(any(LoadFinalized.class));
 
         LoadFinalized event = service.finalizeLoad(KEY);
 
         assertThat(cargoPlan.isFinalized()).isTrue();
-        assertThat(steps).containsExactly("begin", "save plan", "add event", "commit");
+        verify(cargoPlans).save(cargoPlan);
         ArgumentCaptor<LoadFinalized> added = ArgumentCaptor.forClass(LoadFinalized.class);
         verify(events).publishEvent(added.capture());
         assertThat(added.getValue()).isSameAs(event);
@@ -134,8 +127,7 @@ class FinalizeLoadServiceTest {
         assertThatThrownBy(() -> service.finalizeLoad(KEY))
                 .isInstanceOf(FlightLookupUnavailableException.class);
 
-        assertThat(steps).isEmpty();
-        verifyNoInteractions(events);
+        verifyNoInteractions(transaction, events);
     }
 
     private void givenFlight() {

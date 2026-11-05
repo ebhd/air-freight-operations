@@ -2,7 +2,6 @@ package be.kdg.airfreight.cargo.api.flight;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -14,10 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import be.kdg.airfreight.cargo.api.loadingposition.LoadingPositionController;
-import be.kdg.airfreight.cargo.application.cargoplan.CargoPlanQueryService;
 import be.kdg.airfreight.cargo.application.cargoplan.UldPositionService;
-import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanRepository;
 import be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldCode;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
@@ -34,13 +30,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -50,11 +41,10 @@ import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 @ExtendWith(SpringExtension.class)
 @WebAppConfiguration
-@ContextConfiguration(classes = CargoPlanSecurityTest.Config.class)
+@ContextConfiguration(classes = CargoPlanSecurityConfiguration.class)
 class CargoPlanSecurityTest {
     private static final String URL = "/api/cargo-plans/HJ221/2026-10-19/BRU";
     private static final String POSITION_URL = URL + "/bookings/AKE12345KL/position";
@@ -175,39 +165,9 @@ class CargoPlanSecurityTest {
                                                         new SimpleGrantedAuthority(
                                                                 "ROLE_load-planner"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(34)));
-    }
-
-    @Configuration
-    @EnableWebMvc
-    @EnableWebSecurity
-    @ComponentScan("be.kdg.airfreight.cargo.infrastructure.security")
-    @Import({
-        CargoPlanController.class,
-        LoadingPositionController.class,
-        CargoApiExceptionHandler.class,
-        CargoPlanQueryService.class
-    })
-    static class Config {
-        @Bean
-        UldPositionService uldPositionService() {
-            return mock(UldPositionService.class);
-        }
-
-        @Bean
-        FlightRepository flightRepository() {
-            return mock(FlightRepository.class);
-        }
-
-        // no bookings stored so the plan is empty
-        @Bean
-        CargoPlanRepository cargoPlanRepository() {
-            return mock(CargoPlanRepository.class);
-        }
-
-        @Bean
-        JwtDecoder jwtDecoder() {
-            return mock(JwtDecoder.class);
-        }
+                .andExpect(jsonPath("$", hasSize(34)))
+                .andExpect(jsonPath("$[0].code").value("A1"))
+                .andExpect(jsonPath("$[0].row").value("A"))
+                .andExpect(jsonPath("$[0].side").value("NONE"));
     }
 }
