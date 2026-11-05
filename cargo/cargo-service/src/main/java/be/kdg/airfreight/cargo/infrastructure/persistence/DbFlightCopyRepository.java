@@ -148,6 +148,20 @@ class DbFlightCopyRepository implements FlightCopyRepository {
         return changed == 1;
     }
 
+    // joins the transaction of the caller so the copy goes together with the plan
+    @Override
+    @Transactional
+    public void delete(FlightKey flightKey) {
+        jdbc.sql(
+                        "DELETE FROM flights WHERE flight_number = :flightNumber"
+                                + " AND scheduled_departure_date = :date"
+                                + " AND departure_airport_code = :departure")
+                .param("flightNumber", flightKey.flightNumber())
+                .param("date", flightKey.scheduledDepartureDate())
+                .param("departure", flightKey.departureAirportCode().value())
+                .update();
+    }
+
     private static FlightInformation toFlight(ResultSet row, int rowNumber) throws SQLException {
         FlightKey key =
                 new FlightKey(

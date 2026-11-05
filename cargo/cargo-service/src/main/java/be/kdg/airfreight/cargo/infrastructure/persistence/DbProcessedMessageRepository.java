@@ -2,6 +2,7 @@ package be.kdg.airfreight.cargo.infrastructure.persistence;
 
 import be.kdg.airfreight.cargo.application.booking.ProcessedMessage;
 import be.kdg.airfreight.cargo.application.booking.ProcessedMessageRepository;
+import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.infrastructure.persistence.jpa.JpaProcessedMessage;
 import be.kdg.airfreight.cargo.infrastructure.persistence.jpa.JpaProcessedMessageRepository;
 import java.util.Optional;
@@ -23,5 +24,13 @@ class DbProcessedMessageRepository implements ProcessedMessageRepository {
     @Override
     public void save(ProcessedMessage processedMessage) {
         messages.save(JpaProcessedMessage.fromDomain(processedMessage));
+    }
+
+    @Override
+    public void deleteByFlightKey(FlightKey flightKey) {
+        messages.deleteByFlightNumberAndScheduledDepartureDateAndDepartureAirportCode(
+                flightKey.flightNumber(),
+                flightKey.scheduledDepartureDate(),
+                flightKey.departureAirportCode().value());
     }
 }

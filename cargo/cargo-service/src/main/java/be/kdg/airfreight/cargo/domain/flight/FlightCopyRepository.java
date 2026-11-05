@@ -28,4 +28,7 @@ public interface FlightCopyRepository {
     // redelivery, an older event or an unknown flight; last_change_at is not touched so an older
     // estimate that arrives later can still be applied
     boolean advanceStatus(FlightKey flightKey, FlightStatus status);
+
+    // nothing happens when the copy has no such flight
+    void delete(FlightKey flightKey);
 }

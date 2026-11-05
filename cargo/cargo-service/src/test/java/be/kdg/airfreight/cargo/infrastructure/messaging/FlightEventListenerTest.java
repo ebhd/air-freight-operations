@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import be.kdg.airfreight.cargo.application.cargoplan.MoveCargoPlanService;
 import be.kdg.airfreight.cargo.application.flight.FlightCopyService;
+import be.kdg.airfreight.cargo.application.flight.FlightRemovalService;
 import be.kdg.airfreight.cargo.domain.cargoplan.BookingRejectedException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
@@ -21,6 +22,7 @@ import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import be.kdg.airfreight.cargo.infrastructure.persistence.RejectedMessageStore;
+import be.kdg.airfreight.cargo.infrastructure.persistence.jpa.JpaOutboxMessageRepository;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -50,7 +52,13 @@ class FlightEventListenerTest {
     private final MoveCargoPlanService moveService = mock(MoveCargoPlanService.class);
     private final RejectedMessageStore rejectedMessages = mock(RejectedMessageStore.class);
     private final FlightEventListener listener =
-            new FlightEventListener(copyService, moveService, rejectedMessages, JSON);
+            new FlightEventListener(
+                    copyService,
+                    moveService,
+                    mock(FlightRemovalService.class),
+                    mock(JpaOutboxMessageRepository.class),
+                    rejectedMessages,
+                    JSON);
 
     @Test
     void createdFlightIsPlannedWithTheScheduleAsEstimates() {
