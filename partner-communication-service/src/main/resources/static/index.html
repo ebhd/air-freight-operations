@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Partner messages - Air Freight Operations</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="stylesheet" href="css/app.css">
+    <script type="module" src="js/app.js"></script>
+</head>
+<body>
+<header class="page-header">
+    <div class="page-column header-content">
+        <img src="images/logo-mark.svg" alt="Air Freight Operations">
+        <h1>Partner messages</h1>
+    </div>
+</header>
+<main class="page-column page-main">
+    <p class="note">What Partner stored and sent to partners, newest first. Times on this page are Brussels time; the message content is what partners receive, so its times stay UTC.</p>
+    <div class="columns">
+        <section class="card" aria-label="Messages">
+            <div class="controls">
+                <label>Type
+                    <select id="type-filter" class="field">
+                        <option value="ALL">All</option>
+                        <option value="FLM">FLM</option>
+                        <option value="MVT_ED">MVT ED</option>
+                        <option value="MVT_EA">MVT EA</option>
+                        <option value="MVT_AD">MVT AD</option>
+                        <option value="MVT_AA">MVT AA</option>
+                        <option value="CPM">CPM</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                </label>
+                <label class="control-grow">Flight number
+                    <input id="flight-search" class="field" type="search">
+                </label>
+                <button id="refresh" class="button" type="button"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i>Refresh</button>
+            </div>
+            <p id="status" class="status" role="status"></p>
+            <ul id="messages" class="messages"></ul>
+        </section>
+        <section id="detail" class="card" aria-label="Selected message">
+            <p id="detail-empty" class="note">Select a message to see its content.</p>
+            <div id="detail-content" hidden>
+                <h2 id="detail-title"></h2>
+                <pre id="detail-payload" class="payload"></pre>
+                <dl class="facts">
+                    <dt>State</dt>
+                    <dd><span id="detail-state"></span></dd>
+                    <dt>Created (Brussels time)</dt>
+                    <dd id="detail-created"></dd>
+                    <dt>Format version</dt>
+                    <dd id="detail-version"></dd>
+                    <dt>Message ID</dt>
+                    <dd id="detail-id"></dd>
+                </dl>
+            </div>
+        </section>
+    </div>
+</main>
+<template id="message-template">
+    <li>
+        <button class="message" type="button">
+            <span class="message-type"></span>
+            <span class="message-flight"></span>
+            <span class="message-time"></span>
+        </button>
+    </li>
+</template>
+</body>
+</html>

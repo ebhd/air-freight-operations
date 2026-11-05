@@ -20,7 +20,7 @@ docker compose up -d --build --wait
 docker compose down
 ```
 
-Pages: Flight at `http://localhost:8080/`, Cargo at `http://localhost:8081/`. Each service's `/actuator/health` checks its database and RabbitMQ; Cargo's also checks Flight.
+Pages: Flight at `http://localhost:8080/`, Cargo at `http://localhost:8081/`, Partner messages at `http://localhost:8082/`. Each service's `/actuator/health` checks its database and RabbitMQ; Cargo's also checks Flight.
 
 Each service creates its tables from `schema.sql` and Hibernate validates them. There is no migration tool, so after a schema change you recreate that service's database (Flight's `actual_departure` and `actual_arrival` columns are the exception: `schema.sql` adds them with `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`). Example for Cargo:
 
@@ -81,6 +81,12 @@ Run `./gradlew :simulator:bootRun`. It listens on 127.0.0.1:8083 and is never de
 
 A 202 answer only means the message was published. The Cargo log and database show the result.
 
+### Partner messages page
+
+A read-only inbox at `http://localhost:8082/` shows what Partner stored and sent: the newest 100 messages with a type filter and a flight search, and per message the exact content, state and metadata. It is plain files in `partner-communication-service/src/main/resources/static`, so it needs no Node build.
+
+The page and its API have no sign-in, so they are only safe because Compose publishes port 8082 on 127.0.0.1.
+
 ## Keycloak
 
 1. Import [infrastructure/keycloak/air-freight-realm.json](infrastructure/keycloak/air-freight-realm.json) in the admin console: Manage realms, Create realm, Browse. It contains the realm `air-freight`, the roles `flight-planner` and `load-planner`, the clients and the audience mappers. It has no users and its secrets are masked.
@@ -91,7 +97,7 @@ The pages sign in with the public clients `flight-frontend` and `cargo-frontend`
 
 ## API
 
-Every API request needs a bearer token. Times are UTC. In the paths below, `{flight}` stands for `{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}`, for example `HJ221/2026-10-19/BRU`. Example requests are in [http/local.http](http/local.http).
+Every Flight and Cargo API request needs a bearer token. Times are UTC. In the paths below, `{flight}` stands for `{flightNumber}/{scheduledDepartureDate}/{departureAirportCode}`, for example `HJ221/2026-10-19/BRU`. Example requests are in [http/local.http](http/local.http).
 
 | Service | Method | Path | Role needed |
 | --- | --- | --- | --- |
@@ -108,6 +114,7 @@ Every API request needs a bearer token. Times are UTC. In the paths below, `{fli
 | Cargo | PUT, DELETE | `/api/cargo-plans/{flight}/bookings/{uldCode}/position` | load planner |
 | Cargo | GET | `/api/cargo-plans/{flight}/load-check` (all checks, nothing changes) | any planner |
 | Cargo | POST | `/api/cargo-plans/{flight}/finalization` (reruns the checks; 200 with `finalizedAt` and the report) | load planner |
+| Partner | GET | `/api/partner-messages?limit=100` (newest first, `limit` 1 to 500, default 100; `flightNumber` is read from the payload for display and can be null) | none, local only |
 
 Errors use `ProblemDetail`: 400 for invalid input, 404 for an unknown flight, 409 when a business rule refuses the action (with the reason), 503 when Cargo cannot reach Flight. A finalize that fails a hard check gives 409 with `refusal: HARD_CHECKS_FAILED` and the same `report` as the load check. Check and finalize also refuse with the loading refusals (`PLAN_FINALIZED`, `WINDOW_CLOSED`, ...). An actual time is refused with 409 and `refusal` `NOT_PLANNED`, `NOT_DEPARTED`, `CPM_NOT_PROCESSED` (finalize the load first, then try again), `IN_THE_FUTURE`, `NOT_AFTER_DEPARTURE` or `TOO_LATE` (with `latestAllowed`: add a delay first); a missing time is 400. The page enters the time in Brussels time and sends a UTC instant with whole minutes.
 
