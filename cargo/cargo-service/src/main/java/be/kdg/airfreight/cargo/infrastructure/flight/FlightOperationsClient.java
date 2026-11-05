@@ -1,9 +1,9 @@
 package be.kdg.airfreight.cargo.infrastructure.flight;
 
+import be.kdg.airfreight.cargo.domain.exception.FlightLookupRejectedException;
+import be.kdg.airfreight.cargo.domain.exception.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
-import be.kdg.airfreight.cargo.domain.flight.FlightLookupRejectedException;
-import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -13,7 +13,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
-// flights open host service, only asked for a flight that is not in cargos copy yet
+// flight's open host service, only asked for a flight that is not in cargo's copy yet
 @Component
 @Slf4j
 class FlightOperationsClient {
@@ -45,7 +45,7 @@ class FlightOperationsClient {
             if (isAuthenticationProblem(clientError)) {
                 throw unavailable(flightKey, clientError);
             }
-            // any other 4xx means our request is invalid and retrying wont help
+            // any other 4xx means our request is invalid and retrying won't help
             throw new FlightLookupRejectedException(
                     flightKey, clientError.getStatusCode().value(), clientError);
         } catch (RestClientException | OAuth2AuthorizationException exception) {

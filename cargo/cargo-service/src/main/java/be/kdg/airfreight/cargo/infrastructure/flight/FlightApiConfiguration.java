@@ -43,7 +43,7 @@ class FlightApiConfiguration {
         tokenInterceptor.setAuthorizationFailureHandler(
                 OAuth2ClientHttpRequestInterceptor.authorizationFailureHandler(authorizedClients));
 
-        // dont let a hanging flight service block the listener for long
+        // don't let a hanging flight service block the listener for long
         var requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofSeconds(2));
         requestFactory.setReadTimeout(Duration.ofSeconds(5));

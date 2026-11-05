@@ -1,8 +1,11 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import be.kdg.airfreight.cargo.domain.exception.LoadNotFinalizedException;
+import be.kdg.airfreight.cargo.domain.exception.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
@@ -11,7 +14,6 @@ import be.kdg.airfreight.cargo.domain.loadcheck.LateralBalanceCheck;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadCheckResult;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadChecks;
 import be.kdg.airfreight.cargo.domain.loading.LoadingContext;
-import be.kdg.airfreight.cargo.domain.loading.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.loading.LoadingRefusal;
 import be.kdg.airfreight.cargo.domain.loading.LoadingWindowPolicy;
 import java.math.BigDecimal;
@@ -100,7 +102,7 @@ class CargoPlanFinalizeTest {
         assertThat(cargoPlan.finalizeLoad(context(INSIDE), CHECKS).ulds()).hasSize(3);
     }
 
-    // d3: nothing positioned is only a soft warning and gives an empty cpm
+    // nothing positioned is only a soft warning and gives an empty cpm
     @Test
     void emptyLoadCanBeFinalized() {
         CargoPlan cargoPlan = plan(booking("AKE1", null, "1000", WeightUnit.KG));
@@ -160,7 +162,7 @@ class CargoPlanFinalizeTest {
     }
 
     private static CargoPlan plan(UldBooking... bookings) {
-        return CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of(bookings));
+        return restoredPlan(KEY, CargoPlanState.DRAFT, List.of(bookings));
     }
 
     private static UldBooking booking(
@@ -180,7 +182,8 @@ class CargoPlanFinalizeTest {
                         FlightStatus.PLANNED,
                         STD,
                         STD.plus(Duration.ofHours(2)),
-                        STD);
+                        STD,
+                        STD.plus(Duration.ofHours(2)));
         return new LoadingContext(flight, POLICY.windowFor(STD, STD), now);
     }
 }

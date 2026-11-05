@@ -1,6 +1,6 @@
 package be.kdg.airfreight.cargo.domain.loadcheck;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.exception.InvalidCargoValueException;
 import java.util.List;
 
 // every check is in the report also after an earlier one failed

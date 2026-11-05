@@ -7,6 +7,8 @@ import static org.mockito.Mockito.when;
 
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanRepository;
+import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanState;
+import be.kdg.airfreight.cargo.domain.cargoplan.UldBooking;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
@@ -14,6 +16,7 @@ import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -32,7 +35,23 @@ public class TestHelper {
     public static FlightInformation plannedFlight(FlightKey key) {
         Instant std = key.scheduledDepartureDate().atTime(8, 0).toInstant(ZoneOffset.UTC);
         return new FlightInformation(
-                key, new AirportCode("ATH"), FlightStatus.PLANNED, std, std.plusSeconds(7200), std);
+                key,
+                new AirportCode("ATH"),
+                FlightStatus.PLANNED,
+                std,
+                std.plusSeconds(7200),
+                std,
+                std.plusSeconds(7200));
+    }
+
+    public static CargoPlan restoredPlan(
+            FlightKey key, CargoPlanState state, List<UldBooking> bookings) {
+        return CargoPlan.restore(key, state, null, null, bookings);
+    }
+
+    public static CargoPlan restoredPlan(
+            FlightKey key, CargoPlanState state, Instant finalizedAt, List<UldBooking> bookings) {
+        return CargoPlan.restore(key, state, finalizedAt, null, bookings);
     }
 
     public void save(CargoPlan plan) {

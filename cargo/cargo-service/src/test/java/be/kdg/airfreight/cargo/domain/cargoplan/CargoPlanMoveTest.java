@@ -1,9 +1,11 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
 import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import be.kdg.airfreight.cargo.domain.exception.BookingRejectedException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
@@ -29,7 +31,7 @@ class CargoPlanMoveTest {
     @Test
     void bookingsMoveWithTheirPositionsAndTheOldPlanBecomesTheMarker() {
         CargoPlan old =
-                CargoPlan.restore(
+                restoredPlan(
                         OLD,
                         CargoPlanState.DRAFT,
                         List.of(
@@ -55,7 +57,7 @@ class CargoPlanMoveTest {
     @Test
     void finalizedPlanMovesAsADraftAndKeepsItsFinalizedTime() {
         CargoPlan old =
-                CargoPlan.restore(
+                restoredPlan(
                         OLD,
                         CargoPlanState.FINALIZED,
                         FINALIZED_AT,
@@ -73,12 +75,12 @@ class CargoPlanMoveTest {
     @Test
     void takenPositionIsDroppedAndTheUldMovesWithoutOne() {
         CargoPlan old =
-                CargoPlan.restore(
+                restoredPlan(
                         OLD,
                         CargoPlanState.DRAFT,
                         List.of(booking("AKE00001HJ", LoadingPosition.CL)));
         CargoPlan target =
-                CargoPlan.restore(
+                restoredPlan(
                         NEW,
                         CargoPlanState.DRAFT,
                         List.of(booking("PMC00009HJ", LoadingPosition.CL)));
@@ -94,7 +96,7 @@ class CargoPlanMoveTest {
     @Test
     void sameUldOnTheNewFlightKeepsTheNewFlightsBooking() {
         CargoPlan old =
-                CargoPlan.restore(
+                restoredPlan(
                         OLD,
                         CargoPlanState.DRAFT,
                         List.of(booking("AKE00001HJ", LoadingPosition.CL)));
@@ -104,7 +106,7 @@ class CargoPlanMoveTest {
                         new Weight(new BigDecimal("999"), WeightUnit.LB),
                         new AirportCode("ATH"),
                         LoadingPosition.CR);
-        CargoPlan target = CargoPlan.restore(NEW, CargoPlanState.DRAFT, List.of(already));
+        CargoPlan target = restoredPlan(NEW, CargoPlanState.DRAFT, List.of(already));
 
         old.moveTo(target);
 
@@ -115,7 +117,7 @@ class CargoPlanMoveTest {
     @Test
     void secondMoveChangesNothing() {
         CargoPlan old =
-                CargoPlan.restore(OLD, CargoPlanState.DRAFT, List.of(booking("AKE00001HJ", null)));
+                restoredPlan(OLD, CargoPlanState.DRAFT, List.of(booking("AKE00001HJ", null)));
         CargoPlan target = new CargoPlan(NEW);
         old.moveTo(target);
         CargoPlan another = new CargoPlan(NEW);
@@ -129,9 +131,8 @@ class CargoPlanMoveTest {
     @Test
     void finalizedOrReplannedTargetIsRefused() {
         CargoPlan old =
-                CargoPlan.restore(OLD, CargoPlanState.DRAFT, List.of(booking("AKE00001HJ", null)));
-        CargoPlan finalized =
-                CargoPlan.restore(NEW, CargoPlanState.FINALIZED, FINALIZED_AT, List.of());
+                restoredPlan(OLD, CargoPlanState.DRAFT, List.of(booking("AKE00001HJ", null)));
+        CargoPlan finalized = restoredPlan(NEW, CargoPlanState.FINALIZED, FINALIZED_AT, List.of());
         CargoPlan replanned =
                 CargoPlan.restore(
                         NEW,
@@ -170,7 +171,13 @@ class CargoPlanMoveTest {
         LoadingContext context =
                 new LoadingContext(
                         new FlightInformation(
-                                OLD, AMS, FlightStatus.PLANNED, std, std.plusSeconds(7200), std),
+                                OLD,
+                                AMS,
+                                FlightStatus.PLANNED,
+                                std,
+                                std.plusSeconds(7200),
+                                std,
+                                std.plusSeconds(7200)),
                         new LoadingWindowPolicy(Duration.ofHours(12), Duration.ofMinutes(20))
                                 .windowFor(std, std),
                         Instant.parse("2026-11-10T14:00:00Z"));

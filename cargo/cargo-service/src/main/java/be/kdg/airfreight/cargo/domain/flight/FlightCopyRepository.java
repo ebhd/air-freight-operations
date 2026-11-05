@@ -5,7 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-// cargos own copy of the flights it needs, kept up to date by flights events
+// cargo's own copy of the flights it needs, kept up to date by flight's events
 public interface FlightCopyRepository {
     // only the copy, never asks flight
     Optional<FlightInformation> findCopy(FlightKey flightKey);
@@ -24,9 +24,8 @@ public interface FlightCopyRepository {
             Instant estimatedArrival,
             Instant changedAt);
 
-    // a flight never goes back: only a row in an earlier status is changed; false for a
-    // redelivery, an older event or an unknown flight; last_change_at is not touched so an older
-    // estimate that arrives later can still be applied
+    // a flight never goes back, so only a row in an earlier status changes
+    // false for a redelivery, an older event or an unknown flight
     boolean advanceStatus(FlightKey flightKey, FlightStatus status);
 
     // nothing happens when the copy has no such flight

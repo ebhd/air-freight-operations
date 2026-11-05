@@ -14,7 +14,7 @@ public record FlightOverviewResponse(
         Instant scheduledArrival,
         Instant estimatedDeparture,
         Instant estimatedArrival) {
-    static FlightOverviewResponse from(FlightInformation flight) {
+    public static FlightOverviewResponse from(FlightInformation flight) {
         return new FlightOverviewResponse(
                 flight.flightKey().flightNumber(),
                 flight.flightKey().scheduledDepartureDate(),

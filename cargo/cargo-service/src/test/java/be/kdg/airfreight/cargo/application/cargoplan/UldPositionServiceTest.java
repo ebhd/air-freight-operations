@@ -1,9 +1,9 @@
 package be.kdg.airfreight.cargo.application.cargoplan;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -18,16 +18,16 @@ import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanState;
 import be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldBooking;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldCode;
-import be.kdg.airfreight.cargo.domain.cargoplan.UldNotBookedException;
 import be.kdg.airfreight.cargo.domain.cargoplan.Weight;
 import be.kdg.airfreight.cargo.domain.cargoplan.WeightUnit;
+import be.kdg.airfreight.cargo.domain.exception.FlightLookupUnavailableException;
+import be.kdg.airfreight.cargo.domain.exception.LoadingNotAllowedException;
+import be.kdg.airfreight.cargo.domain.exception.UldNotBookedException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
-import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
-import be.kdg.airfreight.cargo.domain.loading.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.loading.LoadingRefusal;
 import be.kdg.airfreight.cargo.domain.loading.LoadingWindowPolicy;
 import java.math.BigDecimal;
@@ -36,13 +36,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
-import org.springframework.transaction.support.SimpleTransactionStatus;
-import org.springframework.transaction.support.TransactionCallback;
-import org.springframework.transaction.support.TransactionOperations;
 
 class UldPositionServiceTest {
     private static final FlightKey KEY =
@@ -57,20 +53,6 @@ class UldPositionServiceTest {
 
     private final FlightRepository flights = mock(FlightRepository.class);
     private final CargoPlanRepository cargoPlans = mock(CargoPlanRepository.class);
-    // records the order of the calls to flight the plan and the transaction
-    private final List<String> steps = new ArrayList<>();
-
-    // runs the work like spring would but only records where the transaction starts and ends
-    private final TransactionOperations transaction =
-            new TransactionOperations() {
-                @Override
-                public <T> T execute(TransactionCallback<T> action) {
-                    steps.add("begin");
-                    T result = action.doInTransaction(new SimpleTransactionStatus());
-                    steps.add("commit");
-                    return result;
-                }
-            };
 
     @Test
     void savesThePlanAfterAPositionChange() {
@@ -91,41 +73,6 @@ class UldPositionServiceTest {
 
         verify(cargoPlans).save(cargoPlan);
         assertThat(positionOf(cargoPlan, PMC)).isNull();
-    }
-
-    // the http call holds no db connection and load and save share one transaction
-    @Test
-    void asksFlightBeforeTheTransactionAndLoadsAndSavesInsideIt() {
-        CargoPlan cargoPlan = givenPlannedFlightAndPlan();
-        when(flights.findByFlightKey(KEY))
-                .thenAnswer(
-                        call -> {
-                            steps.add("ask flight");
-                            return Optional.of(flight());
-                        });
-        when(cargoPlans.findByFlightKey(KEY))
-                .thenAnswer(
-                        call -> {
-                            steps.add("load plan");
-                            return Optional.of(cargoPlan);
-                        });
-        doAnswer(call -> steps.add("save plan")).when(cargoPlans).save(any());
-
-        service(DEFAULT_POLICY, INSIDE).assignPosition(KEY, AKE, LoadingPosition.CR);
-        service(DEFAULT_POLICY, INSIDE).clearPosition(KEY, AKE);
-
-        assertThat(steps)
-                .containsExactly(
-                        "ask flight",
-                        "begin",
-                        "load plan",
-                        "save plan",
-                        "commit",
-                        "ask flight",
-                        "begin",
-                        "load plan",
-                        "save plan",
-                        "commit");
     }
 
     // window 06:00Z to 07:30Z with 2h before std and 30m before etd
@@ -169,7 +116,6 @@ class UldPositionServiceTest {
         assertThatThrownBy(() -> service.clearPosition(KEY, AKE))
                 .isInstanceOf(UnknownFlightException.class);
         verifyNoInteractions(cargoPlans);
-        assertThat(steps).isEmpty();
     }
 
     @Test
@@ -206,7 +152,7 @@ class UldPositionServiceTest {
     // ake has no position and pmc is on cl
     private CargoPlan givenPlannedFlightAndPlan() {
         CargoPlan cargoPlan =
-                CargoPlan.restore(
+                restoredPlan(
                         KEY,
                         CargoPlanState.DRAFT,
                         List.of(booking(AKE, null), booking(PMC, LoadingPosition.CL)));
@@ -219,7 +165,7 @@ class UldPositionServiceTest {
         LoadingWindowService loadingWindowService =
                 new LoadingWindowService(
                         flights, cargoPlans, policy, Clock.fixed(now, ZoneOffset.UTC));
-        return new UldPositionService(cargoPlans, loadingWindowService, transaction);
+        return new UldPositionService(cargoPlans, loadingWindowService);
     }
 
     private static FlightInformation flight() {
@@ -229,7 +175,8 @@ class UldPositionServiceTest {
                 FlightStatus.PLANNED,
                 STD,
                 STD.plus(Duration.ofHours(2)),
-                STD);
+                STD,
+                STD.plus(Duration.ofHours(2)));
     }
 
     private static UldBooking booking(UldCode code, LoadingPosition position) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { failureFromProblem } from '../../ts/api-failure.js';
+import { failureFromProblem } from '../../ts/shared/api-failure.js';
 
 describe('failureFromProblem', () => {
     // the body that CargoApiExceptionHandler sends for a refused loading action

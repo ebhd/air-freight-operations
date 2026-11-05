@@ -6,7 +6,7 @@ import java.util.List;
 
 // soft check: a booking without a position stays behind
 public final class AllCargoLoadedCheck implements LoadCheck {
-    static final String NAME = "All cargo loaded";
+    static final String NAME = "Not all cargo loaded";
 
     @Override
     public LoadCheckResult evaluate(List<UldBooking> bookings, AirportCode arrivalAirport) {

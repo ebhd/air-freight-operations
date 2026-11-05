@@ -16,7 +16,7 @@ class LoadingWindowTest {
         assertThat(WINDOW.hasNotOpenedAt(OPENS_AT)).isFalse();
     }
 
-    // q06 our reading is that the window is over at exactly etd minus 20 minutes
+    // the window is over at exactly etd minus 20 minutes
     @Test
     void isClosedFromTheClosingInstant() {
         assertThat(WINDOW.hasClosedAt(CLOSES_AT.minusNanos(1))).isFalse();

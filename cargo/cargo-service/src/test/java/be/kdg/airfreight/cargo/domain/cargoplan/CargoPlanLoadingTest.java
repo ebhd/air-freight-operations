@@ -1,18 +1,20 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
 import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.exception.BookingRejectedException;
+import be.kdg.airfreight.cargo.domain.exception.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.exception.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import be.kdg.airfreight.cargo.domain.loading.LoadingContext;
-import be.kdg.airfreight.cargo.domain.loading.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.loading.LoadingRefusal;
 import be.kdg.airfreight.cargo.domain.loading.LoadingWindow;
 import be.kdg.airfreight.cargo.domain.loading.LoadingWindowPolicy;
@@ -94,7 +96,7 @@ class CargoPlanLoadingTest {
             Instant now,
             LoadingRefusal expected,
             String reason) {
-        CargoPlan cargoPlan = CargoPlan.restore(KEY, state, List.of());
+        CargoPlan cargoPlan = restoredPlan(KEY, state, List.of());
         LoadingContext context = context(KEY, status, STD, now);
 
         assertThat(cargoPlan.loadingRefusal(context)).contains(expected);
@@ -109,7 +111,7 @@ class CargoPlanLoadingTest {
                 .hasMessage("Loading on HJ221/2026-10-22/BRU is not allowed: " + reason);
     }
 
-    // ac4 the same delay reopens a draft but never a finalized plan
+    // the same delay reopens a draft but never a finalized plan
     @Test
     void laterDelayNeverReopensFinalizedPlan() {
         Instant now = Instant.parse("2026-10-22T07:50:00Z");
@@ -117,7 +119,7 @@ class CargoPlanLoadingTest {
         LoadingContext afterDelay =
                 context(KEY, FlightStatus.PLANNED, STD.plus(Duration.ofMinutes(60)), now);
         CargoPlan draft = new CargoPlan(KEY);
-        CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of());
+        CargoPlan finalized = restoredPlan(KEY, CargoPlanState.FINALIZED, List.of());
 
         assertThat(draft.loadingRefusal(beforeDelay)).contains(LoadingRefusal.WINDOW_CLOSED);
         assertThat(draft.loadingRefusal(afterDelay)).isEmpty();
@@ -128,7 +130,7 @@ class CargoPlanLoadingTest {
 
     @Test
     void finalizedWinsOverOtherReasons() {
-        CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of());
+        CargoPlan finalized = restoredPlan(KEY, CargoPlanState.FINALIZED, List.of());
         LoadingContext departedAndClosed =
                 context(KEY, FlightStatus.DEPARTED, STD, WINDOW.closesAt().plusSeconds(1));
 
@@ -149,7 +151,7 @@ class CargoPlanLoadingTest {
                                 + " HJ221/2026-10-22/BRU");
     }
 
-    // q07 is open so a booking keeps its own rule and the loading window does not limit it
+    // a booking keeps its own rule, the loading window does not limit it
     @Test
     void bookingIsNotLimitedByTheLoadingWindow() {
         CargoPlan draft = new CargoPlan(KEY);
@@ -168,10 +170,10 @@ class CargoPlanLoadingTest {
         assertThat(draft.getBookings()).hasSize(1);
     }
 
-    // d4 our reading of car-14: a finalized load takes no new uld
+    // a finalized load takes no new uld
     @Test
     void finalizedPlanRejectsANewBooking() {
-        CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of());
+        CargoPlan finalized = restoredPlan(KEY, CargoPlanState.FINALIZED, List.of());
 
         assertThatThrownBy(
                         () ->
@@ -187,12 +189,12 @@ class CargoPlanLoadingTest {
         assertThat(finalized.getBookings()).isEmpty();
     }
 
-    // car-03 a repeat is ignored and that does not change after finalizing
+    // a repeat is ignored and that does not change after finalizing
     @Test
     void finalizedPlanStillIgnoresARepeatedBooking() {
         UldBooking existing =
                 new UldBooking(new UldCode("AKE12345KL"), weight(), new AirportCode("AMS"));
-        CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of(existing));
+        CargoPlan finalized = restoredPlan(KEY, CargoPlanState.FINALIZED, List.of(existing));
 
         assertThat(
                         finalized.bookUld(
@@ -216,7 +218,8 @@ class CargoPlanLoadingTest {
                         status,
                         STD,
                         STD.plus(Duration.ofHours(2)),
-                        etd);
+                        etd,
+                        STD.plus(Duration.ofHours(2)));
         return new LoadingContext(flight, POLICY.windowFor(STD, etd), now);
     }
 }

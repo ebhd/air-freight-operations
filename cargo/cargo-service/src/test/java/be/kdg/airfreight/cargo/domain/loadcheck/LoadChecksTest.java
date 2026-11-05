@@ -35,7 +35,7 @@ class LoadChecksTest {
                 .containsExactly(
                         tuple("Lateral balance", CheckSeverity.HARD, true),
                         tuple("Offloading", CheckSeverity.HARD, true),
-                        tuple("All cargo loaded", CheckSeverity.SOFT, true));
+                        tuple("Not all cargo loaded", CheckSeverity.SOFT, true));
         assertThat(report.hasHardFailure()).isFalse();
         assertThat(report.results().get(1).reason())
                 .isEqualTo("All cargo for ATH can leave without moving other cargo");

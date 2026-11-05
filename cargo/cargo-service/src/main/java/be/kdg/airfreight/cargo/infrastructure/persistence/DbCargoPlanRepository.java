@@ -42,14 +42,7 @@ class DbCargoPlanRepository implements CargoPlanRepository {
             return Optional.empty();
         }
         List<UldBooking> stored =
-                bookings
-                        .findByIdFlightNumberAndIdScheduledDepartureDateAndIdDepartureAirportCode(
-                                flightKey.flightNumber(),
-                                flightKey.scheduledDepartureDate(),
-                                flightKey.departureAirportCode().value())
-                        .stream()
-                        .map(JpaUldBooking::toDomain)
-                        .toList();
+                storedBookings(flightKey).stream().map(JpaUldBooking::toDomain).toList();
         JpaCargoPlanId movedTo = plan.get().getMovedTo();
         return Optional.of(
                 CargoPlan.restore(
@@ -84,12 +77,7 @@ class DbCargoPlanRepository implements CargoPlanRepository {
                         .map(booking -> JpaUldBooking.fromDomain(cargoPlan.getFlightKey(), booking))
                         .toList();
         List<JpaUldBooking> removed =
-                bookings
-                        .findByIdFlightNumberAndIdScheduledDepartureDateAndIdDepartureAirportCode(
-                                cargoPlan.getFlightKey().flightNumber(),
-                                cargoPlan.getFlightKey().scheduledDepartureDate(),
-                                cargoPlan.getFlightKey().departureAirportCode().value())
-                        .stream()
+                storedBookings(cargoPlan.getFlightKey()).stream()
                         .filter(row -> cargoPlan.findBooking(row.toDomain().getCode()).isEmpty())
                         .toList();
         bookings.deleteAll(removed);
@@ -101,11 +89,14 @@ class DbCargoPlanRepository implements CargoPlanRepository {
     // the delete of the plan row checks the version, so a change that overlaps it is retried
     @Override
     public void deleteByFlightKey(FlightKey flightKey) {
-        bookings.deleteAll(
-                bookings.findByIdFlightNumberAndIdScheduledDepartureDateAndIdDepartureAirportCode(
-                        flightKey.flightNumber(),
-                        flightKey.scheduledDepartureDate(),
-                        flightKey.departureAirportCode().value()));
+        bookings.deleteAll(storedBookings(flightKey));
         plans.deleteById(JpaCargoPlanId.of(flightKey));
+    }
+
+    private List<JpaUldBooking> storedBookings(FlightKey flightKey) {
+        return bookings.findByIdFlightNumberAndIdScheduledDepartureDateAndIdDepartureAirportCode(
+                flightKey.flightNumber(),
+                flightKey.scheduledDepartureDate(),
+                flightKey.departureAirportCode().value());
     }
 }

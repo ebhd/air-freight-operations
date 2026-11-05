@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -26,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-// same pattern as flight: a row is published only after rabbitmq confirms it
+// a row counts as published only after rabbitmq confirms it
 @Slf4j
 @Component
 public class OutboxPublisher {
@@ -68,8 +67,9 @@ public class OutboxPublisher {
     @Scheduled(fixedDelay = 30, timeUnit = TimeUnit.SECONDS)
     public synchronized void publishPending() {
         try {
-            while (!Thread.currentThread().isInterrupted()) {
-                List<JpaOutboxMessage> pending =
+            List<JpaOutboxMessage> pending;
+            do {
+                pending =
                         repository.findByPublishedAtIsNullOrderByCreatedAtAscIdAsc(
                                 PageRequest.of(0, BATCH_SIZE));
                 for (JpaOutboxMessage entity : pending) {
@@ -78,10 +78,7 @@ public class OutboxPublisher {
                         return;
                     }
                 }
-                if (pending.size() < BATCH_SIZE) {
-                    return;
-                }
-            }
+            } while (pending.size() == BATCH_SIZE);
         } catch (Exception exception) {
             log.warn("Could not read pending outbox messages; will retry", exception);
         }
@@ -89,9 +86,6 @@ public class OutboxPublisher {
 
     // a crash between the ack and this save sends the same id again so consumers deduplicate
     private boolean tryPublish(OutboxMessage message) {
-        if (Thread.currentThread().isInterrupted()) {
-            return false;
-        }
         try {
             sendAndConfirm(message);
             repository.save(JpaOutboxMessage.fromDomain(message.publish(Instant.now(clock))));
@@ -150,7 +144,7 @@ public class OutboxPublisher {
                     "RabbitMQ could not route outbox message "
                             + message.id()
                             + ": "
-                            + Objects.requireNonNull(correlation.getReturned()).getReplyText());
+                            + correlation.getReturned().getReplyText());
         }
     }
 }

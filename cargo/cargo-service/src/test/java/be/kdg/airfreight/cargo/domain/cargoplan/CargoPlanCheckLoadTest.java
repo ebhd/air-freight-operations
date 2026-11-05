@@ -1,9 +1,11 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
 import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import be.kdg.airfreight.cargo.domain.exception.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
@@ -13,7 +15,6 @@ import be.kdg.airfreight.cargo.domain.loadcheck.LoadCheckReport;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadCheckResult;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadChecks;
 import be.kdg.airfreight.cargo.domain.loading.LoadingContext;
-import be.kdg.airfreight.cargo.domain.loading.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.loading.LoadingRefusal;
 import be.kdg.airfreight.cargo.domain.loading.LoadingWindowPolicy;
 import java.math.BigDecimal;
@@ -62,10 +63,10 @@ class CargoPlanCheckLoadTest {
                                         .isEqualTo(LoadingRefusal.WINDOW_CLOSED));
     }
 
-    // our reading of q17: a check belongs to the loading actions so a finalized plan refuses it
+    // a check is a loading action so a finalized plan refuses it
     @Test
     void finalizedPlanRefusesTheCheck() {
-        CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of());
+        CargoPlan finalized = restoredPlan(KEY, CargoPlanState.FINALIZED, List.of());
 
         assertThatThrownBy(
                         () ->
@@ -90,7 +91,8 @@ class CargoPlanCheckLoadTest {
                         FlightStatus.PLANNED,
                         STD,
                         STD.plus(Duration.ofHours(2)),
-                        STD);
+                        STD,
+                        STD.plus(Duration.ofHours(2)));
         return new LoadingContext(flight, POLICY.windowFor(STD, STD), now);
     }
 }

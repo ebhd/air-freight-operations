@@ -60,11 +60,8 @@ class DbFlightCopyRepository implements FlightCopyRepository {
                 .list();
     }
 
-    // own transaction so a flight fetched over http stays in the copy when the booking that
-    // needed it is refused
-    // the where keeps the newer row, an equal time is the same change delivered twice
-    // the status of an existing row is left alone: it only changes through advanceStatus, which
-    // does not bump last_change_at, so a late created event or lookup must not undo a departure
+    // own transaction so a fetched flight stays in the copy when its booking is refused
+    // the status of an existing row is left alone so a late event cannot undo a departure
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean saveIfNewer(FlightInformation flight, Instant changedAt) {
@@ -89,11 +86,11 @@ class DbFlightCopyRepository implements FlightCopyRepository {
                         .param("departure", flight.flightKey().departureAirportCode().value())
                         .param("arrival", flight.arrivalAirportCode().value())
                         .param("status", flight.status().name())
-                        .param("std", timestamp(flight.scheduledDeparture()))
-                        .param("sta", timestamp(flight.scheduledArrival()))
-                        .param("etd", timestamp(flight.estimatedDeparture()))
-                        .param("eta", timestamp(flight.estimatedArrival()))
-                        .param("changedAt", timestamp(changedAt))
+                        .param("std", Timestamp.from(flight.scheduledDeparture()))
+                        .param("sta", Timestamp.from(flight.scheduledArrival()))
+                        .param("etd", Timestamp.from(flight.estimatedDeparture()))
+                        .param("eta", Timestamp.from(flight.estimatedArrival()))
+                        .param("changedAt", Timestamp.from(changedAt))
                         .update();
         return changed == 1;
     }
@@ -114,9 +111,9 @@ class DbFlightCopyRepository implements FlightCopyRepository {
                                         + " AND scheduled_departure_date = :date"
                                         + " AND departure_airport_code = :departure"
                                         + " AND last_change_at < :changedAt")
-                        .param("etd", timestamp(estimatedDeparture))
-                        .param("eta", timestamp(estimatedArrival))
-                        .param("changedAt", timestamp(changedAt))
+                        .param("etd", Timestamp.from(estimatedDeparture))
+                        .param("eta", Timestamp.from(estimatedArrival))
+                        .param("changedAt", Timestamp.from(changedAt))
                         .param("flightNumber", flightKey.flightNumber())
                         .param("date", flightKey.scheduledDepartureDate())
                         .param("departure", flightKey.departureAirportCode().value())
@@ -129,9 +126,6 @@ class DbFlightCopyRepository implements FlightCopyRepository {
     @Transactional
     public boolean advanceStatus(FlightKey flightKey, FlightStatus status) {
         List<String> earlier = status.predecessors().stream().map(FlightStatus::name).toList();
-        if (earlier.isEmpty()) {
-            return false;
-        }
         int changed =
                 jdbc.sql(
                                 "UPDATE flights SET status = :status"
@@ -172,18 +166,9 @@ class DbFlightCopyRepository implements FlightCopyRepository {
                 key,
                 new AirportCode(row.getString("arrival_airport_code")),
                 FlightStatus.valueOf(row.getString("status")),
-                instant(row.getTimestamp("scheduled_departure")),
-                instant(row.getTimestamp("scheduled_arrival")),
-                instant(row.getTimestamp("estimated_departure")),
-                instant(row.getTimestamp("estimated_arrival")));
-    }
-
-    // estimates may be missing so both directions keep null
-    private static Timestamp timestamp(Instant instant) {
-        return instant == null ? null : Timestamp.from(instant);
-    }
-
-    private static Instant instant(Timestamp timestamp) {
-        return timestamp == null ? null : timestamp.toInstant();
+                row.getTimestamp("scheduled_departure").toInstant(),
+                row.getTimestamp("scheduled_arrival").toInstant(),
+                row.getTimestamp("estimated_departure").toInstant(),
+                row.getTimestamp("estimated_arrival").toInstant());
     }
 }

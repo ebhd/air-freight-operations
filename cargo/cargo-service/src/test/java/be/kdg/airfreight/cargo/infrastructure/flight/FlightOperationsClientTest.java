@@ -8,10 +8,10 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import be.kdg.airfreight.cargo.domain.exception.FlightLookupRejectedException;
+import be.kdg.airfreight.cargo.domain.exception.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
-import be.kdg.airfreight.cargo.domain.flight.FlightLookupRejectedException;
-import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import java.io.IOException;
 import java.time.Instant;
@@ -68,9 +68,8 @@ class FlightOperationsClientTest {
                 .hasValueSatisfying(info -> assertThat(info.planned()).isFalse());
     }
 
-    // flight sends no delays until issue 15 so etd equals std
     @Test
-    void estimatedDepartureEqualsScheduledDepartureUntilFlightSendsDelays() {
+    void readsTheEstimatedDepartureFromTheAnswer() {
         flight.expect(requestTo(URL))
                 .andRespond(withSuccess(json("PLANNED"), MediaType.APPLICATION_JSON));
 
@@ -171,7 +170,8 @@ class FlightOperationsClientTest {
         return """
                 {"flightNumber":"HJ221","scheduledDepartureDate":"2026-10-19",
                  "departureAirportCode":"BRU","arrivalAirportCode":"AMS","status":"%s",
-                 "scheduledDeparture":"2026-10-19T08:00:00Z","scheduledArrival":"2026-10-19T10:00:00Z"}
+                 "scheduledDeparture":"2026-10-19T08:00:00Z","scheduledArrival":"2026-10-19T10:00:00Z",
+                 "estimatedDeparture":"2026-10-19T08:00:00Z","estimatedArrival":"2026-10-19T10:00:00Z"}
                 """
                 .formatted(status);
     }

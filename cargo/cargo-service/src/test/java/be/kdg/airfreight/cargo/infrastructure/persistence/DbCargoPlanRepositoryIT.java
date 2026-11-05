@@ -1,6 +1,7 @@
 package be.kdg.airfreight.cargo.infrastructure.persistence;
 
 import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -83,7 +84,7 @@ class DbCargoPlanRepositoryIT {
     @Test
     void storesAndRestoresPositions() {
         repository.save(
-                CargoPlan.restore(
+                restoredPlan(
                         KEY,
                         CargoPlanState.DRAFT,
                         List.of(
@@ -110,9 +111,9 @@ class DbCargoPlanRepositoryIT {
     @Test
     void storesAndRestoresTheFinalizedState() {
         Instant finalizedAt = Instant.parse("2026-10-19T06:00:00Z");
-        repository.save(CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of()));
+        repository.save(restoredPlan(KEY, CargoPlanState.DRAFT, List.of()));
         entityManager.flush();
-        repository.save(CargoPlan.restore(KEY, CargoPlanState.FINALIZED, finalizedAt, List.of()));
+        repository.save(restoredPlan(KEY, CargoPlanState.FINALIZED, finalizedAt, List.of()));
         entityManager.flush();
         entityManager.clear();
 
@@ -128,7 +129,7 @@ class DbCargoPlanRepositoryIT {
     @Test
     void saveDeletesABookingThatLeftThePlan() {
         repository.save(
-                CargoPlan.restore(
+                restoredPlan(
                         KEY,
                         CargoPlanState.DRAFT,
                         List.of(
@@ -138,7 +139,7 @@ class DbCargoPlanRepositoryIT {
         entityManager.clear();
 
         repository.save(
-                CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of(booking("PMC00001KL", null))));
+                restoredPlan(KEY, CargoPlanState.DRAFT, List.of(booking("PMC00001KL", null))));
         entityManager.flush();
         entityManager.clear();
 
@@ -150,7 +151,7 @@ class DbCargoPlanRepositoryIT {
     @Test
     void storesAndRestoresTheReplannedStateAndTheNewFlight() {
         FlightKey movedTo = new FlightKey("HJ221A", DAY.plusDays(1), BRU);
-        repository.save(CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of()));
+        repository.save(restoredPlan(KEY, CargoPlanState.DRAFT, List.of()));
         entityManager.flush();
         repository.save(CargoPlan.restore(KEY, CargoPlanState.REPLANNED, null, movedTo, List.of()));
         entityManager.flush();
@@ -167,7 +168,7 @@ class DbCargoPlanRepositoryIT {
     @Test
     void databaseRefusesTwoUldsOnOnePosition() {
         repository.save(
-                CargoPlan.restore(
+                restoredPlan(
                         KEY,
                         CargoPlanState.DRAFT,
                         List.of(
@@ -176,7 +177,7 @@ class DbCargoPlanRepositoryIT {
                                 booking("PMC00002KL", null))));
         // the same position on another flight is fine
         repository.save(
-                CargoPlan.restore(
+                restoredPlan(
                         new FlightKey("HJ222", DAY, BRU),
                         CargoPlanState.DRAFT,
                         List.of(booking("AKE12345KL", LoadingPosition.CL))));

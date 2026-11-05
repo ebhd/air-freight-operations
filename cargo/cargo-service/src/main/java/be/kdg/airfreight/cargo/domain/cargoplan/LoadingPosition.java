@@ -1,6 +1,6 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.exception.InvalidCargoValueException;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -74,7 +74,6 @@ public enum LoadingPosition {
         try {
             return valueOf(code.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException unknown) {
-            // valueOf throws this for an unknown name
             throw new InvalidCargoValueException(
                     "Unknown loading position " + code.trim() + ", valid positions are " + codes());
         }

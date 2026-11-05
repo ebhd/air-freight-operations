@@ -22,12 +22,12 @@ import static be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition.X;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldBooking;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldCode;
 import be.kdg.airfreight.cargo.domain.cargoplan.Weight;
 import be.kdg.airfreight.cargo.domain.cargoplan.WeightUnit;
+import be.kdg.airfreight.cargo.domain.exception.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import java.math.BigDecimal;
 import java.util.List;
@@ -240,7 +240,7 @@ class OffloadingCheckTest {
         assertThat(result.unloadingOrder()).containsExactly(UR, X);
     }
 
-    // team reading of q16 so this test flips if the coach answers otherwise
+    // nose positions do not block each other
     @Test
     void nosePositionsDoNotBlockEachOther() {
         OffloadingResult result =

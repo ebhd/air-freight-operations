@@ -322,14 +322,14 @@ Invariants on `CargoPlan`:
 4. Finalized load cannot change.
 5. The cargo of a replanned flight moves once to the plan of the new flight: bookings keep their position unless it is taken there, and the new plan is a `DRAFT`, also after a finalized load, so the load planner checks and finalizes again. The old plan ends as `REPLANNED` with `movedTo`.
 
-Every change raises the version of the `cargo_plans` row (optimistic locking): of two overlapping changes the second is rolled back with 409, and a unique constraint on (flight, position) guards invariant 1 in the database. A ULD moves to a free position in one step; swapping two ULDs takes two (team reading of Q16).
+Every change raises the version of the `cargo_plans` row (optimistic locking): of two overlapping changes the second is rolled back with 409, and a unique constraint on (flight, position) guards invariant 1 in the database. A ULD moves to a free position in one step; swapping two ULDs takes two (team reading).
 
 `LoadingPosition` is an enum of the 34 main-deck positions of the Boeing 747-400 freighter. A second aircraft type would introduce a floor plan per type. Every check implements `LoadCheck` and gets the bookings and the arrival airport, also when it does not use the airport. `LoadChecks` runs its list in a fixed order and builds one report, so a new check is one new class added to that list.
 
 Loading period: **STD - 12 hours → current ETD - 20 minutes**
 
 - Both offsets are settings, and only STD and ETD count, so arrival times cannot move the window.
-- The window is half open: open at the opening instant, closed at the closing instant (team reading of Q06).
+- The window is half open: open at the opening instant, closed at the closing instant (team reading).
 - It is never stored. A `LoadingContext` is built per action from Flight's current data, so a departure delay moves the end at the next action.
 
 ### Load checks
@@ -342,21 +342,21 @@ Loading period: **STD - 12 hours → current ETD - 20 minutes**
 
 - All checks run, also after an earlier one failed, and every result has a name, type, outcome and reason. Checking changes nothing.
 - Hard checks inspect positioned cargo only.
-- A check is refused outside the window and after finalizing (team reading of Q17: Check Load is a loading action).
+- A check is refused outside the window and after finalizing (team reading: Check Load is a loading action).
 
-Lateral balance (#22):
+Lateral balance:
 
-- Left and right are the sums of the L and R positions, compared in kg, the unit we chose (the course names none). LB uses the exact factor 0.45359237 (Q15).
+- Left and right are the sums of the L and R positions, compared in kg, the unit we chose (the course names none). LB uses the exact factor 0.45359237.
 - `heavier <= lighter × (1 + tolerance)` with exact decimals: 1000/1100 passes, 1000/1101 fails.
 - From the formula, not a course case: an empty load passes and cargo on only one side fails.
-- The tolerance is a setting, default `0.10`; changing it needs a restart, not a release (Q21 stays open).
+- The tolerance is a setting, default `0.10`; changing it needs a restart, not a release.
 
-Offloading (#23, #24):
+Offloading:
 
 - `OffloadingCheck` simulates unloading on its own copy of the positions. In passes from nose to tail it removes every ULD for the arrival airport whose route is empty; what remains is blocked. Cargo for other airports never moves.
 - Routes follow the order of `LoadingPosition`: along the own side to row R, leaving through RL, and right cargo crosses from RR to RL. A route never switches sides.
 - A1, A2, B1 and X have no route of their own and maneuver first: A1, A2 and B1 need CL and CR empty, X needs UL and UR empty. Then one clear side route is enough.
-- Without destination cargo aboard the check passes. A1, A2 and B1 do not block each other (team readings of Q16; open question for the coach).
+- Without destination cargo aboard the check passes. A1, A2 and B1 do not block each other (team reading; open question for the coach).
 
 ### Lifecycle and finalization handoff
 
@@ -373,10 +373,10 @@ stateDiagram-v2
 ```
 
 - A departure delay never reopens a finalized plan; there is no unfinalize.
-- `finalizeLoad` reruns all checks. A hard failure changes nothing (409 `HARD_CHECKS_FAILED` with the report); soft warnings do not block. A plan without positioned cargo can be finalized, with an empty ULD list (D3).
-- After finalizing, positions, checks and a second finalize refuse with `PLAN_FINALIZED`. A new ULD booking goes to `rejected_messages`; a repeat of an existing booking stays an ignored duplicate (D4, our reading of CAR-14 and Q07).
+- `finalizeLoad` reruns all checks. A hard failure changes nothing (409 `HARD_CHECKS_FAILED` with the report); soft warnings do not block. A plan without positioned cargo can be finalized, with an empty ULD list.
+- After finalizing, positions, checks and a second finalize refuse with `PLAN_FINALIZED`. A new ULD booking goes to `rejected_messages`; a repeat of an existing booking stays an ignored duplicate (team reading).
 - `LoadFinalized` is written to the outbox in the same transaction and sent as `cargo.load-finalized` on `cargo.events` ([contract](../README.md#messages)). Flight (departure condition) and the Formatter (partner CPM) each bind their own queue. Cargo never formats the partner CPM.
-- Team reading of Q10/Q11: Flight's processing of `cargo.load-finalized` is the receipt of the CPM. A resend keeps its message ID, so a duplicate has no second effect in Flight or Partner.
+- Team reading: Flight's processing of `cargo.load-finalized` is the receipt of the CPM. A resend keeps its message ID, so a duplicate has no second effect in Flight or Partner.
 
 ## 7. Tactical design: Flight Operations
 

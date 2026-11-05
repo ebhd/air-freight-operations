@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ApiFailure } from '../../ts/api-failure.js';
-import { loadNotCheckedText, loadNotFinalizedText, positionNotChangedText, refusalText } from '../../ts/refusal-text.js';
+import type { ApiFailure } from '../../ts/shared/api-failure.js';
+import { loadNotCheckedText, loadNotFinalizedText, positionNotChangedText, refusalText } from '../../ts/cargo/refusal-text.js';
 
 // 20:00 and 07:40 utc are 22:00 and 09:40 in brussels summer time
 const OPENS_AT = '2026-10-21T20:00:00Z';

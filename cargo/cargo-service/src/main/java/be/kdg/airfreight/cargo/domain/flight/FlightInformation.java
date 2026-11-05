@@ -17,23 +17,8 @@ public record FlightInformation(
         Objects.requireNonNull(status, "Status is required");
         Objects.requireNonNull(scheduledDeparture, "Scheduled departure is required");
         Objects.requireNonNull(scheduledArrival, "Scheduled arrival is required");
-    }
-
-    public FlightInformation(
-            FlightKey flightKey,
-            AirportCode arrivalAirportCode,
-            FlightStatus status,
-            Instant scheduledDeparture,
-            Instant scheduledArrival,
-            Instant estimatedDeparture) {
-        this(
-                flightKey,
-                arrivalAirportCode,
-                status,
-                scheduledDeparture,
-                scheduledArrival,
-                estimatedDeparture,
-                scheduledArrival);
+        Objects.requireNonNull(estimatedDeparture, "Estimated departure is required");
+        Objects.requireNonNull(estimatedArrival, "Estimated arrival is required");
     }
 
     public boolean planned() {

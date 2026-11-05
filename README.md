@@ -171,9 +171,9 @@ Errors use `ProblemDetail`: 400 for invalid input, 401 or 403 for sign-in and ro
 | `formatter.events` | `partner-messages.prepared` | Formatter, Partner | Prepared messages |
 | `partner.messages` | `flm`, `mvt.ed`, `mvt.ea`, `mvt.ad`, `mvt.aa`, `cpm`, `flight.replanned` | Partner, partners | See below |
 
-To partners, FLM, CPM and FLIGHT_REPLANNED (our own message, the course defines none) are JSON with `messageId`, `createdAt`, `formatVersion`, `type` and `payload`. MVT is three lines of text with UTC times (`MVT`, `HJ221/09.SXBAA.BRU`, `AD2003`) and the metadata in the AMQP headers.
+To partners, FLM, CPM and FLIGHT_REPLANNED (our own message) are JSON with `messageId`, `createdAt`, `formatVersion`, `type` and `payload`. MVT is three lines of text with UTC times (`MVT`, `HJ221/09.SXBAA.BRU`, `AD2003`) and the metadata in the AMQP headers.
 
-ULD booking (provisional format, Q01):
+ULD booking (our own format):
 
 ```json
 {

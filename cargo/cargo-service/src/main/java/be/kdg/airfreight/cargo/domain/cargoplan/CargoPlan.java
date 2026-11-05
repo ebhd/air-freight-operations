@@ -1,6 +1,11 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.exception.BookingRejectedException;
+import be.kdg.airfreight.cargo.domain.exception.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.exception.LoadNotFinalizedException;
+import be.kdg.airfreight.cargo.domain.exception.LoadingNotAllowedException;
+import be.kdg.airfreight.cargo.domain.exception.PositionOccupiedException;
+import be.kdg.airfreight.cargo.domain.exception.UldNotBookedException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
@@ -8,7 +13,6 @@ import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadCheckReport;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadChecks;
 import be.kdg.airfreight.cargo.domain.loading.LoadingContext;
-import be.kdg.airfreight.cargo.domain.loading.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.loading.LoadingRefusal;
 import java.time.Instant;
 import java.util.Comparator;
@@ -40,19 +44,6 @@ public final class CargoPlan {
     }
 
     public static CargoPlan restore(
-            FlightKey flightKey, CargoPlanState state, List<UldBooking> bookings) {
-        return restore(flightKey, state, null, null, bookings);
-    }
-
-    public static CargoPlan restore(
-            FlightKey flightKey,
-            CargoPlanState state,
-            Instant finalizedAt,
-            List<UldBooking> bookings) {
-        return restore(flightKey, state, finalizedAt, null, bookings);
-    }
-
-    public static CargoPlan restore(
             FlightKey flightKey,
             CargoPlanState state,
             Instant finalizedAt,
@@ -74,7 +65,7 @@ public final class CargoPlan {
         if (bookings.containsKey(code)) {
             return false;
         }
-        // our reading of q07 and car-14: the finalized load takes no new ulds
+        // a finalized load takes no new ulds
         if (isFinalized()) {
             throw new BookingRejectedException(
                     "Cargo plan of flight " + flightKey + " is finalized, no ULD can be added");
@@ -127,11 +118,11 @@ public final class CargoPlan {
             if (target.bookings.containsKey(booking.getCode())) {
                 continue;
             }
+            LoadingPosition position = booking.getPosition().orElse(null);
             // a taken position is not stolen, the load planner places that uld again
-            LoadingPosition position =
-                    booking.getPosition()
-                            .filter(taken -> target.bookingAt(taken).isEmpty())
-                            .orElse(null);
+            if (position != null && target.bookingAt(position).isPresent()) {
+                position = null;
+            }
             target.bookings.put(
                     booking.getCode(),
                     new UldBooking(
@@ -155,7 +146,7 @@ public final class CargoPlan {
         return state == CargoPlanState.FINALIZED;
     }
 
-    // the one rule for changing checking and finalizing a load
+    // the rule for changing, checking and finalizing a load
     public Optional<LoadingRefusal> loadingRefusal(LoadingContext context) {
         FlightKey contextFlightKey = context.flight().flightKey();
         if (!contextFlightKey.equals(flightKey)) {
@@ -190,7 +181,7 @@ public final class CargoPlan {
         }
     }
 
-    // a uld with a position moves and its old position becomes free as our q16 reading
+    // a uld with a position moves and its old position becomes free
     public void assignPosition(UldCode code, LoadingPosition position, LoadingContext context) {
         requireLoadingAllowed(context);
         UldBooking booking = requireBooking(code);
@@ -256,7 +247,7 @@ public final class CargoPlan {
 
     private Optional<UldBooking> bookingAt(LoadingPosition position) {
         for (UldBooking booking : bookings.values()) {
-            if (booking.getPosition().equals(Optional.of(position))) {
+            if (booking.getPosition().orElse(null) == position) {
                 return Optional.of(booking);
             }
         }

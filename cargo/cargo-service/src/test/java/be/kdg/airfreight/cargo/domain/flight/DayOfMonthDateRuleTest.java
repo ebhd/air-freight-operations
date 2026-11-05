@@ -3,7 +3,7 @@ package be.kdg.airfreight.cargo.domain.flight;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
+import be.kdg.airfreight.cargo.domain.exception.InvalidCargoValueException;
 import java.time.Instant;
 import java.time.LocalDate;
 import org.junit.jupiter.params.ParameterizedTest;

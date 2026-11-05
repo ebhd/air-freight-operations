@@ -8,13 +8,14 @@ import be.kdg.airfreight.cargo.application.booking.BookUldCommand;
 import be.kdg.airfreight.cargo.application.booking.BookUldService;
 import be.kdg.airfreight.cargo.application.cargoplan.FinalizeLoadService;
 import be.kdg.airfreight.cargo.application.loading.LoadingWindowService;
-import be.kdg.airfreight.cargo.domain.cargoplan.BookingRejectedException;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
-import be.kdg.airfreight.cargo.domain.cargoplan.LoadNotFinalizedException;
 import be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldCode;
 import be.kdg.airfreight.cargo.domain.cargoplan.Weight;
 import be.kdg.airfreight.cargo.domain.cargoplan.WeightUnit;
+import be.kdg.airfreight.cargo.domain.exception.BookingRejectedException;
+import be.kdg.airfreight.cargo.domain.exception.LoadNotFinalizedException;
+import be.kdg.airfreight.cargo.domain.exception.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
@@ -23,9 +24,8 @@ import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import be.kdg.airfreight.cargo.domain.loadcheck.LateralBalanceCheck;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadChecks;
 import be.kdg.airfreight.cargo.domain.loading.LoadingContext;
-import be.kdg.airfreight.cargo.domain.loading.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.loading.LoadingWindowPolicy;
-import be.kdg.airfreight.cargo.infrastructure.messaging.OutboxCargoEvents;
+import be.kdg.airfreight.cargo.infrastructure.messaging.outbox.OutboxCargoEvents;
 import be.kdg.airfreight.cargo.support.PostgresTestConfiguration;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -80,7 +80,8 @@ class FinalizeLoadIT {
                     FlightStatus.PLANNED,
                     STD,
                     STD.plus(Duration.ofHours(2)),
-                    STD);
+                    STD,
+                    STD.plus(Duration.ofHours(2)));
     private static final LoadingWindowPolicy POLICY =
             new LoadingWindowPolicy(Duration.ofHours(12), Duration.ofMinutes(20));
     private static final Instant INSIDE = Instant.parse("2026-10-19T06:00:00Z");

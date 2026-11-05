@@ -1,10 +1,10 @@
 package be.kdg.airfreight.cargo.application.cargoplan;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanRepository;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanState;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldBooking;
@@ -44,16 +44,14 @@ class CargoPlanQueryServiceTest {
         assertThat(view.cargoPlan().getBookings()).isEmpty();
     }
 
-    // ac4 reading stays possible after departure
+    // reading stays possible after departure
     @ParameterizedTest
     @EnumSource(FlightStatus.class)
     void isReadableInEveryFlightState(FlightStatus status) {
         UldBooking booking = booking("AKE12345KL", "AMS");
         when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(flight(status)));
         when(cargoPlans.findByFlightKey(KEY))
-                .thenReturn(
-                        Optional.of(
-                                CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of(booking))));
+                .thenReturn(Optional.of(restoredPlan(KEY, CargoPlanState.DRAFT, List.of(booking))));
 
         CargoPlanView view = service.getCargoPlan(KEY);
 
@@ -68,7 +66,8 @@ class CargoPlanQueryServiceTest {
                 status,
                 Instant.parse("2026-10-19T08:00:00Z"),
                 Instant.parse("2026-10-19T10:00:00Z"),
-                Instant.parse("2026-10-19T08:00:00Z"));
+                Instant.parse("2026-10-19T08:00:00Z"),
+                Instant.parse("2026-10-19T10:00:00Z"));
     }
 
     private static UldBooking booking(String uldCode, String destination) {

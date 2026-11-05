@@ -14,14 +14,6 @@ CREATE TABLE IF NOT EXISTS cargo_plans (
     CONSTRAINT cargo_plans_state_check CHECK (state IN ('DRAFT', 'FINALIZED', 'REPLANNED'))
 );
 
--- the move columns and state came later, so an existing database gets them without a reset
-ALTER TABLE cargo_plans ADD COLUMN IF NOT EXISTS moved_to_flight_number VARCHAR(32);
-ALTER TABLE cargo_plans ADD COLUMN IF NOT EXISTS moved_to_departure_date DATE;
-ALTER TABLE cargo_plans ADD COLUMN IF NOT EXISTS moved_to_departure_airport_code CHAR(3);
-ALTER TABLE cargo_plans DROP CONSTRAINT IF EXISTS cargo_plans_state_check;
-ALTER TABLE cargo_plans ADD CONSTRAINT cargo_plans_state_check
-    CHECK (state IN ('DRAFT', 'FINALIZED', 'REPLANNED'));
-
 CREATE TABLE IF NOT EXISTS uld_bookings (
     flight_number VARCHAR(32) NOT NULL,
     scheduled_departure_date DATE NOT NULL,
@@ -84,8 +76,8 @@ CREATE TABLE IF NOT EXISTS flights (
     status VARCHAR(16) NOT NULL,
     scheduled_departure TIMESTAMP WITH TIME ZONE NOT NULL,
     scheduled_arrival TIMESTAMP WITH TIME ZONE NOT NULL,
-    estimated_departure TIMESTAMP WITH TIME ZONE,
-    estimated_arrival TIMESTAMP WITH TIME ZONE,
+    estimated_departure TIMESTAMP WITH TIME ZONE NOT NULL,
+    estimated_arrival TIMESTAMP WITH TIME ZONE NOT NULL,
     last_change_at TIMESTAMP WITH TIME ZONE NOT NULL,
     PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code)
 );
