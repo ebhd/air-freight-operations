@@ -5,7 +5,6 @@ import be.kdg.airfreight.cargo.application.cargoplan.UldPositionService;
 import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldCode;
-import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import java.time.LocalDate;
 import java.util.function.Supplier;
@@ -50,7 +49,8 @@ public class CargoPlanController {
                     LocalDate scheduledDepartureDate,
             @PathVariable String departureAirportCode) {
         FlightKey flightKey =
-                toFlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
+                FlightKeyRequestMapper.toFlightKey(
+                        flightNumber, scheduledDepartureDate, departureAirportCode);
         return CargoPlanResponse.from(cargoPlanQueryService.getCargoPlan(flightKey));
     }
 
@@ -65,7 +65,8 @@ public class CargoPlanController {
             @PathVariable String uldCode,
             @RequestBody AssignPositionRequest request) {
         FlightKey flightKey =
-                toFlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
+                FlightKeyRequestMapper.toFlightKey(
+                        flightNumber, scheduledDepartureDate, departureAirportCode);
         UldCode code = fromRequest(() -> new UldCode(uldCode));
         LoadingPosition position = fromRequest(() -> LoadingPosition.fromCode(request.position()));
         uldPositionService.assignPosition(flightKey, code, position);
@@ -80,7 +81,8 @@ public class CargoPlanController {
             @PathVariable String departureAirportCode,
             @PathVariable String uldCode) {
         FlightKey flightKey =
-                toFlightKey(flightNumber, scheduledDepartureDate, departureAirportCode);
+                FlightKeyRequestMapper.toFlightKey(
+                        flightNumber, scheduledDepartureDate, departureAirportCode);
         uldPositionService.clearPosition(flightKey, fromRequest(() -> new UldCode(uldCode)));
     }
 
@@ -90,16 +92,6 @@ public class CargoPlanController {
         log.warn("Concurrent change on cargo plan refused: {}", exception.getMessage());
         return ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT, CargoApiExceptionHandler.CONCURRENT_CHANGE);
-    }
-
-    static FlightKey toFlightKey(
-            String flightNumber, LocalDate scheduledDepartureDate, String departureAirportCode) {
-        return fromRequest(
-                () ->
-                        new FlightKey(
-                                flightNumber,
-                                scheduledDepartureDate,
-                                new AirportCode(departureAirportCode)));
     }
 
     // only bad input in the url or body is a 400 so bad data from flight stays a 500

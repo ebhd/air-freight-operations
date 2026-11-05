@@ -30,8 +30,29 @@
             <dt id="estimated-departure-label" class="font-semibold" hidden>Estimated departure (Brussels)</dt><dd id="estimated-departure" hidden></dd>
             <dt class="font-semibold">Scheduled arrival (Brussels)</dt><dd id="scheduled-arrival"></dd>
             <dt id="estimated-arrival-label" class="font-semibold" hidden>Estimated arrival (Brussels)</dt><dd id="estimated-arrival" hidden></dd>
+            <dt id="actual-departure-label" class="font-semibold" hidden>Actual departure (Brussels)</dt><dd id="actual-departure" hidden></dd>
+            <dt id="actual-arrival-label" class="font-semibold" hidden>Actual arrival (Brussels)</dt><dd id="actual-arrival" hidden></dd>
         </dl>
         <p id="permissions" class="mb-4"></p>
+        <section id="actual-times" class="mb-6 rounded border border-slate-300 bg-white p-4" hidden>
+            <h2 class="mb-3 text-xl font-semibold">Actual times</h2>
+            <form id="departure-form" hidden>
+                <fieldset id="departure-fields" class="flex flex-wrap items-end gap-4">
+                    <label class="flex flex-col gap-1">Actual departure (Brussels time)
+                        <input id="actual-departure-input" class="field" type="datetime-local" step="60" required>
+                    </label>
+                    <button id="register-departure" class="button" type="submit">Register departure</button>
+                </fieldset>
+            </form>
+            <form id="arrival-form" hidden>
+                <fieldset id="arrival-fields" class="flex flex-wrap items-end gap-4">
+                    <label class="flex flex-col gap-1">Actual arrival (Brussels time)
+                        <input id="actual-arrival-input" class="field" type="datetime-local" step="60" required>
+                    </label>
+                    <button id="register-arrival" class="button" type="submit">Register arrival</button>
+                </fieldset>
+            </form>
+        </section>
         <section id="delay-editor" class="mb-6 rounded border border-slate-300 bg-white p-4" hidden>
             <h2 id="editor-title" class="mb-3 text-xl font-semibold">Add delay</h2>
             <form id="delay-form">

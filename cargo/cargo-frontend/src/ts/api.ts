@@ -1,12 +1,8 @@
+import { failureFromProblem, type ApiFailure, type ProblemDetail } from './api-failure.js';
 import { AuthenticationError, authorizedFetch } from './auth.js';
 import { requiredElement } from './dom.js';
 
-// a failure carries the message to show and the http status which is null when the server did not answer
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number | null; message: string };
-
-type ProblemDetail = {
-    detail?: string;
-};
+export type ApiResult<T> = { ok: true; data: T } | ApiFailure;
 
 export async function getJson<T>(path: string): Promise<ApiResult<T>> {
     const result = await request(path, {});
@@ -31,6 +27,15 @@ export async function sendJson(method: 'PUT' | 'DELETE', path: string, body?: ob
     return { ok: true, data: null };
 }
 
+// a post without a body that answers with json, used by finalizing
+export async function postJson<T>(path: string): Promise<ApiResult<T>> {
+    const result = await request(path, { method: 'POST' });
+    if (!result.ok) {
+        return result;
+    }
+    return { ok: true, data: (await result.data.json()) as T };
+}
+
 // adds the token and turns every failed request into a failure with the message to show
 async function request(path: string, init: RequestInit): Promise<ApiResult<Response>> {
     let response: Response;
@@ -51,19 +56,16 @@ async function request(path: string, init: RequestInit): Promise<ApiResult<Respo
     if (response.status === 403) {
         return { ok: false, status: response.status, message: 'You are not allowed to do this.' };
     }
-    return { ok: false, status: response.status, message: await problemDetail(response) };
+    return failureFromProblem(response.status, await problemBody(response));
 }
 
-// spring explains a refused request in the detail of a problem json body
-async function problemDetail(response: Response): Promise<string> {
+// spring explains a refused request in a problem json body
+async function problemBody(response: Response): Promise<ProblemDetail | null> {
     const contentType = response.headers.get('Content-Type') ?? '';
-    if (contentType.includes('application/problem+json')) {
-        const problem = (await response.json()) as ProblemDetail;
-        if (problem.detail) {
-            return problem.detail;
-        }
+    if (!contentType.includes('application/problem+json')) {
+        return null;
     }
-    return `Request failed (HTTP ${response.status})`;
+    return (await response.json()) as ProblemDetail;
 }
 
 // textContent never runs server text as html

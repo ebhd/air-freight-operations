@@ -3,9 +3,13 @@ package be.kdg.airfreight.cargo.domain.cargoplan;
 import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
+import be.kdg.airfreight.cargo.domain.loadcheck.LoadCheckReport;
+import be.kdg.airfreight.cargo.domain.loadcheck.LoadChecks;
 import be.kdg.airfreight.cargo.domain.loading.LoadingContext;
 import be.kdg.airfreight.cargo.domain.loading.LoadingNotAllowedException;
 import be.kdg.airfreight.cargo.domain.loading.LoadingRefusal;
+import java.time.Instant;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,21 +19,31 @@ import java.util.Optional;
 public final class CargoPlan {
     private final FlightKey flightKey;
     private final Map<UldCode, UldBooking> bookings = new LinkedHashMap<>();
-    // only restore can give finalized until finalizing exists in issue 26
-    private final CargoPlanState state;
+    private CargoPlanState state;
+    // null while the plan is a draft
+    private Instant finalizedAt;
 
     public CargoPlan(FlightKey flightKey) {
-        this(flightKey, CargoPlanState.DRAFT);
+        this(flightKey, CargoPlanState.DRAFT, null);
     }
 
-    private CargoPlan(FlightKey flightKey, CargoPlanState state) {
+    private CargoPlan(FlightKey flightKey, CargoPlanState state, Instant finalizedAt) {
         this.flightKey = Objects.requireNonNull(flightKey, "Flight key is required");
-        this.state = state;
+        this.state = Objects.requireNonNull(state, "State is required");
+        this.finalizedAt = finalizedAt;
     }
 
     public static CargoPlan restore(
             FlightKey flightKey, CargoPlanState state, List<UldBooking> bookings) {
-        CargoPlan cargoPlan = new CargoPlan(flightKey, state);
+        return restore(flightKey, state, null, bookings);
+    }
+
+    public static CargoPlan restore(
+            FlightKey flightKey,
+            CargoPlanState state,
+            Instant finalizedAt,
+            List<UldBooking> bookings) {
+        CargoPlan cargoPlan = new CargoPlan(flightKey, state, finalizedAt);
         for (UldBooking booking : bookings) {
             cargoPlan.bookings.put(booking.getCode(), booking);
         }
@@ -39,8 +53,14 @@ public final class CargoPlan {
     // false on a duplicate and the existing booking stays
     public boolean bookUld(UldCode code, Weight weight, AirportCode destination) {
         UldBooking booking = new UldBooking(code, weight, destination);
+        // a repeat changes nothing so it stays an ignored duplicate also after finalizing
         if (bookings.containsKey(code)) {
             return false;
+        }
+        // our reading of q07 and car-14: the finalized load takes no new ulds
+        if (isFinalized()) {
+            throw new BookingRejectedException(
+                    "Cargo plan of flight " + flightKey + " is finalized, no ULD can be added");
         }
         bookings.put(code, booking);
         return true;
@@ -103,6 +123,38 @@ public final class CargoPlan {
         booking.placeAt(position);
     }
 
+    // runs every check on the current load and changes nothing
+    public LoadCheckReport checkLoad(LoadingContext context, LoadChecks checks) {
+        requireLoadingAllowed(context);
+        return checks.run(getBookings(), context.flight().arrivalAirportCode());
+    }
+
+    // reruns every check so an older passed report never counts and only hard failures block
+    public LoadFinalized finalizeLoad(LoadingContext context, LoadChecks checks) {
+        LoadCheckReport report = checkLoad(context, checks);
+        if (report.hasHardFailure()) {
+            throw new LoadNotFinalizedException(flightKey, report);
+        }
+        state = CargoPlanState.FINALIZED;
+        finalizedAt = context.now();
+        return new LoadFinalized(flightKey, finalizedAt, positionedUlds(), report);
+    }
+
+    // only positioned ulds go in the cpm, in floor plan order from nose to tail
+    private List<LoadFinalized.FinalizedUld> positionedUlds() {
+        return bookings.values().stream()
+                .filter(booking -> booking.getPosition().isPresent())
+                .sorted(Comparator.comparing(booking -> booking.getPosition().orElseThrow()))
+                .map(
+                        booking ->
+                                new LoadFinalized.FinalizedUld(
+                                        booking.getCode(),
+                                        booking.getPosition().orElseThrow(),
+                                        booking.getWeight(),
+                                        booking.getDestination()))
+                .toList();
+    }
+
     // clearing a uld without a position changes nothing
     public void clearPosition(UldCode code, LoadingContext context) {
         requireLoadingAllowed(context);
@@ -131,6 +183,14 @@ public final class CargoPlan {
 
     public FlightKey getFlightKey() {
         return flightKey;
+    }
+
+    public CargoPlanState getState() {
+        return state;
+    }
+
+    public Optional<Instant> getFinalizedAt() {
+        return Optional.ofNullable(finalizedAt);
     }
 
     public List<UldBooking> getBookings() {

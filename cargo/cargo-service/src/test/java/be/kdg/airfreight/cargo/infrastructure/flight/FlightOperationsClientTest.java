@@ -28,20 +28,20 @@ import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
-class HttpFlightRepositoryTest {
+class FlightOperationsClientTest {
     private static final String URL = "http://flight/api/flights/HJ221/2026-10-19/BRU";
     private static final FlightKey KEY =
             new FlightKey("HJ221", LocalDate.of(2026, 10, 19), new AirportCode("BRU"));
 
     private MockRestServiceServer flight;
-    private HttpFlightRepository repository;
+    private FlightOperationsClient client;
 
     @BeforeEach
     void setUp() {
         // fake flight service no real http and no token
         RestClient.Builder builder = RestClient.builder().baseUrl("http://flight");
         flight = MockRestServiceServer.bindTo(builder).build();
-        repository = new HttpFlightRepository(builder.build());
+        client = new FlightOperationsClient(builder.build());
     }
 
     @Test
@@ -50,7 +50,7 @@ class HttpFlightRepositoryTest {
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess(json("PLANNED"), MediaType.APPLICATION_JSON));
 
-        assertThat(repository.findByFlightKey(KEY))
+        assertThat(client.fetch(KEY))
                 .hasValueSatisfying(
                         info -> {
                             assertThat(info.flightKey()).isEqualTo(KEY);
@@ -64,7 +64,7 @@ class HttpFlightRepositoryTest {
         flight.expect(requestTo(URL))
                 .andRespond(withSuccess(json("DEPARTED"), MediaType.APPLICATION_JSON));
 
-        assertThat(repository.findByFlightKey(KEY))
+        assertThat(client.fetch(KEY))
                 .hasValueSatisfying(info -> assertThat(info.planned()).isFalse());
     }
 
@@ -74,7 +74,7 @@ class HttpFlightRepositoryTest {
         flight.expect(requestTo(URL))
                 .andRespond(withSuccess(json("PLANNED"), MediaType.APPLICATION_JSON));
 
-        assertThat(repository.findByFlightKey(KEY))
+        assertThat(client.fetch(KEY))
                 .hasValueSatisfying(
                         info ->
                                 assertThat(info.estimatedDeparture())
@@ -85,7 +85,7 @@ class HttpFlightRepositoryTest {
     void notFoundMeansUnknownFlight() {
         flight.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
 
-        assertThat(repository.findByFlightKey(KEY)).isEmpty();
+        assertThat(client.fetch(KEY)).isEmpty();
     }
 
     @Test
@@ -93,7 +93,7 @@ class HttpFlightRepositoryTest {
         // retrying a request flight refuses would loop forever
         flight.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.BAD_REQUEST));
 
-        assertThatThrownBy(() -> repository.findByFlightKey(KEY))
+        assertThatThrownBy(() -> client.fetch(KEY))
                 .isInstanceOf(FlightLookupRejectedException.class);
     }
 
@@ -104,18 +104,17 @@ class HttpFlightRepositoryTest {
     void authProblemsAndServerErrorsAreRetryable(HttpStatus status) {
         flight.expect(requestTo(URL)).andRespond(withStatus(status));
 
-        assertThatThrownBy(() -> repository.findByFlightKey(KEY))
+        assertThatThrownBy(() -> client.fetch(KEY))
                 .isInstanceOf(FlightLookupUnavailableException.class);
     }
 
     @Test
-    void dayOverviewIsTranslatedToTheCargoModel() {
-        flight.expect(requestTo("http://flight/api/flights?date=2026-10-19"))
-                .andRespond(withSuccess("[" + json("DEPARTED") + "]", MediaType.APPLICATION_JSON));
+    void responseIsTranslatedToTheCargoModel() {
+        flight.expect(requestTo(URL))
+                .andRespond(withSuccess(json("DEPARTED"), MediaType.APPLICATION_JSON));
 
-        assertThat(repository.findByScheduledDepartureDate(LocalDate.of(2026, 10, 19)))
-                .singleElement()
-                .satisfies(
+        assertThat(client.fetch(KEY))
+                .hasValueSatisfying(
                         info -> {
                             assertThat(info.flightKey()).isEqualTo(KEY);
                             assertThat(info.arrivalAirportCode()).isEqualTo(new AirportCode("AMS"));
@@ -126,20 +125,10 @@ class HttpFlightRepositoryTest {
     }
 
     @Test
-    void dayOverviewOutageIsRetryable() {
-        flight.expect(requestTo("http://flight/api/flights?date=2026-10-19"))
-                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
-
-        assertThatThrownBy(
-                        () -> repository.findByScheduledDepartureDate(LocalDate.of(2026, 10, 19)))
-                .isInstanceOf(FlightLookupUnavailableException.class);
-    }
-
-    @Test
     void connectionFailureIsRetryable() {
         flight.expect(requestTo(URL)).andRespond(withException(new IOException("refused")));
 
-        assertThatThrownBy(() -> repository.findByFlightKey(KEY))
+        assertThatThrownBy(() -> client.fetch(KEY))
                 .isInstanceOf(FlightLookupUnavailableException.class);
     }
 
@@ -156,7 +145,7 @@ class HttpFlightRepositoryTest {
                                 })
                         .build();
 
-        assertThatThrownBy(() -> new HttpFlightRepository(failingTokenClient).findByFlightKey(KEY))
+        assertThatThrownBy(() -> new FlightOperationsClient(failingTokenClient).fetch(KEY))
                 .isInstanceOf(FlightLookupUnavailableException.class);
     }
 

@@ -26,6 +26,8 @@ services:
       SPRING_RABBITMQ_HOST: app-rabbitmq
       SPRING_RABBITMQ_USERNAME: user
       SPRING_RABBITMQ_PASSWORD: password
+      # actual time tolerance from the shell when set otherwise from application.properties
+      FLIGHT_ACTUALTIMES_TOLERANCE:
     depends_on:
       keycloak:
         condition: service_healthy
@@ -64,6 +66,8 @@ services:
       # loading window offsets from the shell when set otherwise from application.properties
       CARGO_LOADINGWINDOW_OPENSBEFORESTD:
       CARGO_LOADINGWINDOW_CLOSESBEFOREETD:
+      # lateral balance tolerance from the shell when set otherwise from application.properties
+      CARGO_LOADCHECK_LATERALBALANCETOLERANCE:
       SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_FLIGHT_TOKENURI: http://keycloak:8080/realms/air-freight/protocol/openid-connect/token
       CARGO_SERVICE_CLIENT_SECRET:
     depends_on:

@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import be.kdg.airfreight.flight.api.flight.FlightController;
+import be.kdg.airfreight.flight.application.FlightActualTimeService;
 import be.kdg.airfreight.flight.application.FlightDelayService;
 import be.kdg.airfreight.flight.application.FlightQueryService;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
@@ -69,7 +70,8 @@ class FlightControllerTest {
                                                 flights,
                                                 mock(DelayReasonRepository.class),
                                                 mock(ApplicationEventPublisher.class),
-                                                Clock.systemUTC())))
+                                                Clock.systemUTC()),
+                                        mock(FlightActualTimeService.class)))
                         .setControllerAdvice(new ErrorHandling())
                         .build();
     }

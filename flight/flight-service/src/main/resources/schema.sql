@@ -7,8 +7,17 @@ CREATE TABLE IF NOT EXISTS flights (
     scheduled_departure TIMESTAMP WITH TIME ZONE NOT NULL,
     scheduled_arrival TIMESTAMP WITH TIME ZONE NOT NULL,
     status VARCHAR(16) NOT NULL,
-    PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code)
+    finalized_load_processed BOOLEAN NOT NULL DEFAULT FALSE,
+    -- null until the planner registers them, an arrival needs a departure
+    actual_departure TIMESTAMP WITH TIME ZONE,
+    actual_arrival TIMESTAMP WITH TIME ZONE,
+    PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code),
+    CHECK (actual_arrival IS NULL OR actual_departure IS NOT NULL)
 );
+
+-- the same two columns for a database made before them, so no reset is needed
+ALTER TABLE flights ADD COLUMN IF NOT EXISTS actual_departure TIMESTAMP WITH TIME ZONE;
+ALTER TABLE flights ADD COLUMN IF NOT EXISTS actual_arrival TIMESTAMP WITH TIME ZONE;
 
 CREATE TABLE IF NOT EXISTS delay_reasons (
     code VARCHAR(16) PRIMARY KEY,
@@ -65,3 +74,12 @@ CREATE TABLE IF NOT EXISTS outbox_messages (
 CREATE INDEX IF NOT EXISTS outbox_messages_pending_idx
     ON outbox_messages (created_at, id)
     WHERE published_at IS NULL;
+
+-- cpm messages from cargo that were applied, so a redelivery has no second effect
+CREATE TABLE IF NOT EXISTS processed_messages (
+    message_id UUID PRIMARY KEY,
+    flight_number VARCHAR(32) NOT NULL,
+    scheduled_departure_date DATE NOT NULL,
+    departure_airport_code CHAR(3) NOT NULL,
+    processed_at TIMESTAMP WITH TIME ZONE NOT NULL
+);

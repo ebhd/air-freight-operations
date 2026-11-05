@@ -43,13 +43,17 @@ public class PartnerMessagesPreparedListener {
                 throw new IllegalArgumentException("Prepared content must not be null");
             }
             var content = new MessageContent(item.type(), item.payload(), item.formatVersion());
-            if (!Set.of("FLM", "MVT_ED", "MVT_EA").contains(content.type())
+            if (!Set.of("FLM", "MVT_ED", "MVT_EA", "MVT_AD", "MVT_AA", "CPM")
+                            .contains(content.type())
                     || !types.add(content.type())) {
                 throw new IllegalArgumentException(
                         "Unsupported or repeated prepared type: " + content.type());
             }
             if ("FLM".equals(content.type()) && !json.readTree(content.payload()).isObject()) {
                 throw new IllegalArgumentException("FLM payload must be a JSON object");
+            }
+            if ("CPM".equals(content.type()) && !json.readTree(content.payload()).isObject()) {
+                throw new IllegalArgumentException("CPM payload must be a JSON object");
             }
             contents.add(content);
         }

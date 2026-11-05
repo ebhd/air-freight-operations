@@ -21,6 +21,16 @@ public class RabbitConfiguration {
     static final String FLIGHT_CREATED_QUEUE = "partner.flight-created";
     static final String FLIGHT_ESTIMATES_CHANGED = "flight.estimates-changed";
     static final String FLIGHT_ESTIMATES_CHANGED_QUEUE = "partner.flight-estimates-changed";
+    // newer queues carry the formatter prefix, the two above keep their old name
+    static final String FLIGHT_DEPARTED = "flight.departed";
+    static final String FLIGHT_DEPARTED_QUEUE = "formatter.flight-departed";
+    static final String FLIGHT_LANDED = "flight.landed";
+    static final String FLIGHT_LANDED_QUEUE = "formatter.flight-landed";
+
+    // ----- Incoming Cargo events -----
+    static final String CARGO_EVENTS = "cargo.events";
+    static final String LOAD_FINALIZED = "cargo.load-finalized";
+    static final String LOAD_FINALIZED_QUEUE = "formatter.cargo-load-finalized";
 
     // ----- Incoming message dead-letter handling -----
     static final String DEAD_LETTER_EXCHANGE = "partner.dlx";
@@ -60,6 +70,48 @@ public class RabbitConfiguration {
         return BindingBuilder.bind(flightEstimatesChangedQueue)
                 .to(flightEvents)
                 .with(FLIGHT_ESTIMATES_CHANGED);
+    }
+
+    @Bean
+    Queue flightDepartedQueue() {
+        return QueueBuilder.durable(FLIGHT_DEPARTED_QUEUE)
+                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
+                .build();
+    }
+
+    @Bean
+    Binding flightDepartedBinding(Queue flightDepartedQueue, TopicExchange flightEvents) {
+        return BindingBuilder.bind(flightDepartedQueue).to(flightEvents).with(FLIGHT_DEPARTED);
+    }
+
+    @Bean
+    Queue flightLandedQueue() {
+        return QueueBuilder.durable(FLIGHT_LANDED_QUEUE)
+                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
+                .build();
+    }
+
+    @Bean
+    Binding flightLandedBinding(Queue flightLandedQueue, TopicExchange flightEvents) {
+        return BindingBuilder.bind(flightLandedQueue).to(flightEvents).with(FLIGHT_LANDED);
+    }
+
+    // ----- Incoming Cargo events -----
+    @Bean
+    TopicExchange cargoEvents() {
+        return new TopicExchange(CARGO_EVENTS);
+    }
+
+    @Bean
+    Queue loadFinalizedQueue() {
+        return QueueBuilder.durable(LOAD_FINALIZED_QUEUE)
+                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
+                .build();
+    }
+
+    @Bean
+    Binding loadFinalizedBinding(Queue loadFinalizedQueue, TopicExchange cargoEvents) {
+        return BindingBuilder.bind(loadFinalizedQueue).to(cargoEvents).with(LOAD_FINALIZED);
     }
 
     // ----- Incoming message dead-letter handling -----

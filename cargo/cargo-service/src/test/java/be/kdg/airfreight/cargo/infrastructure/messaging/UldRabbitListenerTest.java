@@ -18,6 +18,7 @@ import be.kdg.airfreight.cargo.application.booking.BookUldService;
 import be.kdg.airfreight.cargo.application.booking.ProcessedMessageRepository;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanRepository;
+import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanState;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
@@ -30,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -158,6 +160,43 @@ class UldRabbitListenerTest {
         assertThatThrownBy(() -> listener.receive(message(payload))).isSameAs(conflict);
 
         verify(rejectedMessages, never()).store(any(), any(), any());
+    }
+
+    // d4: a finalized load takes no new uld so the message is kept with the reason
+    @Test
+    void bookingForAFinalizedPlanIsRejectedNotRetried() {
+        FlightKey flightKey =
+                new FlightKey("HJ221", LocalDate.of(2026, 10, 19), new AirportCode("BRU"));
+        Instant std = Instant.parse("2026-10-19T08:00:00Z");
+        when(flights.findByFlightKey(flightKey))
+                .thenReturn(
+                        Optional.of(
+                                new FlightInformation(
+                                        flightKey,
+                                        new AirportCode("AMS"),
+                                        FlightStatus.PLANNED,
+                                        std,
+                                        std.plusSeconds(7200),
+                                        std)));
+        when(cargoPlans.findByFlightKey(flightKey))
+                .thenReturn(
+                        Optional.of(
+                                CargoPlan.restore(
+                                        flightKey,
+                                        CargoPlanState.FINALIZED,
+                                        Instant.parse("2026-10-19T06:00:00Z"),
+                                        List.of())));
+        String payload = validMessageWith("uldCode", "AKE12345KL");
+
+        assertThatCode(() -> listener.receive(message(payload))).doesNotThrowAnyException();
+
+        verify(rejectedMessages)
+                .store(
+                        MESSAGE_ID,
+                        payload,
+                        "Cargo plan of flight HJ221/2026-10-19/BRU is finalized, no ULD can be"
+                                + " added");
+        verify(cargoPlans, never()).save(any());
     }
 
     private static String validMessageWith(String field, Object value) {

@@ -16,6 +16,9 @@ public record FlightResponse(
         Instant scheduledArrival,
         Instant estimatedDeparture,
         Instant estimatedArrival,
+        // null until the planner registers them
+        Instant actualDeparture,
+        Instant actualArrival,
         List<DelayResponse> departureDelays,
         List<DelayResponse> arrivalDelays) {
     static FlightResponse from(Flight flight) {
@@ -29,6 +32,8 @@ public record FlightResponse(
                 flight.scheduledArrival(),
                 flight.estimatedDeparture(),
                 flight.estimatedArrival(),
+                flight.actualDeparture(),
+                flight.actualArrival(),
                 flight.departureDelays().stream().map(DelayResponse::from).toList(),
                 flight.arrivalDelays().stream().map(DelayResponse::from).toList());
     }
