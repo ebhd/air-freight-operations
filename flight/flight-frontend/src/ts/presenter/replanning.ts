@@ -1,5 +1,6 @@
 import type { Flight, FlightKey } from '../domain/Flight';
 import type { ProblemDetail } from '../infrastructure/restUtils';
+import type { ConfirmStep } from './confirmDialog';
 import { formatBrusselsDateTime } from './timeFormat';
 
 // what the replan question needs from a 409 TOTAL_DELAY_EXCEEDED
@@ -46,6 +47,26 @@ export function replanQuestion(flightNumber: string, offer: ReplanningOffer): st
         `and arriving ${formatBrusselsDateTime(offer.newScheduledArrival)} Brussels time? ` +
         'The current flight ends and the new flight is planned at those times.'
     );
+}
+
+// why the replan dialog appears
+export function replanReason(offer: ReplanningOffer): string {
+    return `All delays together would be ${hoursAndMinutes(offer.totalMinutes)}, more than 12 h.`;
+}
+
+function replanTimes(departure: string, arrival: string): ConfirmStep['details'] {
+    return [
+        { label: 'Departure (Brussels)', value: formatBrusselsDateTime(departure) },
+        { label: 'Arrival (Brussels)', value: formatBrusselsDateTime(arrival) },
+    ];
+}
+
+// the current flight ends and the new one takes over, shown as from and to in the dialog
+export function replanSteps(flight: Flight, offer: ReplanningOffer): ConfirmStep[] {
+    return [
+        { label: 'From', title: flight.flightNumber, details: replanTimes(flight.scheduledDeparture, flight.scheduledArrival) },
+        { label: 'To', title: offer.newFlightNumber, details: replanTimes(offer.newScheduledDeparture, offer.newScheduledArrival) },
+    ];
 }
 
 // the status line of a replanned flight

@@ -1,6 +1,6 @@
 import { clearError, getJson, postJson, showError } from './api.js';
 import { hasRole } from './auth.js';
-import { confirmDialog } from './confirm-dialog.js';
+import { confirmDialog, type ConfirmDetail } from './confirm-dialog.js';
 import { requiredElement } from './dom.js';
 import type { FlightOverview } from './flight-overview.js';
 import { renderLoadCheck, type LoadCheckReport } from './load-check.js';
@@ -65,6 +65,9 @@ const loadCheckStatus = requiredElement('#load-check-status', HTMLElement);
 const loadCheckRows = requiredElement('#load-check-results', HTMLTableSectionElement);
 readOnlyNote.textContent = `You can view this cargo plan. ${LOAD_PLANNER_ONLY}`;
 
+// filled when the plan loads, so the finalize dialog can show what is being closed
+let finalizeDetails: ConfirmDetail[] = [];
+
 // shows the booked weight as is without converting units
 const weightFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 3 });
 
@@ -122,6 +125,7 @@ async function loadCargoPlan(): Promise<void> {
         return;
     }
     renderFlight(cargoPlan.data.flight);
+    finalizeDetails = finalizeSummary(cargoPlan.data.flight, cargoPlan.data.bookings);
     renderFinalized(cargoPlan.data.finalizedAt);
     renderMovedTo(cargoPlan.data.movedTo);
     renderLoadingWindow(windowBlock, loadingWindow.data);
@@ -179,10 +183,18 @@ async function checkLoad(cargoPlanPath: string): Promise<void> {
         : 'A hard check failed, so the load cannot be finalized yet.';
 }
 
+function finalizeSummary(flight: FlightOverview, bookings: UldBookingResponse[]): ConfirmDetail[] {
+    return [
+        { label: 'Flight', value: `${flight.flightNumber}, ${flight.departureAirportCode} to ${flight.arrivalAirportCode}` },
+        { label: 'Booked ULDs', value: String(bookings.length) },
+    ];
+}
+
 async function finalizeLoad(cargoPlanPath: string): Promise<void> {
     const confirmed = await confirmDialog({
         title: 'Finalize the load?',
         message: 'Positions cannot be changed afterwards.',
+        details: finalizeDetails,
         confirmLabel: 'Finalize load',
     });
     if (!confirmed) {

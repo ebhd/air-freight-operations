@@ -20,7 +20,7 @@ import { ResponseError } from '../infrastructure/restUtils';
 import { actualTimeRefusalText } from './actualTimeText';
 import { confirmDialog } from './confirmDialog';
 import { clearError, showError } from './messagePresenter';
-import { flightLabel, replacementKey, replannedText, replanningOffer, replanQuestion } from './replanning';
+import { flightLabel, replacementKey, replannedText, replanningOffer, replanReason, replanSteps } from './replanning';
 import { brusselsNowForInput, brusselsToInstant, formatBrusselsDateTime } from './timeFormat';
 import { initializeUser } from './userPresenter';
 
@@ -240,15 +240,15 @@ function historyLine(text: string, key: FlightKey): HTMLLIElement {
     return line;
 }
 
+function reasonText(code: string): string {
+    const reason = delayReasons.find(reason => reason.code === code);
+    return reason ? `${reason.code} — ${reason.label}` : code;
+}
+
 function createDelayRow(delay: Delay, departure: boolean): HTMLTableRowElement {
     const row = document.createElement('tr');
     row.className = '*:border-b *:border-slate-300 *:px-3 *:py-2';
-    let reasonLabel = delay.reasonCode;
-    const reason = delayReasons.find(reason => reason.code === delay.reasonCode);
-    if (reason) {
-        reasonLabel = `${reason.code} — ${reason.label}`;
-    }
-    const values = [String(delay.minutes), reasonLabel, delay.description];
+    const values = [String(delay.minutes), reasonText(delay.reasonCode), delay.description];
     for (const text of values) {
         const cell = document.createElement('td');
         cell.textContent = text;
@@ -407,7 +407,8 @@ async function offerReplanning(error: unknown, departure: boolean, minutes: numb
     }
     const confirmed = await confirmDialog({
         title: 'Replan this flight?',
-        message: replanQuestion(currentFlight.flightNumber, offer),
+        message: replanReason(offer),
+        steps: replanSteps(currentFlight, offer),
         confirmLabel: 'Replan flight',
     });
     if (!confirmed) {
@@ -438,6 +439,12 @@ async function deleteDelay(delay: Delay, departure: boolean): Promise<void> {
     const confirmed = await confirmDialog({
         title: 'Delete this delay?',
         message: 'Partners will be notified of the new times.',
+        details: [
+            { label: 'Type', value: departure ? 'Departure' : 'Arrival' },
+            { label: 'Minutes', value: String(delay.minutes) },
+            { label: 'IATA reason', value: reasonText(delay.reasonCode) },
+            { label: 'Description', value: delay.description },
+        ],
         confirmLabel: 'Delete delay',
         danger: true,
     });
