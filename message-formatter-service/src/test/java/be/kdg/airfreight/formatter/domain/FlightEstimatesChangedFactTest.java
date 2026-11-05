@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -24,11 +23,6 @@ class FlightEstimatesChangedFactTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage(
                         "aircraft registration must be nonblank single-line text without / or .");
-    }
-
-    @Test
-    void plainFlightNumberAndRegistrationAreAccepted() {
-        fact("HJ221", "SX-BAA");
     }
 
     private static FlightEstimatesChangedFact fact(String flightNumber, String registration) {

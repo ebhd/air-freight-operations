@@ -3,6 +3,7 @@ package be.kdg.airfreight.formatter.infrastructure.formatting;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import be.kdg.airfreight.formatter.application.MessageFormattingService;
 import be.kdg.airfreight.formatter.domain.FlightDepartedFact;
@@ -33,7 +34,7 @@ class MvtFormatterTest {
 
         assertThat(ed.type()).isEqualTo("MVT_ED");
         assertThat(ed.formatVersion()).isEqualTo(1);
-        assertThat(ed.payload()).isEqualTo("MVT\nHJ221/09.SXBAA.BRU\nED0715");
+        assertThat(ed.payload()).isEqualTo("MVT\nHJ221/09.SX-BAA.BRU\nED0715");
     }
 
     @Test
@@ -46,7 +47,7 @@ class MvtFormatterTest {
 
         assertThat(ea.type()).isEqualTo("MVT_EA");
         assertThat(ea.formatVersion()).isEqualTo(1);
-        assertThat(ea.payload()).isEqualTo("MVT\nHJ221/09.SXBAA.AMS\nEA0915");
+        assertThat(ea.payload()).isEqualTo("MVT\nHJ221/09.SX-BAA.AMS\nEA0915");
     }
 
     // line 2 keeps the scheduled day while the time is already on the next utc day
@@ -55,8 +56,10 @@ class MvtFormatterTest {
         FlightEstimatesChangedFact late =
                 fact(Instant.parse("2026-10-10T00:15:00Z"), Instant.parse("2026-10-10T02:05:00Z"));
 
-        assertThat(edFormatter.format(late).payload()).isEqualTo("MVT\nHJ221/09.SXBAA.BRU\nED0015");
-        assertThat(eaFormatter.format(late).payload()).isEqualTo("MVT\nHJ221/09.SXBAA.AMS\nEA0205");
+        assertThat(edFormatter.format(late).payload())
+                .isEqualTo("MVT\nHJ221/09.SX-BAA.BRU\nED0015");
+        assertThat(eaFormatter.format(late).payload())
+                .isEqualTo("MVT\nHJ221/09.SX-BAA.AMS\nEA0205");
     }
 
     @Test
@@ -83,9 +86,9 @@ class MvtFormatterTest {
                 .publish(
                         sourceId,
                         List.of(
-                                new MessageContent("MVT_ED", "MVT\nHJ221/09.SXBAA.BRU\nED0715", 1),
+                                new MessageContent("MVT_ED", "MVT\nHJ221/09.SX-BAA.BRU\nED0715", 1),
                                 new MessageContent(
-                                        "MVT_EA", "MVT\nHJ221/09.SXBAA.AMS\nEA0915", 1)));
+                                        "MVT_EA", "MVT\nHJ221/09.SX-BAA.AMS\nEA0915", 1)));
     }
 
     @Test
@@ -113,7 +116,29 @@ class MvtFormatterTest {
                         sourceId,
                         List.of(
                                 new MessageContent(
-                                        "MVT_EA", "MVT\nHJ221/09.SXBAA.AMS\nEA0915", 1)));
+                                        "MVT_EA", "MVT\nHJ221/09.SX-BAA.AMS\nEA0915", 1)));
+    }
+
+    @Test
+    void unchangedEstimatesPublishNothing() {
+        var publisher = mock(MessagePublisher.class);
+        var service =
+                new MessageFormattingService(
+                        new FlmFormatter(JsonMapper.builder().findAndAddModules().build()),
+                        edFormatter,
+                        eaFormatter,
+                        new CpmFormatter(JsonMapper.builder().findAndAddModules().build()),
+                        new MvtAdFormatter(),
+                        new MvtAaFormatter(),
+                        new FlightReplannedFormatter(
+                                JsonMapper.builder().findAndAddModules().build()),
+                        publisher);
+        var unchanged =
+                fact(Instant.parse("2026-10-09T06:45:00Z"), Instant.parse("2026-10-09T08:45:00Z"));
+
+        service.prepareEstimates(UUID.randomUUID(), unchanged);
+
+        verifyNoInteractions(publisher);
     }
 
     // msg-06: ad uses the departure airport and the actual departure time
@@ -215,7 +240,7 @@ class MvtFormatterTest {
                 LocalDate.of(2026, 10, 9),
                 "BRU",
                 "AMS",
-                "SXBAA",
+                "SX-BAA",
                 Instant.parse("2026-10-09T06:45:00Z"),
                 Instant.parse("2026-10-09T08:45:00Z"),
                 estimatedDeparture,

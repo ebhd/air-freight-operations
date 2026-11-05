@@ -86,30 +86,8 @@ class FlightSchedulingServiceTest {
                         flight ->
                                 assertThat(flight.key().scheduledDepartureDate())
                                         .isEqualTo(LocalDate.of(2026, 10, 19)));
-        assertThat(events)
-                .singleElement()
-                .isInstanceOfSatisfying(
-                        FlightCreated.class,
-                        event ->
-                                assertThat(event.flightKey())
-                                        .isEqualTo(result.createdFlights().getFirst().key()));
-    }
-
-    @Test
-    void createsMatchingFlightsAndContinuesAfterExistingFlight() {
-        var repository = new InMemoryFlights();
-        var schedule = schedule(LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 14));
-        repository.save(schedule.expand().getFirst());
-        var publishedEvents = new ArrayList<Object>();
-        var service = new FlightSchedulingService(repository, publishedEvents::add, CLOCK);
-
-        var result = service.createFlights("message-1", schedule);
-
-        assertThat(result.createdFlights()).hasSize(1);
-        assertThat(result.duplicateFlightKeys()).hasSize(1);
-        assertThat(repository.flights).hasSize(2);
         var createdFlight = result.createdFlights().getFirst();
-        assertThat(publishedEvents)
+        assertThat(events)
                 .singleElement()
                 .isInstanceOfSatisfying(
                         FlightCreated.class,

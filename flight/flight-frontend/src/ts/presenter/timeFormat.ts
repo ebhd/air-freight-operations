@@ -38,9 +38,7 @@ function brusselsWallClock(instant: Date): number {
 
 // a datetime-local value in brussels time, like 2026-11-10T21:03, becomes the utc instant
 // 2026-11-10T20:03:00.000Z; seconds are dropped, the page works in whole minutes
-// dst rule (team reading of Q04): in the autumn overlap the earlier, summer-time instant is
-// taken; in the spring gap the entered time does not exist and the instant one hour later is
-// taken (02:30 becomes 03:30 summer time)
+// reject nonexistent or ambiguous brussels times instead of adjusting or choosing an instant
 export function brusselsToInstant(local: string): string {
     const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(local);
     if (match === null) {
@@ -54,9 +52,12 @@ export function brusselsToInstant(local: string): string {
     for (let round = 0; round < 2; round++) {
         instant += wanted - brusselsWallClock(new Date(instant));
     }
-    // in the overlap an hour earlier shows the same wall time: take that earlier instant
-    if (brusselsWallClock(new Date(instant - HOUR)) === wanted) {
-        instant -= HOUR;
+    if (brusselsWallClock(new Date(instant)) !== wanted) {
+        throw new Error('This time does not exist in Brussels because the clocks move forward. Enter another time.');
+    }
+    if (brusselsWallClock(new Date(instant - HOUR)) === wanted
+        || brusselsWallClock(new Date(instant + HOUR)) === wanted) {
+        throw new Error('This time occurs twice in Brussels because the clocks move back. Enter an unambiguous time.');
     }
     return new Date(instant).toISOString();
 }

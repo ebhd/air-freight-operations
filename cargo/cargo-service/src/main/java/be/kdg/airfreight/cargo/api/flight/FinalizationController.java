@@ -26,7 +26,7 @@ public class FinalizationController {
                     LocalDate scheduledDepartureDate,
             @PathVariable String departureAirportCode) {
         FlightKey flightKey =
-                CargoPlanController.toFlightKey(
+                FlightKeyRequestMapper.toFlightKey(
                         flightNumber, scheduledDepartureDate, departureAirportCode);
         return FinalizationResponse.from(finalizeLoadService.finalizeLoad(flightKey));
     }

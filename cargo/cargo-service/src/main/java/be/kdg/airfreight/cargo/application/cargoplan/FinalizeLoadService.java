@@ -8,6 +8,7 @@ import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadChecks;
 import be.kdg.airfreight.cargo.domain.loading.LoadingContext;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionOperations;
 
@@ -17,19 +18,19 @@ public class FinalizeLoadService {
     private final CargoPlanRepository cargoPlanRepository;
     private final LoadingWindowService loadingWindowService;
     private final LoadChecks loadChecks;
-    private final CargoEventOutbox outbox;
+    private final ApplicationEventPublisher events;
     private final TransactionOperations transaction;
 
     public FinalizeLoadService(
             CargoPlanRepository cargoPlanRepository,
             LoadingWindowService loadingWindowService,
             LoadChecks loadChecks,
-            CargoEventOutbox outbox,
+            ApplicationEventPublisher events,
             TransactionOperations transaction) {
         this.cargoPlanRepository = cargoPlanRepository;
         this.loadingWindowService = loadingWindowService;
         this.loadChecks = loadChecks;
-        this.outbox = outbox;
+        this.events = events;
         this.transaction = transaction;
     }
 
@@ -46,7 +47,7 @@ public class FinalizeLoadService {
                                     .orElseGet(() -> new CargoPlan(flightKey));
                     LoadFinalized event = cargoPlan.finalizeLoad(context, loadChecks);
                     cargoPlanRepository.save(cargoPlan);
-                    outbox.add(event);
+                    events.publishEvent(event);
                     log.info(
                             "Finalized load of flight {} with {} positioned ULDs",
                             flightKey,

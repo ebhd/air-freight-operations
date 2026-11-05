@@ -6,7 +6,6 @@ import static org.mockito.Mockito.when;
 
 import be.kdg.airfreight.cargo.application.booking.BookUldCommand;
 import be.kdg.airfreight.cargo.application.booking.BookUldService;
-import be.kdg.airfreight.cargo.application.cargoplan.CargoEventOutbox;
 import be.kdg.airfreight.cargo.application.cargoplan.FinalizeLoadService;
 import be.kdg.airfreight.cargo.application.loading.LoadingWindowService;
 import be.kdg.airfreight.cargo.domain.cargoplan.BookingRejectedException;
@@ -41,6 +40,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -99,7 +99,7 @@ class FinalizeLoadIT {
     @Autowired private DbCargoPlanRepository repository;
     @Autowired private BookUldService bookUldService;
     @Autowired private FinalizeLoadService finalizeLoadService;
-    @Autowired private CargoEventOutbox outbox;
+    @Autowired private ApplicationEventPublisher events;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private JdbcClient jdbc;
     @Autowired private JsonMapper json;
@@ -188,7 +188,9 @@ class FinalizeLoadIT {
                                 overlapping(
                                         first ->
                                                 first.assignPosition(AKE, LoadingPosition.CL, OPEN),
-                                        second -> outbox.add(second.finalizeLoad(OPEN, CHECKS))))
+                                        second ->
+                                                events.publishEvent(
+                                                        second.finalizeLoad(OPEN, CHECKS))))
                 .isInstanceOf(OptimisticLockingFailureException.class);
 
         assertThat(jdbc.sql("SELECT state FROM cargo_plans").query(String.class).single())
@@ -205,7 +207,9 @@ class FinalizeLoadIT {
         assertThatThrownBy(
                         () ->
                                 overlapping(
-                                        first -> outbox.add(first.finalizeLoad(OPEN, CHECKS)),
+                                        first ->
+                                                events.publishEvent(
+                                                        first.finalizeLoad(OPEN, CHECKS)),
                                         second ->
                                                 second.assignPosition(
                                                         AKE, LoadingPosition.CL, OPEN)))
