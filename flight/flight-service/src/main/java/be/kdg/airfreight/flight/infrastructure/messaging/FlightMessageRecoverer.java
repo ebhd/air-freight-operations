@@ -1,7 +1,6 @@
 package be.kdg.airfreight.flight.infrastructure.messaging;
 
 import be.kdg.airfreight.flight.infrastructure.persistence.RejectedMessageStore;
-import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
@@ -15,6 +14,8 @@ import org.springframework.dao.RecoverableDataAccessException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.CannotCreateTransactionException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 @Component
 @Slf4j
@@ -39,10 +40,25 @@ class FlightMessageRecoverer implements MessageRecoverer {
         } else {
             // the reason is stored here because the dead letter queue only keeps the message
             rejectedMessages.store(
-                    message.getMessageProperties().getMessageId(),
-                    new String(message.getBody(), StandardCharsets.UTF_8),
+                    messageId(message),
+                    message.getBody(),
                     NestedExceptionUtils.getMostSpecificCause(cause).toString());
             deadLetterRecoverer.recover(message, cause);
+        }
+    }
+
+    // the amqp property comes first, a sender may also have the id only in the json body
+    private String messageId(Message message) {
+        String messageId = message.getMessageProperties().getMessageId();
+        if (messageId != null && !messageId.isBlank()) {
+            return messageId;
+        }
+        try {
+            String bodyId =
+                    JsonMapper.shared().readTree(message.getBody()).path("messageId").asString("");
+            return bodyId.isBlank() ? null : bodyId;
+        } catch (JacksonException unreadableBody) {
+            return null; // the content and reason are still stored, only without an id
         }
     }
 
