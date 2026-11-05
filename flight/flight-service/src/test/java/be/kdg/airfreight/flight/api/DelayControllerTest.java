@@ -2,6 +2,7 @@ package be.kdg.airfreight.flight.api;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -43,6 +44,8 @@ class DelayControllerTest {
     private static final FlightKey DEPARTED =
             new FlightKey("HJ222", LocalDate.of(2026, 10, 19), "BRU");
     private static final UUID DEPARTURE_DELAY = UUID.randomUUID();
+    private static final UUID ARRIVAL_DELAY = UUID.randomUUID();
+    private static final String DEPARTED_PATH = "/api/flights/HJ222/2026-10-19/BRU";
 
     private final Map<FlightKey, Flight> flights = new HashMap<>();
     private boolean reasonTableBroken;
@@ -68,7 +71,7 @@ class DelayControllerTest {
                         Instant.parse("2026-10-19T11:00:00Z"),
                         FlightStatus.DEPARTED,
                         List.of(Delay.restore(DEPARTURE_DELAY, 20, "71", "Fog at departure")),
-                        List.of()));
+                        List.of(Delay.restore(ARRIVAL_DELAY, 15, "71", "Holding"))));
         FlightRepository flightRepository = new InMemoryFlights();
         DelayReasonRepository reasons = new OneReason();
         mvc =
@@ -149,6 +152,108 @@ class DelayControllerTest {
         assertThatThrownBy(() -> mvc.perform(get("/api/delay-reasons")))
                 .isInstanceOf(ServletException.class)
                 .hasRootCauseInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void arrivalDelayCanBeAddedAfterDeparture() throws Exception {
+        mvc.perform(
+                        post(DEPARTED_PATH + "/arrival-delays")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                        {"minutes":10,"reasonCode":"71","description":"Holding"}
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.arrivalDelays.length()").value(2))
+                .andExpect(jsonPath("$.arrivalDelays[1].minutes").value(10))
+                .andExpect(jsonPath("$.estimatedArrival").value("2026-10-19T11:45:00Z"));
+    }
+
+    @Test
+    void arrivalDelayCanBeEditedAfterDeparture() throws Exception {
+        mvc.perform(
+                        patch(DEPARTED_PATH + "/arrival-delays/" + ARRIVAL_DELAY)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                        {"minutes":30,"description":"Longer holding"}
+                        """))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get(DEPARTED_PATH))
+                .andExpect(jsonPath("$.arrivalDelays[0].minutes").value(30))
+                .andExpect(jsonPath("$.arrivalDelays[0].description").value("Longer holding"))
+                .andExpect(jsonPath("$.estimatedArrival").value("2026-10-19T11:50:00Z"));
+    }
+
+    @Test
+    void arrivalDelayCanBeDeletedAfterDeparture() throws Exception {
+        mvc.perform(delete(DEPARTED_PATH + "/arrival-delays/" + ARRIVAL_DELAY))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get(DEPARTED_PATH))
+                .andExpect(jsonPath("$.arrivalDelays").isEmpty())
+                .andExpect(jsonPath("$.departureDelays[0].minutes").value(20))
+                .andExpect(jsonPath("$.estimatedArrival").value("2026-10-19T11:20:00Z"));
+    }
+
+    @Test
+    void departureDelayCannotBeAddedAfterDeparture() throws Exception {
+        mvc.perform(
+                        post(DEPARTED_PATH + "/departure-delays")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                        {"minutes":10,"reasonCode":"71","description":"Fog"}
+                        """))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void arrivalDelayChangesAfterLandingAreConflicts() throws Exception {
+        Flight departed = flights.get(DEPARTED);
+        flights.put(
+                DEPARTED,
+                Flight.restore(
+                        DEPARTED,
+                        departed.arrivalAirportCode(),
+                        departed.aircraftRegistration(),
+                        departed.scheduledDeparture(),
+                        departed.scheduledArrival(),
+                        FlightStatus.LANDED,
+                        departed.departureDelays(),
+                        departed.arrivalDelays()));
+
+        mvc.perform(
+                        post(DEPARTED_PATH + "/arrival-delays")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                        {"minutes":10,"reasonCode":"71","description":"Holding"}
+                        """))
+                .andExpect(status().isConflict());
+        mvc.perform(
+                        patch(DEPARTED_PATH + "/arrival-delays/" + ARRIVAL_DELAY)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                        {"minutes":30,"description":"Longer holding"}
+                        """))
+                .andExpect(status().isConflict());
+        mvc.perform(delete(DEPARTED_PATH + "/arrival-delays/" + ARRIVAL_DELAY))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void departureDelayIdOnArrivalRouteIsNotFound() throws Exception {
+        mvc.perform(
+                        patch(DEPARTED_PATH + "/arrival-delays/" + DEPARTURE_DELAY)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                        {"minutes":30,"description":"Holding"}
+                        """))
+                .andExpect(status().isNotFound());
     }
 
     private ResultActions addDelay(int minutes, String reasonCode, String description)
