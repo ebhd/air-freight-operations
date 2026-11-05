@@ -61,6 +61,8 @@ Lateral balance: the heavier side may weigh at most the lighter side plus 10%, c
 
 The pages are TypeScript with Tailwind CSS and `keycloak-js`, built with Vite in `cargo/cargo-frontend` and `flight/flight-frontend`. Building a service also builds its pages into the JAR. Gradle downloads Node, so you do not need to install it.
 
+Times: APIs, databases and messages use UTC. Flight and Cargo display dates and times in `Europe/Brussels`; their day overviews filter on the UTC scheduled departure date. Actual departure and arrival are entered in Brussels time and converted to UTC before submission; nonexistent or ambiguous local times are rejected. Frontend formatting tests cover summer and winter time and dates across midnight, with Cargo also checking both clock changes.
+
 The Keycloak settings `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM` and `VITE_KEYCLOAK_CLIENT_ID` are fixed at build time. Rebuild after changing them.
 
 For live reload, keep the backend running and start one of:
