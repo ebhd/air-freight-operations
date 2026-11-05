@@ -93,6 +93,8 @@ Every setting is in the service's `application.properties`. Override it with the
 | Loading window | Cargo | `CARGO_LOADINGWINDOW_OPENSBEFORESTD`, `CARGO_LOADINGWINDOW_CLOSESBEFOREETD` | `12h`, `20m` |
 | Lateral balance tolerance | Cargo | `CARGO_LOADCHECK_LATERALBALANCETOLERANCE` | `0.10` |
 | Actual time tolerance | Flight | `FLIGHT_ACTUALTIMES_TOLERANCE` | `5m` |
+| Retention after the scheduled departure date | Flight | `FLIGHT_RETENTION_PERIOD` | `7d` |
+| Cleanup interval | Flight | `FLIGHT_RETENTION_CLEANUPINTERVAL` | `1h` |
 
 To move Keycloak in Compose, set `VITE_KEYCLOAK_URL` and `VITE_KEYCLOAK_REALM` in `.env`, change the published port if needed and rebuild. When a page address changes, add it to the redirect URIs of its client in Keycloak.
 
@@ -162,6 +164,7 @@ Errors use `ProblemDetail`: 400 for invalid input, 401 or 403 for sign-in and ro
 | `flight.events` | `flight.created`, `flight.estimates-changed`, `flight.departed`, `flight.landed` | Flight, Formatter and Cargo | Flight facts |
 | `flight.events` | `flight.replanned` | Flight, Simulator and Cargo | Old flight ended, proposed new flight |
 | `flight.events` | `flight.replaced` | Flight, Formatter and Cargo | The new flight exists |
+| `flight.events` | `flight.removed` | Flight, Cargo | The flight passed its retention, Cargo removes its data |
 | `cargo.events` | `cargo.load-finalized` | Cargo, Flight and Formatter | Finalized load |
 | `formatter.events` | `partner-messages.prepared` | Formatter, Partner | Prepared messages |
 | `partner.messages` | `flm`, `mvt.ed`, `mvt.ea`, `mvt.ad`, `mvt.aa`, `cpm`, `flight.replanned` | Partner, partners | See below |

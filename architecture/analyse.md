@@ -364,6 +364,9 @@ stateDiagram-v2
     DRAFT --> FINALIZED: finalize / LoadFinalized
     DRAFT --> REPLANNED: flight.replaced / cargo moves
     FINALIZED --> REPLANNED: flight.replaced / cargo moves
+    DRAFT --> [*]: flight.removed
+    FINALIZED --> [*]: flight.removed
+    REPLANNED --> [*]: flight.removed
 ```
 
 - A departure delay never reopens a finalized plan; there is no unfinalize.
@@ -486,10 +489,10 @@ classDiagram
 | --- | --- |
 | Aggregate root | `Flight` (owns delays and controls the lifecycle) |
 | Entity | `Delay` |
-| Value objects | `FlightKey`, `ActualTimePolicy`, `Replanning` (a delay's `id` is a plain `UUID`, no value object) |
+| Value objects | `FlightKey`, `ActualTimePolicy`, `RetentionPolicy`, `Replanning` (a delay's `id` is a plain `UUID`, no value object) |
 | Enumerations | `FlightStatus`, `DelayType`, `ActualTimeRefusal` |
 | Reference data | `DelayReason`, `Airport` (an unlisted code is shown without a name) |
-| Domain events | `FlightCreated`, `FlightEstimatesChanged`, `FlightDeparted`, `FlightLanded`, `FlightReplanned`, `FlightReplaced` |
+| Domain events | `FlightCreated`, `FlightEstimatesChanged`, `FlightDeparted`, `FlightLanded`, `FlightReplanned`, `FlightReplaced`, `FlightRemoved` |
 | Repositories | `FlightRepository`, `DelayReasonRepository`, `AirportRepository` |
 | Actors | Flight planner, Load planner |
 
@@ -531,11 +534,25 @@ stateDiagram-v2
     DEPARTED --> DEPARTED: add / edit / remove arrival delay (total at most 720 min)
     DEPARTED --> LANDED: recordArrival(ATA) — ATA > ATD, ATA ≤ now, ATA ≤ ETA + tolerance
     REPLANNED --> REPLANNED: replacement flight created (link set once, no state change)
+    PLANNED --> [*]: retention
+    DEPARTED --> [*]: retention
     REPLANNED --> [*]: retention
     LANDED --> [*]: retention
 ```
 
 `DEPARTED` freezes the departure delays, `LANDED` all delays; actual times never change. `REPLANNED` is final: delay changes, a second replan and ATD/ATA are refused. The "replacement created" link is a flag, not a state, like `finalizedLoadProcessed`.
+
+### Retention (#39, team reading of Q12, to confirm)
+
+Flight owns the lifecycle, so the rule and its setting exist once. `FlightCleanupJob` removes a flight with its delays and CPM dedup rows and writes `flight.removed` to the outbox in one transaction. Cargo then removes the plan, bookings, ULD dedup rows and flight copy. Cargo down means the message waits in `cargo.flight-removed`; a broker outage means it waits in the outbox. Until then Flight answers 404 and Cargo still shows the flight from its copy, or "Flight not found" without a copy row (decided by the user).
+
+- Cut-off: 00:00 UTC on the key date plus the retention, that instant included. With 7 days a flight of 29 October expires on 5 November at 00:00 UTC, in any status. Delays and the time of day do not count.
+- Frequency: at startup and then every hour, so a flight is gone at most one interval after the cut-off.
+- Never touched: pending outbox rows, `PENDING` partner messages and queues. They are delivered after the removal. A late CPM ends in `rejected_messages`, a late estimate in Cargo is logged and skipped.
+- A published outbox row expires like a flight of its publication day: every run in Flight, on `flight.removed` in Cargo with that flight's date, so Cargo needs no retention setting.
+- Stay: `rejected_messages`, the DLQs, logs, `message_receipts` (only an ID and a time; a resent ULD keeps its old date and is rejected) and `partner_messages` (the record of what was sent).
+- Replanned flights go like any other. Moved cargo goes with the new flight, and the new flight's `replaces` keeps the old key; the columns have no foreign key.
+- An SSM is handled the same whatever its date: an expired flight is created and goes at the next run, also when a duplicate SSM recreates a removed flight, which sends a second FLM.
 
 ## 8. Tactical design: Message Formatter and Partner Communication
 
