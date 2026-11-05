@@ -138,6 +138,7 @@ Every Flight and Cargo API request needs a bearer token. Times are UTC. In the p
 | Flight | GET | `/api/flights?date=2026-10-19` (UTC departure day), `/api/flights/timeline?date=2026-10-19` (Brussels day) | any planner |
 | Flight | GET | `/api/flights/{flight}` | any planner |
 | Flight | GET | `/api/delay-reasons` | any planner |
+| Flight | GET | `/api/airports` | any planner |
 | Flight | POST | `/api/flights/{flight}/departure-delays`, `/api/flights/{flight}/arrival-delays` | flight planner |
 | Flight | PATCH, DELETE | `/api/flights/{flight}/departure-delays/{delayId}`, `/api/flights/{flight}/arrival-delays/{delayId}` | flight planner |
 | Flight | POST | `/api/flights/{flight}/departure` with `{"actualDeparture": "2026-11-10T20:03:00Z"}`, `/api/flights/{flight}/arrival` with `{"actualArrival": ...}` (once; 200 with the flight, `DEPARTED` or `LANDED`) | flight planner |

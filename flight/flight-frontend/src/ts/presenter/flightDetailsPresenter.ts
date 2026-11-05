@@ -1,7 +1,9 @@
 import type { Delay } from '../domain/Delay';
+import type { Airport } from '../domain/Airport';
 import type { DelayReason } from '../domain/DelayReason';
 import type { Flight, FlightKey, ReplanFlightRequest } from '../domain/Flight';
 import { hasRole } from '../infrastructure/auth';
+import { getAirports } from '../infrastructure/airportRest';
 import { getDelayReasons } from '../infrastructure/delayReasonRest';
 import {
     addDepartureDelay,
@@ -54,6 +56,7 @@ const historyLines = document.querySelector<HTMLUListElement>('#history-lines')!
 let flightKey: FlightKey;
 let currentFlight: Flight | null = null;
 let delayReasons: DelayReason[] = [];
+let airports: Airport[] = [];
 let delayBeingEdited: Delay | null = null;
 let editingDeparture = false;
 let isBusy = false;
@@ -146,11 +149,16 @@ function displayActualTimeForms(flight: Flight): void {
     actualArrivalInput.value = now;
 }
 
+function airportText(code: string): string {
+    const airport = airports.find(airport => airport.code === code);
+    return airport ? `${code} — ${airport.name}` : code;
+}
+
 function displayFlightDetails(flight: Flight): void {
     document.querySelector<HTMLElement>('#flight-number')!.textContent = flight.flightNumber;
     document.querySelector<HTMLElement>('#flight-date')!.textContent = flight.scheduledDepartureDate;
-    document.querySelector<HTMLElement>('#flight-from')!.textContent = flight.departureAirportCode;
-    document.querySelector<HTMLElement>('#flight-to')!.textContent = flight.arrivalAirportCode;
+    document.querySelector<HTMLElement>('#flight-from')!.textContent = airportText(flight.departureAirportCode);
+    document.querySelector<HTMLElement>('#flight-to')!.textContent = airportText(flight.arrivalAirportCode);
     const status = document.querySelector<HTMLElement>('#flight-status')!;
     status.textContent = flight.status;
     status.dataset.status = flight.status;
@@ -547,6 +555,11 @@ async function initialize(): Promise<void> {
         flightKey = { flightNumber, scheduledDepartureDate, departureAirportCode };
         document.querySelector<HTMLAnchorElement>('#back-to-flights')!.href = `../index.html?${new URLSearchParams({ date: scheduledDepartureDate })}`;
         pageStatus.textContent = 'Loading…';
+        try {
+            airports = await getAirports();
+        } catch {
+            // the page still works with only the airport codes
+        }
         const flight = await refreshFlight();
         try {
             delayReasons = await getDelayReasons();

@@ -52,6 +52,11 @@ CREATE TABLE IF NOT EXISTS delay_reasons (
     label VARCHAR(255) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS airports (
+    code VARCHAR(3) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS rejected_messages (
     id BIGSERIAL PRIMARY KEY,
     message_id TEXT,
