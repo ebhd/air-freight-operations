@@ -4,12 +4,13 @@ import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldBooking;
 import be.kdg.airfreight.cargo.domain.cargoplan.WeightUnit;
+import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
 // hard check: the heavier side weighs at most the lighter side times one plus the tolerance
-public final class LateralBalanceCheck {
+public final class LateralBalanceCheck implements LoadCheck {
     static final String NAME = "Lateral balance";
     // kg as the common unit is our choice since the course names none
     private static final WeightUnit COMMON_UNIT = WeightUnit.KG;
@@ -55,7 +56,8 @@ public final class LateralBalanceCheck {
         return new LateralBalance(left, right, maxHeavierSide, COMMON_UNIT);
     }
 
-    public LoadCheckResult evaluate(List<UldBooking> bookings) {
+    @Override
+    public LoadCheckResult evaluate(List<UldBooking> bookings, AirportCode arrivalAirport) {
         LateralBalance balance = balance(bookings);
         String totals =
                 "left "

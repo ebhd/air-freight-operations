@@ -1,4 +1,4 @@
-package be.kdg.airfreight.cargo.domain.offloading;
+package be.kdg.airfreight.cargo.domain.loadcheck;
 
 import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition;
@@ -9,12 +9,39 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 // destination cargo leaves through the door at rl without moving cargo for other airports
-public final class OffloadingCheck {
+public final class OffloadingCheck implements LoadCheck {
+    static final String NAME = "Offloading";
+
+    @Override
+    public LoadCheckResult evaluate(List<UldBooking> bookings, AirportCode arrivalAirport) {
+        OffloadingResult result = simulate(bookings, arrivalAirport);
+        if (result.passed()) {
+            return new LoadCheckResult(
+                    NAME,
+                    CheckSeverity.HARD,
+                    true,
+                    "All cargo for " + arrivalAirport + " can leave without moving other cargo");
+        }
+        String blocked =
+                result.blockedPositions().stream()
+                        .map(LoadingPosition::name)
+                        .collect(Collectors.joining(", "));
+        return new LoadCheckResult(
+                NAME,
+                CheckSeverity.HARD,
+                false,
+                "Cargo for "
+                        + arrivalAirport
+                        + " at "
+                        + blocked
+                        + " cannot leave without moving cargo for other airports");
+    }
 
     // unloads on a copy of the positions so the plan itself never changes
-    public OffloadingResult evaluate(List<UldBooking> bookings, AirportCode arrivalAirport) {
+    public OffloadingResult simulate(List<UldBooking> bookings, AirportCode arrivalAirport) {
         if (bookings == null) {
             throw new InvalidCargoValueException("Bookings are required");
         }

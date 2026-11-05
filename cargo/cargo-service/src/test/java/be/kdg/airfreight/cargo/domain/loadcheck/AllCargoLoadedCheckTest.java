@@ -13,11 +13,14 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class AllCargoLoadedCheckTest {
+    private static final AirportCode ARRIVAL = new AirportCode("ATH");
+
     private final AllCargoLoadedCheck check = new AllCargoLoadedCheck();
 
     @Test
     void passesWhenEveryBookingHasAPosition() {
-        LoadCheckResult result = check.evaluate(List.of(booking("AKE1", LoadingPosition.CL)));
+        LoadCheckResult result =
+                check.evaluate(List.of(booking("AKE1", LoadingPosition.CL)), ARRIVAL);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.severity()).isEqualTo(CheckSeverity.SOFT);
@@ -27,7 +30,9 @@ class AllCargoLoadedCheckTest {
     @Test
     void namesTheOneUldThatStaysBehind() {
         LoadCheckResult result =
-                check.evaluate(List.of(booking("AKE1", LoadingPosition.CL), booking("PMC2", null)));
+                check.evaluate(
+                        List.of(booking("AKE1", LoadingPosition.CL), booking("PMC2", null)),
+                        ARRIVAL);
 
         assertThat(result.passed()).isFalse();
         assertThat(result.hardFailure()).isFalse();
@@ -42,7 +47,8 @@ class AllCargoLoadedCheckTest {
                         List.of(
                                 booking("PMC2", null),
                                 booking("AKE1", null),
-                                booking("AKE3", null)));
+                                booking("AKE3", null)),
+                        ARRIVAL);
 
         assertThat(result.passed()).isFalse();
         assertThat(result.severity()).isEqualTo(CheckSeverity.SOFT);
@@ -52,7 +58,7 @@ class AllCargoLoadedCheckTest {
 
     @Test
     void noBookingsIsNothingLeftBehind() {
-        assertThat(check.evaluate(List.of()).passed()).isTrue();
+        assertThat(check.evaluate(List.of(), ARRIVAL).passed()).isTrue();
     }
 
     private static UldBooking booking(String code, LoadingPosition position) {

@@ -240,15 +240,18 @@ classDiagram
         <<DomainService>>
         run(bookings, arrivalAirport)
     }
+    class LoadCheck {
+        <<interface>>
+        evaluate(bookings, arrivalAirport)
+    }
     class LateralBalanceCheck {
         <<DomainService>>
         tolerance
         balance(bookings)
-        evaluate(bookings)
     }
     class OffloadingCheck {
         <<DomainService>>
-        evaluate(bookings, arrivalAirport)
+        simulate(bookings, arrivalAirport)
     }
     class OffloadingResult {
         <<ValueObject>>
@@ -258,7 +261,6 @@ classDiagram
     }
     class AllCargoLoadedCheck {
         <<DomainService>>
-        evaluate(bookings)
     }
     class LoadCheckResult {
         <<ValueObject>>
@@ -291,9 +293,10 @@ classDiagram
     UldBooking --> AirportCode : destination
     UldBooking --> "0..1" LoadingPosition : optional placement
     CargoPlan ..> LoadChecks : runs all checks
-    LoadChecks --> LateralBalanceCheck
-    LoadChecks --> OffloadingCheck
-    LoadChecks --> AllCargoLoadedCheck
+    LoadChecks --> "3" LoadCheck : runs every check
+    LoadCheck <|.. LateralBalanceCheck
+    LoadCheck <|.. OffloadingCheck
+    LoadCheck <|.. AllCargoLoadedCheck
     OffloadingCheck ..> OffloadingResult : returns
     LoadChecks ..> LoadCheckReport : returns
     CargoPlan ..> LoadFinalized : finalizeLoad returns
@@ -306,7 +309,7 @@ classDiagram
 | Entity | `UldBooking` |
 | Value objects | `FlightKey`, `UldCode`, `Weight`, `AirportCode`, `LoadingPosition`, `LoadingWindow`, `LoadingContext`, `OffloadingResult`, `LateralBalance`, `LoadCheckResult`, `LoadCheckReport` |
 | Policy | `LoadingWindowPolicy` (configurable offsets); lateral balance tolerance (configurable) |
-| Domain checks | `LoadChecks` runs `LateralBalanceCheck`, `OffloadingCheck` and `AllCargoLoadedCheck` (domain services) |
+| Domain checks | `LoadChecks` runs the `LoadCheck` implementations `LateralBalanceCheck`, `OffloadingCheck` and `AllCargoLoadedCheck` (domain services) |
 | Domain event | `LoadFinalized` |
 | Repository | `CargoPlanRepository` |
 | Actors | Load planner |
@@ -321,7 +324,7 @@ Invariants on `CargoPlan`:
 
 Every change raises the version of the `cargo_plans` row (optimistic locking): of two overlapping changes the second is rolled back with 409, and a unique constraint on (flight, position) guards invariant 1 in the database. A ULD moves to a free position in one step; swapping two ULDs takes two (team reading of Q16).
 
-`LoadingPosition` is an enum of the 34 main-deck positions of the Boeing 747-400 freighter. A second aircraft type would introduce a floor plan per type. The three checks have different inputs, so there is no common interface; `LoadChecks` calls them in a fixed order and builds one report.
+`LoadingPosition` is an enum of the 34 main-deck positions of the Boeing 747-400 freighter. A second aircraft type would introduce a floor plan per type. Every check implements `LoadCheck` and gets the bookings and the arrival airport, also when it does not use the airport. `LoadChecks` runs its list in a fixed order and builds one report, so a new check is one new class added to that list.
 
 Loading period: **STD - 12 hours → current ETD - 20 minutes**
 

@@ -1,13 +1,15 @@
 package be.kdg.airfreight.cargo.domain.loadcheck;
 
 import be.kdg.airfreight.cargo.domain.cargoplan.UldBooking;
+import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import java.util.List;
 
 // soft check: a booking without a position stays behind
-public final class AllCargoLoadedCheck {
+public final class AllCargoLoadedCheck implements LoadCheck {
     static final String NAME = "All cargo loaded";
 
-    public LoadCheckResult evaluate(List<UldBooking> bookings) {
+    @Override
+    public LoadCheckResult evaluate(List<UldBooking> bookings, AirportCode arrivalAirport) {
         List<String> left =
                 bookings.stream()
                         .filter(booking -> booking.getPosition().isEmpty())

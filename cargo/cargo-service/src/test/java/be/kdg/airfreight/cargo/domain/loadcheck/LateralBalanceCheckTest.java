@@ -25,6 +25,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 class LateralBalanceCheckTest {
+    private static final AirportCode ARRIVAL = new AirportCode("ATH");
+
     private final LateralBalanceCheck check = new LateralBalanceCheck(new BigDecimal("0.10"));
 
     // the published boundary with both sides swapped
@@ -43,7 +45,7 @@ class LateralBalanceCheckTest {
                 List.of(at(CL, left, WeightUnit.KG), at(CR, right, WeightUnit.KG));
 
         assertThat(check.balance(bookings).passed()).isEqualTo(passed);
-        assertThat(check.evaluate(bookings).passed()).isEqualTo(passed);
+        assertThat(check.evaluate(bookings, ARRIVAL).passed()).isEqualTo(passed);
     }
 
     @Test
@@ -128,7 +130,8 @@ class LateralBalanceCheckTest {
     void failureNamesTheHeavierSideBothTotalsTheUnitAndTheMaximum() {
         LoadCheckResult result =
                 check.evaluate(
-                        List.of(at(CL, "1000", WeightUnit.KG), at(CR, "1101", WeightUnit.KG)));
+                        List.of(at(CL, "1000", WeightUnit.KG), at(CR, "1101", WeightUnit.KG)),
+                        ARRIVAL);
 
         assertThat(result.name()).isEqualTo("Lateral balance");
         assertThat(result.severity()).isEqualTo(CheckSeverity.HARD);
@@ -143,7 +146,8 @@ class LateralBalanceCheckTest {
     void passShowsTheTotalsToo() {
         LoadCheckResult result =
                 check.evaluate(
-                        List.of(at(CL, "1100", WeightUnit.KG), at(CR, "1000", WeightUnit.KG)));
+                        List.of(at(CL, "1100", WeightUnit.KG), at(CR, "1000", WeightUnit.KG)),
+                        ARRIVAL);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.reason())

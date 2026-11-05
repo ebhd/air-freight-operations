@@ -1,4 +1,4 @@
-package be.kdg.airfreight.cargo.domain.offloading;
+package be.kdg.airfreight.cargo.domain.loadcheck;
 
 import static be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition.A1;
 import static be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition.A2;
@@ -45,7 +45,7 @@ class OffloadingCheckTest {
     @Test
     void publishedExample1FailsBecausePlBlocksMlAndRlBlocksMr() {
         OffloadingResult result =
-                check.evaluate(List.of(at(ML, ATH), at(MR, ATH), at(PL, FRA), at(RL, FRA)), ATH);
+                check.simulate(List.of(at(ML, ATH), at(MR, ATH), at(PL, FRA), at(RL, FRA)), ATH);
 
         assertThat(result.passed()).isFalse();
         assertThat(result.blockedPositions()).containsExactly(ML, MR);
@@ -55,7 +55,7 @@ class OffloadingCheckTest {
     @Test
     void publishedExample2PassesByUnloadingRrBeforeUr() {
         OffloadingResult result =
-                check.evaluate(List.of(at(RR, ATH), at(UR, ATH), at(UL, FRA)), ATH);
+                check.simulate(List.of(at(RR, ATH), at(UR, ATH), at(UL, FRA)), ATH);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.unloadingOrder()).containsExactly(RR, UR);
@@ -65,7 +65,7 @@ class OffloadingCheckTest {
     @Test
     void destinationCargoIsUnloadedFirstToClearARoute() {
         OffloadingResult result =
-                check.evaluate(List.of(at(ML, ATH), at(PL, ATH), at(RL, ATH)), ATH);
+                check.simulate(List.of(at(ML, ATH), at(PL, ATH), at(RL, ATH)), ATH);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.unloadingOrder()).containsExactly(RL, PL, ML);
@@ -74,7 +74,7 @@ class OffloadingCheckTest {
     @Test
     void destinationCargoWithABlockedOwnRouteDoesNotClearTheWay() {
         OffloadingResult result =
-                check.evaluate(List.of(at(MR, ATH), at(RR, ATH), at(RL, FRA)), ATH);
+                check.simulate(List.of(at(MR, ATH), at(RR, ATH), at(RL, FRA)), ATH);
 
         assertThat(result.passed()).isFalse();
         assertThat(result.blockedPositions()).containsExactly(MR, RR);
@@ -85,7 +85,7 @@ class OffloadingCheckTest {
     @Test
     void cargoForOtherAirportsStaysAndIsNotChecked() {
         OffloadingResult result =
-                check.evaluate(List.of(at(ML, FRA), at(PL, FRA), at(SL, ATH)), ATH);
+                check.simulate(List.of(at(ML, FRA), at(PL, FRA), at(SL, ATH)), ATH);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.unloadingOrder()).containsExactly(SL);
@@ -94,8 +94,8 @@ class OffloadingCheckTest {
 
     @Test
     void aBlockedSideIsNotBypassedOverTheOtherSide() {
-        OffloadingResult right = check.evaluate(List.of(at(MR, ATH), at(PR, FRA)), ATH);
-        OffloadingResult left = check.evaluate(List.of(at(ML, ATH), at(PL, FRA)), ATH);
+        OffloadingResult right = check.simulate(List.of(at(MR, ATH), at(PR, FRA)), ATH);
+        OffloadingResult left = check.simulate(List.of(at(ML, ATH), at(PL, FRA)), ATH);
 
         assertThat(right.passed()).isFalse();
         assertThat(right.blockedPositions()).containsExactly(MR);
@@ -105,8 +105,8 @@ class OffloadingCheckTest {
 
     @Test
     void cargoBehindTheDoorMovesForwardNotBackward() {
-        OffloadingResult tailFree = check.evaluate(List.of(at(TL, ATH), at(UL, FRA)), ATH);
-        OffloadingResult doorSideBlocked = check.evaluate(List.of(at(UL, ATH), at(SL, FRA)), ATH);
+        OffloadingResult tailFree = check.simulate(List.of(at(TL, ATH), at(UL, FRA)), ATH);
+        OffloadingResult doorSideBlocked = check.simulate(List.of(at(UL, ATH), at(SL, FRA)), ATH);
 
         assertThat(tailFree.passed()).isTrue();
         assertThat(tailFree.unloadingOrder()).containsExactly(TL);
@@ -117,7 +117,7 @@ class OffloadingCheckTest {
     @Test
     void onlyPositionedBookingsCount() {
         OffloadingResult result =
-                check.evaluate(List.of(unpositioned(ATH), unpositioned(FRA), at(RL, ATH)), ATH);
+                check.simulate(List.of(unpositioned(ATH), unpositioned(FRA), at(RL, ATH)), ATH);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.unloadingOrder()).containsExactly(RL);
@@ -125,8 +125,8 @@ class OffloadingCheckTest {
 
     @Test
     void noDestinationCargoPasses() {
-        OffloadingResult empty = check.evaluate(List.of(), ATH);
-        OffloadingResult onlyFra = check.evaluate(List.of(at(ML, FRA), at(RL, FRA)), ATH);
+        OffloadingResult empty = check.simulate(List.of(), ATH);
+        OffloadingResult onlyFra = check.simulate(List.of(at(ML, FRA), at(RL, FRA)), ATH);
 
         assertThat(empty.passed()).isTrue();
         assertThat(empty.unloadingOrder()).isEmpty();
@@ -137,7 +137,7 @@ class OffloadingCheckTest {
     @Test
     void theArrivalAirportDecidesWhatIsUnloaded() {
         OffloadingResult result =
-                check.evaluate(List.of(at(ML, ATH), at(MR, ATH), at(PL, FRA), at(RL, FRA)), FRA);
+                check.simulate(List.of(at(ML, ATH), at(MR, ATH), at(PL, FRA), at(RL, FRA)), FRA);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.unloadingOrder()).containsExactly(RL, PL);
@@ -148,7 +148,7 @@ class OffloadingCheckTest {
         List<UldBooking> bookings =
                 List.of(at(RR, ATH), at(UR, ATH), at(UL, FRA), unpositioned(ATH));
 
-        check.evaluate(bookings, ATH);
+        check.simulate(bookings, ATH);
 
         assertThat(bookings)
                 .extracting(booking -> booking.getPosition().orElse(null))
@@ -157,7 +157,7 @@ class OffloadingCheckTest {
 
     @Test
     void publishedExample3FailsBecauseCrHoldsCargoForFra() {
-        OffloadingResult result = check.evaluate(List.of(at(B1, ATH), at(CR, FRA)), ATH);
+        OffloadingResult result = check.simulate(List.of(at(B1, ATH), at(CR, FRA)), ATH);
 
         assertThat(result.passed()).isFalse();
         assertThat(result.blockedPositions()).containsExactly(B1);
@@ -167,7 +167,7 @@ class OffloadingCheckTest {
     // dl blocks the left route so only the right route can make this pass
     @Test
     void publishedExample4PassesOverTheRightSide() {
-        OffloadingResult result = check.evaluate(List.of(at(B1, ATH), at(DL, FRA)), ATH);
+        OffloadingResult result = check.simulate(List.of(at(B1, ATH), at(DL, FRA)), ATH);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.unloadingOrder()).containsExactly(B1);
@@ -176,7 +176,7 @@ class OffloadingCheckTest {
 
     @Test
     void publishedExample5FailsBecauseUlHoldsCargoForFra() {
-        OffloadingResult result = check.evaluate(List.of(at(X, ATH), at(UL, FRA)), ATH);
+        OffloadingResult result = check.simulate(List.of(at(X, ATH), at(UL, FRA)), ATH);
 
         assertThat(result.passed()).isFalse();
         assertThat(result.blockedPositions()).containsExactly(X);
@@ -186,7 +186,7 @@ class OffloadingCheckTest {
     // tr blocks the right route so only the left route can make this pass
     @Test
     void publishedExample6PassesOverTheLeftSide() {
-        OffloadingResult result = check.evaluate(List.of(at(X, ATH), at(TR, FRA)), ATH);
+        OffloadingResult result = check.simulate(List.of(at(X, ATH), at(TR, FRA)), ATH);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.unloadingOrder()).containsExactly(X);
@@ -195,7 +195,7 @@ class OffloadingCheckTest {
 
     @Test
     void maneuveringSpaceIsClearedByUnloadingDestinationCargoFirst() {
-        OffloadingResult result = check.evaluate(List.of(at(B1, ATH), at(CL, ATH)), ATH);
+        OffloadingResult result = check.simulate(List.of(at(B1, ATH), at(CL, ATH)), ATH);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.unloadingOrder()).containsExactly(CL, B1);
@@ -204,7 +204,7 @@ class OffloadingCheckTest {
     @Test
     void maneuveringSpaceWithStuckDestinationCargoFails() {
         OffloadingResult result =
-                check.evaluate(List.of(at(B1, ATH), at(CL, ATH), at(DL, FRA)), ATH);
+                check.simulate(List.of(at(B1, ATH), at(CL, ATH), at(DL, FRA)), ATH);
 
         assertThat(result.passed()).isFalse();
         assertThat(result.blockedPositions()).containsExactly(B1, CL);
@@ -217,7 +217,7 @@ class OffloadingCheckTest {
             value = LoadingPosition.class,
             names = {"A1", "A2", "B1"})
     void everyNosePositionUsesTheSameRule(LoadingPosition position) {
-        OffloadingResult result = check.evaluate(List.of(at(position, ATH), at(DR, FRA)), ATH);
+        OffloadingResult result = check.simulate(List.of(at(position, ATH), at(DR, FRA)), ATH);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.unloadingOrder()).containsExactly(position);
@@ -226,7 +226,7 @@ class OffloadingCheckTest {
     @Test
     void bothSideRoutesBlockedFails() {
         OffloadingResult result =
-                check.evaluate(List.of(at(B1, ATH), at(DL, FRA), at(DR, FRA)), ATH);
+                check.simulate(List.of(at(B1, ATH), at(DL, FRA), at(DR, FRA)), ATH);
 
         assertThat(result.passed()).isFalse();
         assertThat(result.blockedPositions()).containsExactly(B1);
@@ -234,7 +234,7 @@ class OffloadingCheckTest {
 
     @Test
     void tailManeuveringSpaceIsClearedFirst() {
-        OffloadingResult result = check.evaluate(List.of(at(X, ATH), at(UR, ATH)), ATH);
+        OffloadingResult result = check.simulate(List.of(at(X, ATH), at(UR, ATH)), ATH);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.unloadingOrder()).containsExactly(UR, X);
@@ -244,7 +244,7 @@ class OffloadingCheckTest {
     @Test
     void nosePositionsDoNotBlockEachOther() {
         OffloadingResult result =
-                check.evaluate(List.of(at(A1, ATH), at(A2, FRA), at(B1, FRA)), ATH);
+                check.simulate(List.of(at(A1, ATH), at(A2, FRA), at(B1, FRA)), ATH);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.unloadingOrder()).containsExactly(A1);
@@ -254,7 +254,7 @@ class OffloadingCheckTest {
     @Test
     void noseTailAndRowsAreOneCheck() {
         OffloadingResult result =
-                check.evaluate(List.of(at(B1, ATH), at(ML, ATH), at(PL, FRA)), ATH);
+                check.simulate(List.of(at(B1, ATH), at(ML, ATH), at(PL, FRA)), ATH);
 
         assertThat(result.passed()).isFalse();
         assertThat(result.unloadingOrder()).containsExactly(B1);
@@ -264,7 +264,7 @@ class OffloadingCheckTest {
     @Test
     void cargoForOtherAirportsOnSinglePositionsIsIgnored() {
         OffloadingResult result =
-                check.evaluate(List.of(at(X, FRA), at(A1, FRA), at(RL, ATH)), ATH);
+                check.simulate(List.of(at(X, FRA), at(A1, FRA), at(RL, ATH)), ATH);
 
         assertThat(result.passed()).isTrue();
         assertThat(result.unloadingOrder()).containsExactly(RL);
@@ -272,10 +272,10 @@ class OffloadingCheckTest {
 
     @Test
     void refusesMissingInput() {
-        assertThatThrownBy(() -> check.evaluate(null, ATH))
+        assertThatThrownBy(() -> check.simulate(null, ATH))
                 .isInstanceOf(InvalidCargoValueException.class)
                 .hasMessage("Bookings are required");
-        assertThatThrownBy(() -> check.evaluate(List.of(at(RL, ATH)), null))
+        assertThatThrownBy(() -> check.simulate(List.of(at(RL, ATH)), null))
                 .isInstanceOf(InvalidCargoValueException.class)
                 .hasMessage("Arrival airport is required");
         assertThatThrownBy(() -> new OffloadingResult(null, List.of()))
