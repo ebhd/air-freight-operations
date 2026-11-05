@@ -5,7 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import be.kdg.airfreight.flight.application.FinalizedLoadService;
+import be.kdg.airfreight.flight.application.finalizedload.FinalizedLoadService;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.InvalidScheduleException;
 import java.time.Instant;

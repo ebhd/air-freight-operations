@@ -1,7 +1,7 @@
 package be.kdg.airfreight.flight.infrastructure.messaging.ssm;
 
-import be.kdg.airfreight.flight.application.FlightSchedulingService;
-import be.kdg.airfreight.flight.application.ProcessSsmResult;
+import be.kdg.airfreight.flight.application.flight.FlightSchedulingService;
+import be.kdg.airfreight.flight.application.flight.ProcessSsmResult;
 import be.kdg.airfreight.flight.domain.flight.FlightSchedule;
 import be.kdg.airfreight.flight.infrastructure.messaging.RabbitConfiguration;
 import lombok.extern.slf4j.Slf4j;

@@ -1,7 +1,7 @@
 package be.kdg.airfreight.flight.infrastructure.persistence.jpa;
 
 import be.kdg.airfreight.flight.domain.flight.DelayType;
-import be.kdg.airfreight.flight.domain.flight.Replanning;
+import be.kdg.airfreight.flight.domain.flight.replanning.Replanning;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;

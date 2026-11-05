@@ -1,6 +1,6 @@
 package be.kdg.airfreight.flight.infrastructure;
 
-import be.kdg.airfreight.flight.application.FlightCleanupService;
+import be.kdg.airfreight.flight.application.flight.FlightCleanupService;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.RetentionPolicy;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaOutboxMessageRepository;

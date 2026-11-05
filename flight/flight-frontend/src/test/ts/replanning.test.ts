@@ -6,7 +6,7 @@ import {
     replacementKey,
     replannedText,
     replanningOffer,
-} from '../../ts/presenter/replanning';
+} from '../../ts/presenter/flight-details/replanning';
 
 // the plan example: HJ500 with 740 minutes becomes HJ500A departing 11 nov 05:00Z (06:00 brussels)
 const PROBLEM = {
