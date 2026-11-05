@@ -46,8 +46,18 @@ class DbFlightRepository implements FlightRepository {
     }
 
     @Override
+    public List<FlightKey> findKeysUpTo(LocalDate lastDate) {
+        return flights.findIdsUpTo(lastDate).stream().map(JpaFlightId::toDomain).toList();
+    }
+
+    @Override
     public Flight save(Flight flight) {
         return flights.save(JpaFlight.fromDomain(flight)).toDomain();
+    }
+
+    @Override
+    public void delete(FlightKey key) {
+        flights.deleteById(JpaFlightId.fromDomain(key));
     }
 
     // two old flights can expect the same new key, the first replan wins and the other waits

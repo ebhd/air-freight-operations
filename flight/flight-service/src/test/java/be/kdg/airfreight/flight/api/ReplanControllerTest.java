@@ -229,6 +229,14 @@ class ReplanControllerTest {
         }
 
         @Override
+        public List<FlightKey> findKeysUpTo(LocalDate lastDate) {
+            return List.of();
+        }
+
+        @Override
+        public void delete(FlightKey key) {}
+
+        @Override
         public Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture) {
             return Optional.empty();
         }

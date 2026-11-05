@@ -15,6 +15,12 @@ public interface JpaFlightRepository extends JpaRepository<JpaFlight, JpaFlightI
 
     List<JpaFlight> findByScheduledDepartureBeforeOrderByScheduledDepartureAsc(Instant end);
 
+    // only the keys, so the delays of old flights are not loaded just to find them
+    @Query(
+            "select flight.id from JpaFlight flight"
+                    + " where flight.id.scheduledDepartureDate <= :lastDate")
+    List<JpaFlightId> findIdsUpTo(LocalDate lastDate);
+
     // select for update so a second delay change waits until the first one commits
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select flight from JpaFlight flight where flight.id = :id")

@@ -9,4 +9,6 @@ public interface ProcessedMessageRepository {
     boolean contains(UUID messageId);
 
     void save(UUID messageId, FlightKey flightKey, Instant processedAt);
+
+    void deleteByFlight(FlightKey flightKey);
 }
