@@ -11,6 +11,28 @@ Stack: Java 22, Spring Boot 4.1.1, Gradle 9.7.1 (multi-project build), PostgreSQ
 
 Each service uses the packages `domain`, `application`, `infrastructure` and `api`. The design is in [architecture/analyse.md](architecture/analyse.md).
 
+## Screenshots
+
+| Flights | Timeline |
+| --- | --- |
+| ![Flight list](docs/screenshots/01-flights-overview.png) | ![Daily flight timeline](docs/screenshots/02-flight-timeline.png) |
+
+| Flight details | Replan a flight |
+| --- | --- |
+| ![Flight details](docs/screenshots/03-flight-details.png) | ![Replan dialog](docs/screenshots/04-replan-modal.png) |
+
+| Flights to load | Load check |
+| --- | --- |
+| ![Flights to load](docs/screenshots/05-flights-to-load.png) | ![Cargo plan with load check](docs/screenshots/06-cargo-plan-load-check.png) |
+
+| Finalized cargo plan | Partner messages |
+| --- | --- |
+| ![Finalized cargo plan](docs/screenshots/07-cargo-plan-finalized.png) | ![Partner messages](docs/screenshots/08-partner-messages.png) |
+
+| Simulator | Phone |
+| --- | --- |
+| ![Simulator](docs/screenshots/09-simulator.png) | ![Flight details on a phone](docs/screenshots/10-flight-details-phone.png) |
+
 ## Run
 
 Requires Docker with Compose. Set up Keycloak first (see [Keycloak](#keycloak)), then:
