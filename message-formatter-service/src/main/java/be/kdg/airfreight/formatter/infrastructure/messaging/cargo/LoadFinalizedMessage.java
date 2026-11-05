@@ -1,4 +1,4 @@
-package be.kdg.airfreight.formatter.infrastructure.messaging;
+package be.kdg.airfreight.formatter.infrastructure.messaging.cargo;
 
 import java.math.BigDecimal;
 import java.time.Instant;

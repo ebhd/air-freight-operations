@@ -1,4 +1,4 @@
-package be.kdg.airfreight.formatter.infrastructure.messaging;
+package be.kdg.airfreight.formatter.infrastructure.messaging.flight;
 
 import java.time.Instant;
 import java.time.LocalDate;

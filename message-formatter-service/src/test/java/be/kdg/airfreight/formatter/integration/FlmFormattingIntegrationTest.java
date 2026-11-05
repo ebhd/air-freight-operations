@@ -8,9 +8,9 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import be.kdg.airfreight.formatter.infrastructure.messaging.FlightCreatedListener;
-import be.kdg.airfreight.formatter.infrastructure.messaging.FlightCreatedMessage;
-import be.kdg.airfreight.formatter.infrastructure.messaging.PartnerMessagesPreparedMessage;
+import be.kdg.airfreight.formatter.infrastructure.messaging.flight.FlightCreatedListener;
+import be.kdg.airfreight.formatter.infrastructure.messaging.flight.FlightCreatedMessage;
+import be.kdg.airfreight.formatter.infrastructure.messaging.prepared.PartnerMessagesPreparedMessage;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;

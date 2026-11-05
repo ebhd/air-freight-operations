@@ -3,6 +3,7 @@ package be.kdg.airfreight.partner.application;
 import be.kdg.airfreight.partner.domain.MessageContent;
 import be.kdg.airfreight.partner.domain.PartnerMessage;
 import be.kdg.airfreight.partner.domain.PartnerMessageRepository;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -17,11 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class PartnerMessageService {
     private final PartnerMessageRepository messages;
     private final ApplicationEventPublisher events;
+    private final Clock clock;
 
     public PartnerMessageService(
-            PartnerMessageRepository messages, ApplicationEventPublisher events) {
+            PartnerMessageRepository messages, ApplicationEventPublisher events, Clock clock) {
         this.messages = messages;
         this.events = events;
+        this.clock = clock;
     }
 
     @Transactional
@@ -45,7 +48,7 @@ public class PartnerMessageService {
             return existing.get();
         }
 
-        var message = PartnerMessage.create(sourceMessageId, Instant.now(), content);
+        var message = PartnerMessage.create(sourceMessageId, Instant.now(clock), content);
         var saved = messages.save(message);
         events.publishEvent(saved);
         log.info(

@@ -1,4 +1,4 @@
-package be.kdg.airfreight.formatter.infrastructure.messaging;
+package be.kdg.airfreight.formatter.infrastructure.messaging.flight;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;

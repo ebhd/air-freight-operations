@@ -1,10 +1,11 @@
-package be.kdg.airfreight.formatter.infrastructure.messaging;
+package be.kdg.airfreight.formatter.infrastructure.messaging.flight;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
-public record FlightCreatedMessage(
+// flights flight.landed json version 1
+public record FlightLandedMessage(
         UUID messageId,
         int version,
         Instant occurredOn,
@@ -12,7 +13,7 @@ public record FlightCreatedMessage(
         LocalDate scheduledDepartureDate,
         String departureAirportCode,
         String arrivalAirportCode,
-        Instant scheduledDeparture,
-        Instant scheduledArrival) {
+        String aircraftRegistration,
+        Instant actualArrival) {
     public static final int VERSION = 1;
 }

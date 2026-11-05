@@ -18,28 +18,28 @@ public class RabbitConfiguration {
     // ----- Incoming Flight events -----
     static final String FLIGHT_EVENTS = "flight.events";
     static final String FLIGHT_CREATED = "flight.created";
-    static final String FLIGHT_CREATED_QUEUE = "partner.flight-created";
+    public static final String FLIGHT_CREATED_QUEUE = "partner.flight-created";
     static final String FLIGHT_ESTIMATES_CHANGED = "flight.estimates-changed";
-    static final String FLIGHT_ESTIMATES_CHANGED_QUEUE = "partner.flight-estimates-changed";
+    public static final String FLIGHT_ESTIMATES_CHANGED_QUEUE = "partner.flight-estimates-changed";
     // newer queues carry the formatter prefix, the two above keep their old name
     static final String FLIGHT_DEPARTED = "flight.departed";
-    static final String FLIGHT_DEPARTED_QUEUE = "formatter.flight-departed";
+    public static final String FLIGHT_DEPARTED_QUEUE = "formatter.flight-departed";
     static final String FLIGHT_LANDED = "flight.landed";
-    static final String FLIGHT_LANDED_QUEUE = "formatter.flight-landed";
+    public static final String FLIGHT_LANDED_QUEUE = "formatter.flight-landed";
     static final String FLIGHT_REPLACED = "flight.replaced";
-    static final String FLIGHT_REPLACED_QUEUE = "formatter.flight-replaced";
+    public static final String FLIGHT_REPLACED_QUEUE = "formatter.flight-replaced";
 
     // ----- Incoming Cargo events -----
     static final String CARGO_EVENTS = "cargo.events";
     static final String LOAD_FINALIZED = "cargo.load-finalized";
-    static final String LOAD_FINALIZED_QUEUE = "formatter.cargo-load-finalized";
+    public static final String LOAD_FINALIZED_QUEUE = "formatter.cargo-load-finalized";
 
     // ----- Incoming message dead-letter handling -----
     static final String DEAD_LETTER_EXCHANGE = "partner.dlx";
     static final String DEAD_LETTER_QUEUE = "partner.dlq";
 
-    static final String FORMATTER_EVENTS = "formatter.events";
-    static final String PREPARED = "partner-messages.prepared";
+    public static final String FORMATTER_EVENTS = "formatter.events";
+    public static final String PREPARED = "partner-messages.prepared";
 
     // ----- Incoming Flight events -----
     @Bean

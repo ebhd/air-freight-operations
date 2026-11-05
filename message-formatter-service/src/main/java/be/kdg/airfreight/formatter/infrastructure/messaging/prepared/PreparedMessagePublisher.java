@@ -1,7 +1,8 @@
-package be.kdg.airfreight.formatter.infrastructure.messaging;
+package be.kdg.airfreight.formatter.infrastructure.messaging.prepared;
 
 import be.kdg.airfreight.formatter.domain.MessageContent;
 import be.kdg.airfreight.formatter.domain.MessagePublisher;
+import be.kdg.airfreight.formatter.infrastructure.messaging.RabbitConfiguration;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;

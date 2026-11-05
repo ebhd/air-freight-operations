@@ -1,7 +1,8 @@
-package be.kdg.airfreight.formatter.infrastructure.messaging;
+package be.kdg.airfreight.formatter.infrastructure.messaging.flight;
 
 import be.kdg.airfreight.formatter.application.MessageFormattingService;
 import be.kdg.airfreight.formatter.domain.FlightCreatedFact;
+import be.kdg.airfreight.formatter.infrastructure.messaging.RabbitConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;

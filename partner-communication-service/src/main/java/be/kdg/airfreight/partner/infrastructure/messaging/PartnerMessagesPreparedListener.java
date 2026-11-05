@@ -4,6 +4,7 @@ import be.kdg.airfreight.partner.application.PartnerMessageService;
 import be.kdg.airfreight.partner.domain.MessageContent;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.exception.ConstraintViolationException;
@@ -15,6 +16,10 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 @Slf4j
 public class PartnerMessagesPreparedListener {
+    private static final Set<String> SUPPORTED_TYPES =
+            Set.of("FLM", "MVT_ED", "MVT_EA", "MVT_AD", "MVT_AA", "CPM", "FLIGHT_REPLANNED");
+    private static final Set<String> JSON_TYPES = Set.of("FLM", "CPM", "FLIGHT_REPLANNED");
+
     private final PartnerMessageService service;
     private final JsonMapper json;
 
@@ -25,6 +30,19 @@ public class PartnerMessagesPreparedListener {
 
     @RabbitListener(queues = RabbitConfiguration.PREPARED_QUEUE)
     public void receive(PartnerMessagesPreparedMessage batch) {
+        List<MessageContent> contents = validateAndMap(batch);
+        try {
+            service.prepareMessages(batch.sourceMessageId(), contents);
+        } catch (DataIntegrityViolationException exception) {
+            // A concurrent insert can win after our lookup. Retry outside the failed transaction.
+            if (!isDuplicateSource(exception)) {
+                throw exception;
+            }
+            service.prepareMessages(batch.sourceMessageId(), contents);
+        }
+    }
+
+    private List<MessageContent> validateAndMap(PartnerMessagesPreparedMessage batch) {
         if (batch.version() != PartnerMessagesPreparedMessage.VERSION
                 || batch.sourceMessageId() == null
                 || batch.messages() == null
@@ -43,34 +61,18 @@ public class PartnerMessagesPreparedListener {
                 throw new IllegalArgumentException("Prepared content must not be null");
             }
             var content = new MessageContent(item.type(), item.payload(), item.formatVersion());
-            if (!Set.of("FLM", "MVT_ED", "MVT_EA", "MVT_AD", "MVT_AA", "CPM", "FLIGHT_REPLANNED")
-                            .contains(content.type())
-                    || !types.add(content.type())) {
+            if (!SUPPORTED_TYPES.contains(content.type()) || !types.add(content.type())) {
                 throw new IllegalArgumentException(
                         "Unsupported or repeated prepared type: " + content.type());
             }
-            if ("FLM".equals(content.type()) && !json.readTree(content.payload()).isObject()) {
-                throw new IllegalArgumentException("FLM payload must be a JSON object");
-            }
-            if ("CPM".equals(content.type()) && !json.readTree(content.payload()).isObject()) {
-                throw new IllegalArgumentException("CPM payload must be a JSON object");
-            }
-            if ("FLIGHT_REPLANNED".equals(content.type())
+            if (JSON_TYPES.contains(content.type())
                     && !json.readTree(content.payload()).isObject()) {
                 throw new IllegalArgumentException(
-                        "FLIGHT_REPLANNED payload must be a JSON object");
+                        content.type() + " payload must be a JSON object");
             }
             contents.add(content);
         }
-        try {
-            service.prepareMessages(batch.sourceMessageId(), contents);
-        } catch (DataIntegrityViolationException exception) {
-            // A concurrent insert can win after our lookup. Retry outside the failed transaction.
-            if (!isDuplicateSource(exception)) {
-                throw exception;
-            }
-            service.prepareMessages(batch.sourceMessageId(), contents);
-        }
+        return contents;
     }
 
     private boolean isDuplicateSource(Throwable failure) {

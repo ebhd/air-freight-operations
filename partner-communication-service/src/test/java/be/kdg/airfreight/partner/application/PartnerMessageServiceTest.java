@@ -12,7 +12,9 @@ import be.kdg.airfreight.partner.domain.MessageContent;
 import be.kdg.airfreight.partner.domain.PartnerMessage;
 import be.kdg.airfreight.partner.domain.PartnerMessageRepository;
 import be.kdg.airfreight.partner.domain.PublicationState;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,7 +25,9 @@ import org.springframework.context.ApplicationEventPublisher;
 class PartnerMessageServiceTest {
     private final PartnerMessageRepository repository = mock(PartnerMessageRepository.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
-    private final PartnerMessageService service = new PartnerMessageService(repository, events);
+    private final Clock clock = Clock.fixed(Instant.parse("2026-11-05T10:00:00Z"), ZoneOffset.UTC);
+    private final PartnerMessageService service =
+            new PartnerMessageService(repository, events, clock);
 
     @Test
     void createsPendingFlmWithThePreparedContent() {
@@ -37,7 +41,7 @@ class PartnerMessageServiceTest {
         var message = captor.getValue();
 
         assertThat(message.id().value()).isNotNull();
-        assertThat(message.createdAtUTC()).isNotNull();
+        assertThat(message.createdAtUTC()).isEqualTo(clock.instant());
         assertThat(message.sourceMessageId()).isEqualTo(sourceId);
         assertThat(message.state()).isEqualTo(PublicationState.PENDING);
         assertThat(message.content()).isEqualTo(content);
