@@ -65,6 +65,8 @@ class CpmFormatterTest {
                         new MvtEdFormatter(),
                         new MvtEaFormatter(),
                         formatter,
+                        new MvtAdFormatter(),
+                        new MvtAaFormatter(),
                         publisher);
         var sourceId = UUID.randomUUID();
         LoadFinalizedFact fact = fact(List.of());

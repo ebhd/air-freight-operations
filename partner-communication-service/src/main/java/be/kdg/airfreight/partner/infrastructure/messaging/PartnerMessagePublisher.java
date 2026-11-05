@@ -114,6 +114,8 @@ public class PartnerMessagePublisher {
             case "FLM" -> RabbitConfiguration.FLM;
             case "MVT_ED" -> RabbitConfiguration.MVT_ED;
             case "MVT_EA" -> RabbitConfiguration.MVT_EA;
+            case "MVT_AD" -> RabbitConfiguration.MVT_AD;
+            case "MVT_AA" -> RabbitConfiguration.MVT_AA;
             case "CPM" -> RabbitConfiguration.CPM;
             default ->
                     throw new IllegalArgumentException(

@@ -62,7 +62,7 @@ flowchart LR
 
     subgraph CL_CTX["Cargo Loading (downstream)"]
         CL["Cargo Loading"]
-        FlightACL["RestFlightRepository<br/>«anti-corruption layer»"]
+        FlightACL["Flight copy + FlightOperationsClient<br/>«anti-corruption layer»"]
 
         CL --> FlightACL
     end
@@ -86,7 +86,8 @@ flowchart LR
 
     IAM["Identity and Access Management <br/>external"]
 
-    FlightACL -->|"REST"| FlightAPI
+    FlightACL -->|"REST, only a flight not in the copy"| FlightAPI
+    FlightACL -->|"Flight facts - RabbitMQ<br/>«published language»"| FO
 
     CPMReceiver -->|"Finalized load cargo.load-finalized - RabbitMQ<br/>«published language»"| CL
 
@@ -99,7 +100,7 @@ flowchart LR
 
 | Relationship |Pattern | Why |
 | --- | --- | --- |
-| Flight Operations -> Cargo Loading | Open Host Service, Published Language; Cargo anti-corruption layer | Flight Operations exposes a flight-information contract; Cargo Loading translates it into its own model. |
+| Flight Operations -> Cargo Loading | Published Language (flight events) and Open Host Service for one unknown flight; Cargo anti-corruption layer | Cargo Loading keeps its own copy of the flights it needs, filled by `flight.created`, `flight.estimates-changed`, `flight.departed` and `flight.landed`, so it keeps working while Flight Operations is down. Its health endpoint still reports `DOWN` then, because `FlightApiHealthIndicator` checks Flight. It asks the flight-information API only for a flight that is not in the copy yet, for example when a ULD booking arrives before `flight.created`. Both paths are translated into Cargo's own model. |
 | Cargo Loading -> Flight Operations | Published Language; Flight anti-corruption layer | Cargo Loading publishes the finalized load (`cargo.load-finalized`); Flight's `CpmReceiver` translates it into its departure prerequisite. |
 | Flight Operations / Cargo Loading -> Message Formatter | Published Language | Formatter consumes Flight facts for FLM/MVT and Cargo's finalized load for the partner CPM. Cargo never formats the partner CPM. |
 | Message Formatter -> Partner Communication | Sender anti-corruption layer | Sender translates prepared batches into its own message model, persists them and publishes them. |
@@ -131,11 +132,11 @@ flowchart TB
     F --> FDB
     C -->|plan and outbox in one transaction| CDB
     P --> PDB
-    C -->|Flight API - HTTP :8080| F
+    C -->|Flight API - HTTP :8080, only a flight not in the copy| F
 
     Sim["Simulator<br/>(non-production)"] -->|SSM and ULD messages| MQ["RabbitMQ<br/>AMQP :5672 / UI :15672"]
     MQ -->|SSM| F
-    MQ -->|ULD message| C
+    MQ -->|ULD message and flight changes| C
     F -->|flight changes| MQ
     C -->|finalized load - outbox, cargo.events| MQ
     MQ -->|flight facts| MF
@@ -422,8 +423,24 @@ classDiagram
         estimatedDeparture()
         estimatedArrival()
         recordFinalizedLoad()
-        recordDeparture(actualDeparture)
-        recordArrival(actualArrival)
+        recordDeparture(actualDeparture, now, policy)
+        recordArrival(actualArrival, now, policy)
+    }
+
+    class ActualTimePolicy {
+        <<ValueObject>>
+        tolerance
+        latestAllowed(estimate)
+    }
+
+    class ActualTimeRefusal {
+        <<enumeration>>
+        NOT_PLANNED
+        NOT_DEPARTED
+        CPM_NOT_PROCESSED
+        IN_THE_FUTURE
+        NOT_AFTER_DEPARTURE
+        TOO_LATE
     }
 
     class FlightKey {
@@ -455,6 +472,8 @@ classDiagram
     Flight "1" *-- "0..*" Delay : arrivalDelays
     Flight "1" --> "1" FlightKey : key
     Flight --> "1" FlightStatus : status
+    Flight ..> ActualTimePolicy : checks ATD and ATA with
+    Flight ..> ActualTimeRefusal : refuses with
 
 ```
 
@@ -464,9 +483,9 @@ classDiagram
 | --- | --- |
 | Aggregate root | `Flight` (owns delays and controls the lifecycle) |
 | Entity | `Delay` |
-| Value objects | `FlightKey` (a delay's `id` is a plain `UUID`, no value object) |
-| Enumerations | `FlightStatus`, `DelayType` |
-| Domain events | `FlightCreated`, `FlightEstimatesChanged`, `FlightDeparted`, `FlightArrived` |
+| Value objects | `FlightKey`, `ActualTimePolicy` (a delay's `id` is a plain `UUID`, no value object) |
+| Enumerations | `FlightStatus`, `DelayType`, `ActualTimeRefusal` |
+| Domain events | `FlightCreated`, `FlightEstimatesChanged`, `FlightDeparted`, `FlightLanded` |
 | Repository | `FlightRepository` |
 | Actors | Flight planner, Load planner |
 
@@ -476,13 +495,17 @@ Invariants on `Flight`:
 2. A flight moves only from `PLANNED` to `DEPARTED` to `LANDED`.
 3. Departure delays can change only while planned, arrival delays can change while planned or departed. All delays freeze after landing.
 4. Each delay is 1–720 minutes. ETD and ETA are calculated from the current delays, never entered manually.
+5. Actual times are registered once and never change; a second registration is refused.
+6. ATD needs the processed CPM, is at most `now` and at most ETD plus the tolerance; ATA is later than ATD, at most `now` and at most ETA plus the tolerance. The limit itself is accepted. The tolerance (`ActualTimePolicy`, 5 minutes) is configuration; `now` comes from the service's clock, so the aggregate stays testable.
 
 ### Flight workflow
 
 - SSM creates `PLANNED` flights without delays or actual times; `finalizedLoadProcessed` starts false. Duplicate keys are logged and skipped unchanged; remaining dates continue.
 - `recordFinalizedLoad()` marks the CPM as received and processed by Flight Operations. It returns false when the flag was already set (no second effect) and refuses a flight that is no longer planned.
 - `CpmReceiver` (anti-corruption layer) reads `flight.cargo-load-finalized`, checks version 1, message ID, time and the flight key, and calls `FinalizedLoadService`. That service locks the flight row, skips a message ID that is in `processed_messages`, records the load and stores the ID in one transaction. Invalid messages and unknown flights go to `flight.dlq` after the retries and are logged with their ID and reason.
-- `requireFinalizedLoadProcessed()` is the departure gate: until the CPM is processed it refuses with "departure needs the processed CPM of the finalized load from Cargo Loading". ATD registration (#28) calls it; that is not built yet.
+- `requireFinalizedLoadProcessed()` is the departure gate: until the CPM is processed `recordDeparture` refuses with `CPM_NOT_PROCESSED` ("Departure needs the processed CPM of the finalized load from Cargo Loading. If the load was finalized a moment ago, wait a few seconds and try again."). Both the CPM listener and the registration lock the flight row, so the two never interleave and the retry succeeds.
+- `recordDeparture(atd, now, policy)` checks in this order: planned, CPM processed, time present, not after `now`, at most ETD plus the tolerance. Then it stores the ATD and moves to `DEPARTED`; `FlightActualTimeService` publishes `FlightDeparted`, written to the outbox as `flight.departed`. `recordArrival(ata, now, policy)` checks departed, time present, not after `now`, later than the ATD, at most ETA plus the tolerance, then stores the ATA, moves to `LANDED` and `FlightLanded` becomes `flight.landed`. Every refusal is an `ActualTimeRefusedException` with an `ActualTimeRefusal` code (409 with `refusal`, `TOO_LATE` also carries `latestAllowed`); a refused registration publishes nothing. Registering changes no estimate, so no ED or EA follows.
+- The page enters the time in Brussels time and converts it to a UTC instant with whole minutes; the service checks the rules again against its own clock.
 
 ### Flight lifecycle
 
@@ -491,10 +514,12 @@ stateDiagram-v2
     [*] --> PLANNED: create flight from SSM
     PLANNED --> PLANNED: add / edit / remove departure or arrival delay
     PLANNED --> PLANNED: process finalized-load CPM
-    PLANNED --> DEPARTED: recordDeparture(ATD)
+    PLANNED --> DEPARTED: recordDeparture(ATD) — CPM processed, ATD ≤ now, ATD ≤ ETD + tolerance
     DEPARTED --> DEPARTED: add / edit / remove arrival delay
-    DEPARTED --> LANDED: recordArrival(ATA)
+    DEPARTED --> LANDED: recordArrival(ATA) — ATA > ATD, ATA ≤ now, ATA ≤ ETA + tolerance
 ```
+
+`DEPARTED` freezes the departure delays, `LANDED` all delays; actual times never change.
 
 ## 8. Tactical design: Message Formatter and Partner Communication
 
@@ -566,7 +591,7 @@ classDiagram
 | Flight created | FLM (JSON) |
 | ETD changed | MVT-ED + MVT-EA (IATA text) |
 | ETA only changed | MVT-EA (IATA text) |
-| ATD / ATA registered | MVT-AD / MVT-AA (IATA text) |
+| ATD / ATA registered (`flight.departed` / `flight.landed`, Formatter queues `formatter.flight-departed` / `formatter.flight-landed`) | MVT-AD / MVT-AA (IATA text): departure airport and ATD, arrival airport and ATA, line 2 keeps the scheduled departure day; routing keys `mvt.ad` / `mvt.aa` |
 | Load finalized in Cargo (`cargo.load-finalized`) | CPM (JSON): flight number, scheduled departure date, departure airport, positioned ULDs with code, position, weight with unit and destination; Partner adds message ID, creation time and format version |
 
 ### Publication lifecycle
@@ -588,7 +613,9 @@ A service serves its own web pages as static files from its JAR. Cargo and Fligh
 
 Sign-in and rights: the page (bundled with `keycloak-js`) sends the user to Keycloak's own login page (OpenID Connect, Authorization Code with PKCE), keeps the tokens in memory and renews the access token before an API call when it is about to expire. Flight and Cargo are stateless resource servers: each checks every JWT itself with Keycloak's public keys (signature, issuer, its own audience, expiry) and maps the realm roles `flight-planner` and `load-planner` to Spring roles. The rules live in each service's `SecurityConfiguration`: both roles may read (`GET /api/**`), other API calls need `load-planner` in Cargo and `flight-planner` in Flight. Cargo lets only its page files, health and `/error` through without a token and refuses every other path. A missing or invalid token gives 401, a wrong role 403; a refusal by the domain rules stays 409. The pages hide actions the role may not use, but the server decides. Cargo reads Flight with its own client-credentials token.
 
-Cargo signals a missing or invalid input value with its own `InvalidCargoValueException` from the value objects. The ULD listener stores such a message in `rejected_messages` without retrying; a REST controller turns it into 400 only while it builds the domain values from the URL, so bad data from Flight stays a 500. `CargoApiExceptionHandler` gives every Cargo endpoint the same answers: 404 for a flight Flight does not know, 503 when Flight is unreachable, 409 with a refusal code when the loading rules refuse an action (`LoadingNotAllowedException`), and 409 with `HARD_CHECKS_FAILED` plus the check report when finalizing fails a hard check (`LoadNotFinalizedException`). Read use cases such as the cargo plan view (`CargoPlanQueryService`) load the aggregate through its repository and add Flight's data; they check no flight state, so the plan stays readable after departure.
+Cargo signals a missing or invalid input value with its own `InvalidCargoValueException` from the value objects. The ULD listener stores such a message in `rejected_messages` without retrying; a REST controller turns it into 400 only while it builds the domain values from the URL, so bad data from Flight stays a 500. Flight's events go through the same reject or retry rules. `CargoApiExceptionHandler` gives every Cargo endpoint the same answers: 404 for a flight Flight does not know, 503 when Flight is unreachable, 409 with a refusal code when the loading rules refuse an action (`LoadingNotAllowedException`), and 409 with `HARD_CHECKS_FAILED` plus the check report when finalizing fails a hard check (`LoadNotFinalizedException`). Read use cases such as the cargo plan view (`CargoPlanQueryService`) load the aggregate through its repository and add Flight's data; they check no flight state, so the plan stays readable after departure.
+
+Cargo reads flight data from its own `flights` table (`FlightRepository`, implemented by `LocalFlightRepository`). `FlightEventListener` and `FlightCopyService` keep that copy up to date. Only a flight that is not in the copy is fetched once over HTTP (`FlightOperationsClient`) and then stored. Every row stores when Flight made its last change (`last_change_at`). `flight.created` and an HTTP lookup write the whole row with one SQL upsert; `flight.estimates-changed` updates only the two estimate columns, so it never overwrites another field. Both only change a row whose last change is older, so a retried or late event never takes the copy back in time. The status is different: `flight.departed` and `flight.landed` move it forward with `advanceStatus` (`UPDATE ... WHERE status IN (earlier statuses)`), without a time, because a flight never goes back. So a redelivery, an older event or `landed` before `departed` changes nothing, and an arrival-delay estimate stamped after the departure can never block it. The whole-row upsert leaves the status of an existing row alone for the same reason. Flight stamps an event before its commit, so a change can carry a time just before Cargo's HTTP call and still be missing from the answer. For an HTTP lookup Cargo therefore stores the time before the call minus five seconds (`COMMIT_MARGIN`): the event of such a change still counts as newer, and an older event that arrives later is harmless because the newest event of the same queue comes after it. This assumes the clocks of Flight and Cargo differ by less than that margin, which holds in Docker on one machine. The copy is a read model without business rules, so it uses `JdbcClient`: JPA cannot express the conditional upsert and update. A departed or landed flight disappears from the load planner's day overview (unless `includeDeparted`) and its cargo plan is read-only (`FLIGHT_NOT_PLANNED`).
 
 ## 10. Running it 
 

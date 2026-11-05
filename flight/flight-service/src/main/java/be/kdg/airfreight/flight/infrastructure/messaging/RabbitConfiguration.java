@@ -19,6 +19,8 @@ public class RabbitConfiguration {
     public static final String FLIGHT_EVENTS = "flight.events";
     public static final String FLIGHT_CREATED = "flight.created";
     public static final String FLIGHT_ESTIMATES_CHANGED = "flight.estimates-changed";
+    public static final String FLIGHT_DEPARTED = "flight.departed";
+    public static final String FLIGHT_LANDED = "flight.landed";
 
     public static final String SSM_QUEUE = "flight.ssm";
     static final String DEAD_LETTER_EXCHANGE = "flight.dlx";

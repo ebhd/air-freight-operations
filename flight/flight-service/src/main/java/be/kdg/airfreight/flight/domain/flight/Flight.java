@@ -16,11 +16,15 @@ public final class Flight {
     private final String aircraftRegistration;
     private final Instant scheduledDeparture;
     private final Instant scheduledArrival;
-    private final FlightStatus status;
+    // changes when the actual departure or arrival is registered
+    private FlightStatus status;
     private final List<Delay> departureDelays;
     private final List<Delay> arrivalDelays;
     // true once the cpm of the finalized load from cargo is received and processed
     private boolean finalizedLoadProcessed;
+    // null until registered, then never changed
+    private Instant actualDeparture;
+    private Instant actualArrival;
 
     private Flight(
             FlightKey key,
@@ -99,6 +103,32 @@ public final class Flight {
             List<Delay> departureDelays,
             List<Delay> arrivalDelays,
             boolean finalizedLoadProcessed) {
+        return restore(
+                key,
+                arrivalAirportCode,
+                aircraftRegistration,
+                scheduledDeparture,
+                scheduledArrival,
+                status,
+                departureDelays,
+                arrivalDelays,
+                finalizedLoadProcessed,
+                null,
+                null);
+    }
+
+    public static Flight restore(
+            FlightKey key,
+            String arrivalAirportCode,
+            String aircraftRegistration,
+            Instant scheduledDeparture,
+            Instant scheduledArrival,
+            FlightStatus status,
+            List<Delay> departureDelays,
+            List<Delay> arrivalDelays,
+            boolean finalizedLoadProcessed,
+            Instant actualDeparture,
+            Instant actualArrival) {
         Flight flight =
                 new Flight(
                         key,
@@ -112,6 +142,8 @@ public final class Flight {
         flight.arrivalDelays.addAll(
                 Objects.requireNonNull(arrivalDelays, "arrival delays must not be null"));
         flight.finalizedLoadProcessed = finalizedLoadProcessed;
+        flight.actualDeparture = actualDeparture;
+        flight.actualArrival = actualArrival;
         return flight;
     }
 
@@ -158,6 +190,14 @@ public final class Flight {
         return finalizedLoadProcessed;
     }
 
+    public Instant actualDeparture() {
+        return actualDeparture;
+    }
+
+    public Instant actualArrival() {
+        return actualArrival;
+    }
+
     // false when the cpm was already processed so a second delivery has no effect
     public boolean recordFinalizedLoad() {
         if (finalizedLoadProcessed) {
@@ -174,9 +214,149 @@ public final class Flight {
     // the departure gate for registering atd in issue 28
     public void requireFinalizedLoadProcessed() {
         if (!finalizedLoadProcessed) {
-            throw new DomainRuleViolationException(
-                    "departure needs the processed CPM of the finalized load from Cargo Loading");
+            throw new ActualTimeRefusedException(
+                    ActualTimeRefusal.CPM_NOT_PROCESSED,
+                    "Departure needs the processed CPM of the finalized load from Cargo Loading."
+                            + " If the load was finalized a moment ago, wait a few seconds and try"
+                            + " again.");
         }
+    }
+
+    // now and the tolerance come from the service so this stays testable with a fixed clock
+    // the checks go from the flight's state to the entered value: status, cpm, then the time
+    public void recordDeparture(Instant actualDeparture, Instant now, ActualTimePolicy policy) {
+        Objects.requireNonNull(now, "now must not be null");
+        Objects.requireNonNull(policy, "actual time policy must not be null");
+        if (status != FlightStatus.PLANNED) {
+            throw new ActualTimeRefusedException(
+                    ActualTimeRefusal.NOT_PLANNED,
+                    this.actualDeparture != null
+                            ? alreadyRegistered("departure", this.actualDeparture)
+                            : "The actual departure can only be registered for a planned flight."
+                                    + " This flight is "
+                                    + status
+                                    + ".");
+        }
+        requireFinalizedLoadProcessed();
+        requireActualTime(actualDeparture, "actual departure");
+        requireNotInTheFuture(actualDeparture, now, "actual departure");
+        Instant latest = policy.latestAllowed(estimatedDeparture());
+        // isAfter so exactly the limit is still accepted
+        if (actualDeparture.isAfter(latest)) {
+            throw new ActualTimeRefusedException(
+                    ActualTimeRefusal.TOO_LATE,
+                    tooLate(
+                            "departure",
+                            actualDeparture,
+                            estimatedDeparture(),
+                            policy,
+                            latest,
+                            "Add a departure delay first, then register the departure."),
+                    latest);
+        }
+        this.actualDeparture = actualDeparture;
+        this.status = FlightStatus.DEPARTED;
+    }
+
+    public void recordArrival(Instant actualArrival, Instant now, ActualTimePolicy policy) {
+        Objects.requireNonNull(now, "now must not be null");
+        Objects.requireNonNull(policy, "actual time policy must not be null");
+        if (status != FlightStatus.DEPARTED) {
+            throw new ActualTimeRefusedException(
+                    ActualTimeRefusal.NOT_DEPARTED, notDepartedReason());
+        }
+        requireActualTime(actualArrival, "actual arrival");
+        requireNotInTheFuture(actualArrival, now, "actual arrival");
+        // equal is refused: the flight must have been in the air
+        if (!actualArrival.isAfter(actualDeparture)) {
+            throw new ActualTimeRefusedException(
+                    ActualTimeRefusal.NOT_AFTER_DEPARTURE,
+                    "The actual arrival "
+                            + actualArrival
+                            + " must be later than the actual departure "
+                            + actualDeparture
+                            + ".");
+        }
+        Instant latest = policy.latestAllowed(estimatedArrival());
+        if (actualArrival.isAfter(latest)) {
+            throw new ActualTimeRefusedException(
+                    ActualTimeRefusal.TOO_LATE,
+                    tooLate(
+                            "arrival",
+                            actualArrival,
+                            estimatedArrival(),
+                            policy,
+                            latest,
+                            "Add an arrival delay first, then register the arrival."),
+                    latest);
+        }
+        this.actualArrival = actualArrival;
+        this.status = FlightStatus.LANDED;
+    }
+
+    private String notDepartedReason() {
+        if (status == FlightStatus.PLANNED) {
+            return "The actual arrival can only be registered after the actual departure."
+                    + " Register the departure first.";
+        }
+        if (actualArrival != null) {
+            return alreadyRegistered("arrival", actualArrival);
+        }
+        return "The actual arrival can only be registered for a departed flight. This flight is "
+                + status
+                + ".";
+    }
+
+    private static String alreadyRegistered(String name, Instant registered) {
+        return "The actual "
+                + name
+                + " of this flight was already registered on "
+                + registered
+                + " and cannot be changed.";
+    }
+
+    private static void requireActualTime(Instant value, String name) {
+        if (value == null) {
+            throw new InvalidActualTimeException(name + " is required");
+        }
+    }
+
+    private static void requireNotInTheFuture(Instant value, Instant now, String name) {
+        if (value.isAfter(now)) {
+            throw new ActualTimeRefusedException(
+                    ActualTimeRefusal.IN_THE_FUTURE,
+                    "The "
+                            + name
+                            + " "
+                            + value
+                            + " is in the future (now "
+                            + now
+                            + "). An actual time can be at most now.");
+        }
+    }
+
+    // the tolerance is printed in whole minutes, the unit the course and the page use
+    private static String tooLate(
+            String name,
+            Instant actual,
+            Instant estimate,
+            ActualTimePolicy policy,
+            Instant latest,
+            String advice) {
+        return "The actual "
+                + name
+                + " "
+                + actual
+                + " is later than the estimated "
+                + name
+                + " "
+                + estimate
+                + " plus the tolerance of "
+                + policy.tolerance().toMinutes()
+                + " minutes ("
+                + latest
+                + "). "
+                + advice;
     }
 
     public void addDepartureDelay(int minutes, String reasonCode, String description) {

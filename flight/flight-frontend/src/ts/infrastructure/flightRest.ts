@@ -55,6 +55,25 @@ export async function removeArrivalDelay(key: FlightKey, delayId: string): Promi
     await request(`${flightPath(key)}/arrival-delays/${encodeURIComponent(delayId)}`, { method: 'DELETE' });
 }
 
+// the times are utc instants, the page converts the brussels input first
+export async function recordDeparture(key: FlightKey, actualDeparture: string): Promise<Flight> {
+    const response = await request(`${flightPath(key)}/departure`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actualDeparture }),
+    });
+    return response.json();
+}
+
+export async function recordArrival(key: FlightKey, actualArrival: string): Promise<Flight> {
+    const response = await request(`${flightPath(key)}/arrival`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actualArrival }),
+    });
+    return response.json();
+}
+
 function flightPath(key: FlightKey): string {
     return `/api/flights/${encodeURIComponent(key.flightNumber)}/${encodeURIComponent(key.scheduledDepartureDate)}/${encodeURIComponent(key.departureAirportCode)}`;
 }

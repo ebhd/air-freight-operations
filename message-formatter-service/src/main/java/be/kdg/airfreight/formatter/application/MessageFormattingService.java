@@ -1,7 +1,9 @@
 package be.kdg.airfreight.formatter.application;
 
 import be.kdg.airfreight.formatter.domain.FlightCreatedFact;
+import be.kdg.airfreight.formatter.domain.FlightDepartedFact;
 import be.kdg.airfreight.formatter.domain.FlightEstimatesChangedFact;
+import be.kdg.airfreight.formatter.domain.FlightLandedFact;
 import be.kdg.airfreight.formatter.domain.LoadFinalizedFact;
 import be.kdg.airfreight.formatter.domain.MessageContent;
 import be.kdg.airfreight.formatter.domain.MessageFormatter;
@@ -18,6 +20,8 @@ public class MessageFormattingService {
     private final MessageFormatter<FlightEstimatesChangedFact> edFormatter;
     private final MessageFormatter<FlightEstimatesChangedFact> eaFormatter;
     private final MessageFormatter<LoadFinalizedFact> cpmFormatter;
+    private final MessageFormatter<FlightDepartedFact> adFormatter;
+    private final MessageFormatter<FlightLandedFact> aaFormatter;
     private final MessagePublisher publisher;
 
     public MessageFormattingService(
@@ -25,11 +29,16 @@ public class MessageFormattingService {
             @Qualifier("mvtEdFormatter") MessageFormatter<FlightEstimatesChangedFact> edFormatter,
             @Qualifier("mvtEaFormatter") MessageFormatter<FlightEstimatesChangedFact> eaFormatter,
             MessageFormatter<LoadFinalizedFact> cpmFormatter,
+            // one bean per fact type so no qualifier is needed
+            MessageFormatter<FlightDepartedFact> adFormatter,
+            MessageFormatter<FlightLandedFact> aaFormatter,
             MessagePublisher publisher) {
         this.flmFormatter = flmFormatter;
         this.edFormatter = edFormatter;
         this.eaFormatter = eaFormatter;
         this.cpmFormatter = cpmFormatter;
+        this.adFormatter = adFormatter;
+        this.aaFormatter = aaFormatter;
         this.publisher = publisher;
     }
 
@@ -53,5 +62,14 @@ public class MessageFormattingService {
         if (!contents.isEmpty()) {
             publisher.publish(sourceMessageId, contents);
         }
+    }
+
+    // the flight event id is the source id so partner stores one ad per departure
+    public void prepareDeparture(UUID sourceMessageId, FlightDepartedFact fact) {
+        publisher.publish(sourceMessageId, List.of(adFormatter.format(fact)));
+    }
+
+    public void prepareArrival(UUID sourceMessageId, FlightLandedFact fact) {
+        publisher.publish(sourceMessageId, List.of(aaFormatter.format(fact)));
     }
 }

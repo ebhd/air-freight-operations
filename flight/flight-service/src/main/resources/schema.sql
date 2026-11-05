@@ -8,8 +8,16 @@ CREATE TABLE IF NOT EXISTS flights (
     scheduled_arrival TIMESTAMP WITH TIME ZONE NOT NULL,
     status VARCHAR(16) NOT NULL,
     finalized_load_processed BOOLEAN NOT NULL DEFAULT FALSE,
-    PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code)
+    -- null until the planner registers them, an arrival needs a departure
+    actual_departure TIMESTAMP WITH TIME ZONE,
+    actual_arrival TIMESTAMP WITH TIME ZONE,
+    PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code),
+    CHECK (actual_arrival IS NULL OR actual_departure IS NOT NULL)
 );
+
+-- the same two columns for a database made before them, so no reset is needed
+ALTER TABLE flights ADD COLUMN IF NOT EXISTS actual_departure TIMESTAMP WITH TIME ZONE;
+ALTER TABLE flights ADD COLUMN IF NOT EXISTS actual_arrival TIMESTAMP WITH TIME ZONE;
 
 CREATE TABLE IF NOT EXISTS delay_reasons (
     code VARCHAR(16) PRIMARY KEY,

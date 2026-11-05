@@ -26,6 +26,8 @@ services:
       SPRING_RABBITMQ_HOST: app-rabbitmq
       SPRING_RABBITMQ_USERNAME: user
       SPRING_RABBITMQ_PASSWORD: password
+      # actual time tolerance from the shell when set otherwise from application.properties
+      FLIGHT_ACTUALTIMES_TOLERANCE:
     depends_on:
       keycloak:
         condition: service_healthy
