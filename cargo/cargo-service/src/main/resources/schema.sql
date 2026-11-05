@@ -4,8 +4,6 @@ CREATE TABLE IF NOT EXISTS cargo_plans (
     scheduled_departure_date DATE NOT NULL,
     departure_airport_code CHAR(3) NOT NULL,
     version BIGINT NOT NULL,
-    state VARCHAR(16) NOT NULL CHECK (state IN ('DRAFT', 'FINALIZED')),
-    finalized_at TIMESTAMP WITH TIME ZONE,
     PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code)
 );
 
@@ -46,36 +44,3 @@ CREATE TABLE IF NOT EXISTS message_receipts (
     message_id VARCHAR(255) PRIMARY KEY,
     first_received_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
-
--- events waiting for rabbitmq, written in the same transaction as the change they report
-CREATE TABLE IF NOT EXISTS outbox_messages (
-    id UUID PRIMARY KEY,
-    exchange_name VARCHAR(255) NOT NULL,
-    routing_key VARCHAR(255) NOT NULL,
-    payload TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    published_at TIMESTAMP WITH TIME ZONE
-);
-
-CREATE INDEX IF NOT EXISTS outbox_messages_pending_idx
-    ON outbox_messages (created_at, id)
-    WHERE published_at IS NULL;
-
--- cargos copy of the flights it needs, filled by flights events or one lookup at flight
--- last_change_at is when flight made the change so an older event never overwrites a newer one
-CREATE TABLE IF NOT EXISTS flights (
-    flight_number VARCHAR(32) NOT NULL,
-    scheduled_departure_date DATE NOT NULL,
-    departure_airport_code CHAR(3) NOT NULL,
-    arrival_airport_code CHAR(3) NOT NULL,
-    status VARCHAR(16) NOT NULL,
-    scheduled_departure TIMESTAMP WITH TIME ZONE NOT NULL,
-    scheduled_arrival TIMESTAMP WITH TIME ZONE NOT NULL,
-    estimated_departure TIMESTAMP WITH TIME ZONE,
-    estimated_arrival TIMESTAMP WITH TIME ZONE,
-    last_change_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code)
-);
-
--- the day overview searches by date which is not the first key column
-CREATE INDEX IF NOT EXISTS flights_by_departure_date ON flights (scheduled_departure_date);

@@ -1,9 +1,7 @@
 package be.kdg.airfreight.flight.infrastructure.messaging.events;
 
 import be.kdg.airfreight.flight.domain.events.FlightCreated;
-import be.kdg.airfreight.flight.domain.events.FlightDeparted;
 import be.kdg.airfreight.flight.domain.events.FlightEstimatesChanged;
-import be.kdg.airfreight.flight.domain.events.FlightLanded;
 import be.kdg.airfreight.flight.infrastructure.messaging.RabbitConfiguration;
 import be.kdg.airfreight.flight.infrastructure.messaging.outbox.OutboxMessage;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaOutboxMessage;
@@ -100,68 +98,6 @@ public class FlightEventPublisher {
         events.publishEvent(outboxMessage);
         log.debug(
                 "Recorded FlightEstimatesChanged message {} in outbox for flight {}",
-                message.messageId(),
-                event.flightKey());
-    }
-
-    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
-    public void on(FlightDeparted event) {
-        var message =
-                new FlightDepartedMessage(
-                        UUID.randomUUID(),
-                        FlightDepartedMessage.VERSION,
-                        event.occurredOn(),
-                        event.flightKey().flightNumber(),
-                        event.flightKey().scheduledDepartureDate(),
-                        event.flightKey().departureAirportCode(),
-                        event.arrivalAirportCode(),
-                        event.aircraftRegistration(),
-                        event.actualDeparture());
-
-        var outboxMessage =
-                new OutboxMessage(
-                        message.messageId(),
-                        RabbitConfiguration.FLIGHT_EVENTS,
-                        RabbitConfiguration.FLIGHT_DEPARTED,
-                        jsonMapper.writeValueAsString(message),
-                        Instant.now(clock),
-                        null);
-
-        outboxRepository.save(JpaOutboxMessage.fromDomain(outboxMessage));
-        events.publishEvent(outboxMessage);
-        log.debug(
-                "Recorded FlightDeparted message {} in outbox for flight {}",
-                message.messageId(),
-                event.flightKey());
-    }
-
-    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
-    public void on(FlightLanded event) {
-        var message =
-                new FlightLandedMessage(
-                        UUID.randomUUID(),
-                        FlightLandedMessage.VERSION,
-                        event.occurredOn(),
-                        event.flightKey().flightNumber(),
-                        event.flightKey().scheduledDepartureDate(),
-                        event.flightKey().departureAirportCode(),
-                        event.arrivalAirportCode(),
-                        event.aircraftRegistration(),
-                        event.actualArrival());
-
-        var outboxMessage =
-                new OutboxMessage(
-                        message.messageId(),
-                        RabbitConfiguration.FLIGHT_EVENTS,
-                        RabbitConfiguration.FLIGHT_LANDED,
-                        jsonMapper.writeValueAsString(message),
-                        Instant.now(clock),
-                        null);
-
-        outboxRepository.save(JpaOutboxMessage.fromDomain(outboxMessage));
-        events.publishEvent(outboxMessage);
-        log.debug(
-                "Recorded FlightLanded message {} in outbox for flight {}",
                 message.messageId(),
                 event.flightKey());
     }

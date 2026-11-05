@@ -2,7 +2,6 @@ import type { ApiFailure, LoadingRefusal } from './api-failure.js';
 import { formatBrusselsDateTime } from './time.js';
 
 export const LOAD_PLANNER_ONLY = 'Only a load planner can change positions.';
-export const LOAD_PLANNER_FINALIZES = 'Only a load planner can finalize the load.';
 
 // one text per refusal code from the server with the times in brussels time
 export function refusalText(refusal: LoadingRefusal | null, opensAt: string, closesAt: string): string {
@@ -31,27 +30,9 @@ export function positionNotChangedText(uldCode: string, failure: ApiFailure): st
     if (failure.status === 403) {
         return `Position of ${uldCode} not changed: ${LOAD_PLANNER_ONLY}`;
     }
-    return `Position of ${uldCode} not changed: ${failureReason(failure)}`;
-}
-
-export function loadNotCheckedText(failure: ApiFailure): string {
-    return `Load not checked: ${failureReason(failure)}`;
-}
-
-export function loadNotFinalizedText(failure: ApiFailure): string {
-    if (failure.status === 403) {
-        return `Load not finalized: ${LOAD_PLANNER_FINALIZES}`;
-    }
-    if (failure.loadCheckReport !== undefined) {
-        return 'Load not finalized: a hard check failed. Fix the load and finalize again.';
-    }
-    return `Load not finalized: ${failureReason(failure)}`;
-}
-
-function failureReason(failure: ApiFailure): string {
     if (failure.loadingRefusal !== undefined) {
         const { refusal, opensAt, closesAt } = failure.loadingRefusal;
-        return refusalText(refusal, opensAt, closesAt);
+        return `Position of ${uldCode} not changed: ${refusalText(refusal, opensAt, closesAt)}`;
     }
-    return failure.message;
+    return `Position of ${uldCode} not changed: ${failure.message}`;
 }

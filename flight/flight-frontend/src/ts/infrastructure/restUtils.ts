@@ -1,9 +1,8 @@
 import { authorizedFetch } from './auth';
 
-// keeps the http status so a page can react to a refusal, and the refusal code with its limit
-// when the server adds them to the problem
+// keeps the http status so a page can react to a refusal
 export class ResponseError extends Error {
-    constructor(message: string, readonly status: number, readonly refusal?: string, readonly latestAllowed?: string) {
+    constructor(message: string, readonly status: number) {
         super(message);
     }
 }
@@ -32,9 +31,9 @@ async function throwResponseError(response: Response): Promise<never> {
         throw new ResponseError('You are not allowed to do this.', response.status);
     }
     if (response.headers.get('Content-Type')?.includes('application/problem+json')) {
-        const problem = await response.json() as { detail?: string; refusal?: string; latestAllowed?: string };
+        const problem = await response.json() as { detail?: string };
         if (problem.detail) {
-            throw new ResponseError(problem.detail, response.status, problem.refusal, problem.latestAllowed);
+            throw new ResponseError(problem.detail, response.status);
         }
     }
     throw new ResponseError(`Request failed (HTTP ${response.status}).`, response.status);

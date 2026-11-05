@@ -9,6 +9,7 @@ import be.kdg.airfreight.cargo.application.flight.FlightOverviewService;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
+import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import java.time.Instant;
@@ -80,6 +81,18 @@ class FlightOverviewControllerTest {
                                 .param("date", "2026-10-19")
                                 .param("includeDeparted", "maybe"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void flightOperationsDownIsServiceUnavailable() throws Exception {
+        mvc(date -> {
+                    throw new FlightLookupUnavailableException(date, null);
+                })
+                .perform(get("/api/flights").param("date", "2026-10-19"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(
+                        jsonPath("$.detail")
+                                .value("Flight Operations is unavailable, try again later"));
     }
 
     private static FlightInformation flight(String flightNumber, FlightStatus status) {

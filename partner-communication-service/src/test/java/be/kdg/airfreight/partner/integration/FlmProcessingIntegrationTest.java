@@ -7,8 +7,8 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 
 import be.kdg.airfreight.partner.domain.PublicationState;
-import be.kdg.airfreight.partner.infrastructure.messaging.PartnerMessagesPreparedListener;
-import be.kdg.airfreight.partner.infrastructure.messaging.PartnerMessagesPreparedMessage;
+import be.kdg.airfreight.partner.infrastructure.messaging.FlightCreatedListener;
+import be.kdg.airfreight.partner.infrastructure.messaging.FlightCreatedMessage;
 import be.kdg.airfreight.partner.infrastructure.persistence.jpa.JpaPartnerMessageRepository;
 import java.time.Instant;
 import java.util.UUID;
@@ -29,7 +29,7 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest
 @ActiveProfiles("test")
 class FlmProcessingIntegrationTest {
-    @Autowired private PartnerMessagesPreparedListener listener;
+    @Autowired private FlightCreatedListener listener;
     @Autowired private JpaPartnerMessageRepository messages;
     @Autowired private JsonMapper json;
 
@@ -66,7 +66,7 @@ class FlmProcessingIntegrationTest {
 
         assertThat(messages.count()).isEqualTo(1);
         var saved = messages.findAll().getFirst().toDomain();
-        assertThat(saved.sourceMessageId()).isEqualTo(incoming.sourceMessageId());
+        assertThat(saved.sourceMessageId()).isEqualTo(incoming.messageId());
         assertThat(saved.state()).isEqualTo(PublicationState.PUBLISHED);
 
         var sent = ArgumentCaptor.forClass(Message.class);
@@ -93,9 +93,9 @@ class FlmProcessingIntegrationTest {
         assertThat(payload.get("departureAirportCode").asText()).isEqualTo("BRU");
         assertThat(payload.get("arrivalAirportCode").asText()).isEqualTo("AMS");
         assertThat(Instant.parse(payload.get("scheduledDeparture").asText()))
-                .isEqualTo(Instant.parse("2026-10-20T08:00:00Z"));
+                .isEqualTo(incoming.scheduledDeparture());
         assertThat(Instant.parse(payload.get("scheduledArrival").asText()))
-                .isEqualTo(Instant.parse("2026-10-20T10:00:00Z"));
+                .isEqualTo(incoming.scheduledArrival());
     }
 
     @Test
@@ -120,19 +120,16 @@ class FlmProcessingIntegrationTest {
                         any(CorrelationData.class));
     }
 
-    private PartnerMessagesPreparedMessage flightCreated() {
+    private FlightCreatedMessage flightCreated() {
         String body =
                 """
-                {
+                {"messageId":"%s","version":1,"occurredOn":"2026-10-19T12:00:00Z",
                  "flightNumber":"HJ221","scheduledDepartureDate":"2026-10-20",
                  "departureAirportCode":"BRU","arrivalAirportCode":"AMS",
                  "scheduledDeparture":"2026-10-20T08:00:00Z",
                  "scheduledArrival":"2026-10-20T10:00:00Z"}
-                """;
-        return new PartnerMessagesPreparedMessage(
-                1,
-                UUID.randomUUID(),
-                java.util.List.of(
-                        new PartnerMessagesPreparedMessage.PreparedContent("FLM", 1, body)));
+                """
+                        .formatted(UUID.randomUUID());
+        return json.readValue(body, FlightCreatedMessage.class);
     }
 }

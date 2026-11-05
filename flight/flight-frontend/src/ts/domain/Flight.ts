@@ -18,10 +18,4 @@ export type FlightKey = {
     departureAirportCode: string;
 };
 
-export type Flight = FlightOverview & {
-    // null until the planner registers them
-    actualDeparture: string | null;
-    actualArrival: string | null;
-    departureDelays: Delay[];
-    arrivalDelays: Delay[];
-};
+export type Flight = FlightOverview & { delays: Delay[] };

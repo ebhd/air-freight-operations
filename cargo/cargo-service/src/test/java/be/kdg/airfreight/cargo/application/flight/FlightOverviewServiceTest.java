@@ -1,10 +1,12 @@
 package be.kdg.airfreight.cargo.application.flight;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
+import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import java.time.Instant;
@@ -37,13 +39,27 @@ class FlightOverviewServiceTest {
     }
 
     @Test
-    void readsTheSelectedDay() {
+    void asksFlightForTheSelectedDay() {
         var flights = new StubFlightRepository(List.of());
         LocalDate otherDay = LocalDate.of(2026, 10, 24);
 
         new FlightOverviewService(flights).findFlightsOn(otherDay, false);
 
         assertThat(flights.askedDate).isEqualTo(otherDay);
+    }
+
+    @Test
+    void flightOutageIsNotHidden() {
+        FlightRepository flights =
+                new StubFlightRepository(List.of()) {
+                    @Override
+                    public List<FlightInformation> findByScheduledDepartureDate(LocalDate date) {
+                        throw new FlightLookupUnavailableException(date, null);
+                    }
+                };
+
+        assertThatThrownBy(() -> new FlightOverviewService(flights).findFlightsOn(DAY, false))
+                .isInstanceOf(FlightLookupUnavailableException.class);
     }
 
     private static FlightInformation flight(String flightNumber, FlightStatus status) {

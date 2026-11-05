@@ -27,15 +27,6 @@ export async function sendJson(method: 'PUT' | 'DELETE', path: string, body?: ob
     return { ok: true, data: null };
 }
 
-// a post without a body that answers with json, used by finalizing
-export async function postJson<T>(path: string): Promise<ApiResult<T>> {
-    const result = await request(path, { method: 'POST' });
-    if (!result.ok) {
-        return result;
-    }
-    return { ok: true, data: (await result.data.json()) as T };
-}
-
 // adds the token and turns every failed request into a failure with the message to show
 async function request(path: string, init: RequestInit): Promise<ApiResult<Response>> {
     let response: Response;

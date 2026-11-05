@@ -17,7 +17,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import be.kdg.airfreight.flight.api.delayreason.DelayReasonController;
 import be.kdg.airfreight.flight.api.flight.FlightController;
 import be.kdg.airfreight.flight.application.DelayReasonQueryService;
-import be.kdg.airfreight.flight.application.FlightActualTimeService;
 import be.kdg.airfreight.flight.application.FlightDelayService;
 import be.kdg.airfreight.flight.application.FlightQueryService;
 import be.kdg.airfreight.flight.domain.flight.Flight;
@@ -56,34 +55,25 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 @ContextConfiguration(classes = FlightSecurityTest.Config.class)
 class FlightSecurityTest {
     private static final String FLIGHT = "/api/flights/HJ221/2026-10-19/BRU";
-    private static final String DELAY = FLIGHT + "/departure-delays/" + UUID.randomUUID();
+    private static final String DELAY = FLIGHT + "/delays/" + UUID.randomUUID();
     private static final String ADD_BODY =
             """
-            {"minutes":20,"reasonCode":"71","description":"Fog"}
+            {"type":"DEPARTURE","minutes":20,"reasonCode":"71","description":"Fog"}
             """;
     private static final String EDIT_BODY =
             """
             {"minutes":30,"description":"Fog"}
-            """;
-    private static final String ACTUAL_TIME_BODY =
-            """
-            {"actualDeparture":"2026-10-19T08:03:00Z"}
             """;
 
     @Autowired private WebApplicationContext context;
     @Autowired private FlightQueryService flightQueryService;
     @Autowired private FlightDelayService flightDelayService;
     @Autowired private DelayReasonQueryService delayReasonQueryService;
-    @Autowired private FlightActualTimeService flightActualTimeService;
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        reset(
-                flightQueryService,
-                flightDelayService,
-                delayReasonQueryService,
-                flightActualTimeService);
+        reset(flightQueryService, flightDelayService, delayReasonQueryService);
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
         Flight flight =
                 Flight.create(
@@ -94,15 +84,13 @@ class FlightSecurityTest {
                         Instant.parse("2026-10-19T10:00:00Z"));
         when(flightQueryService.findFlight(any())).thenReturn(Optional.of(flight));
         when(flightQueryService.findFlightsOn(any())).thenReturn(List.of(flight));
-        when(flightActualTimeService.recordDeparture(any())).thenReturn(flight);
         when(delayReasonQueryService.findAll()).thenReturn(List.of());
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"departure-delays", "arrival-delays"})
-    void loadPlannerCannotAddADelay(String category) throws Exception {
+    @Test
+    void loadPlannerCannotAddADelay() throws Exception {
         mvc.perform(
-                        post(FLIGHT + "/" + category)
+                        post(FLIGHT + "/delays")
                                 .with(planner("load-planner"))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(ADD_BODY))
@@ -110,11 +98,10 @@ class FlightSecurityTest {
         verifyNoInteractions(flightDelayService);
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"departure-delays", "arrival-delays"})
-    void loadPlannerCannotEditADelay(String category) throws Exception {
+    @Test
+    void loadPlannerCannotEditADelay() throws Exception {
         mvc.perform(
-                        patch(FLIGHT + "/" + category + "/" + UUID.randomUUID())
+                        patch(DELAY)
                                 .with(planner("load-planner"))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(EDIT_BODY))
@@ -122,13 +109,9 @@ class FlightSecurityTest {
         verifyNoInteractions(flightDelayService);
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"departure-delays", "arrival-delays"})
-    void loadPlannerCannotDeleteADelay(String category) throws Exception {
-        mvc.perform(
-                        delete(FLIGHT + "/" + category + "/" + UUID.randomUUID())
-                                .with(planner("load-planner")))
-                .andExpect(status().isForbidden());
+    @Test
+    void loadPlannerCannotDeleteADelay() throws Exception {
+        mvc.perform(delete(DELAY).with(planner("load-planner"))).andExpect(status().isForbidden());
         verifyNoInteractions(flightDelayService);
     }
 
@@ -137,50 +120,7 @@ class FlightSecurityTest {
     void flightPlannerCanDeleteADelay() throws Exception {
         mvc.perform(delete(DELAY).with(planner("flight-planner")))
                 .andExpect(status().isNoContent());
-        verify(flightDelayService).removeDepartureDelay(any(), any());
-    }
-
-    @Test
-    void flightPlannerCanDeleteAnArrivalDelay() throws Exception {
-        mvc.perform(
-                        delete(FLIGHT + "/arrival-delays/" + UUID.randomUUID())
-                                .with(planner("flight-planner")))
-                .andExpect(status().isNoContent());
-        verify(flightDelayService).removeArrivalDelay(any(), any());
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"departure", "arrival"})
-    void loadPlannerCannotRegisterAnActualTime(String action) throws Exception {
-        mvc.perform(
-                        post(FLIGHT + "/" + action)
-                                .with(planner("load-planner"))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(ACTUAL_TIME_BODY))
-                .andExpect(status().isForbidden());
-        verifyNoInteractions(flightActualTimeService);
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"departure", "arrival"})
-    void anonymousCannotRegisterAnActualTime(String action) throws Exception {
-        mvc.perform(
-                        post(FLIGHT + "/" + action)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(ACTUAL_TIME_BODY))
-                .andExpect(status().isUnauthorized());
-        verifyNoInteractions(flightActualTimeService);
-    }
-
-    @Test
-    void flightPlannerCanRegisterTheDeparture() throws Exception {
-        mvc.perform(
-                        post(FLIGHT + "/departure")
-                                .with(planner("flight-planner"))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(ACTUAL_TIME_BODY))
-                .andExpect(status().isOk());
-        verify(flightActualTimeService).recordDeparture(any());
+        verify(flightDelayService).removeDelay(any(), any());
     }
 
     @ParameterizedTest
@@ -220,11 +160,6 @@ class FlightSecurityTest {
         @Bean
         DelayReasonQueryService delayReasonQueryService() {
             return mock(DelayReasonQueryService.class);
-        }
-
-        @Bean
-        FlightActualTimeService flightActualTimeService() {
-            return mock(FlightActualTimeService.class);
         }
     }
 }

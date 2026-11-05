@@ -33,7 +33,18 @@ class UldPublisherTest {
     private final UldPublisher publisher = new UldPublisher(rabbit);
 
     @Test
-    void publishesPersistentMessageWithMatchingGeneratedIds() {
+    void publishesOneMessageToCargoUldOnDefaultExchange() {
+        String messageId = publisher.publish(REQUEST);
+
+        ArgumentCaptor<Object> sent = ArgumentCaptor.forClass(Object.class);
+        verify(rabbit)
+                .convertAndSend(
+                        eq(""), eq("cargo.uld"), sent.capture(), any(MessagePostProcessor.class));
+        assertThat(sent.getValue()).isEqualTo(UldMessage.from(messageId, REQUEST));
+    }
+
+    @Test
+    void usesTheSameIdInPropertyAndBody() {
         String messageId = publisher.publish(REQUEST);
 
         ArgumentCaptor<Object> sent = ArgumentCaptor.forClass(Object.class);
@@ -47,11 +58,17 @@ class UldPublisherTest {
                         .getValue()
                         .postProcessMessage(new Message(new byte[0], new MessageProperties()));
 
-        assertThat(sent.getValue()).isEqualTo(UldMessage.from(messageId, REQUEST));
-        assertThatCode(() -> UUID.fromString(messageId)).doesNotThrowAnyException();
+        assertThat(((UldMessage) sent.getValue()).messageId()).isEqualTo(messageId);
         assertThat(amqpMessage.getMessageProperties().getMessageId()).isEqualTo(messageId);
         assertThat(amqpMessage.getMessageProperties().getDeliveryMode())
                 .isEqualTo(MessageDeliveryMode.PERSISTENT);
+    }
+
+    @Test
+    void generatesAnIdWhenNoneIsGiven() {
+        String messageId = publisher.publish(REQUEST);
+
+        assertThatCode(() -> UUID.fromString(messageId)).doesNotThrowAnyException();
     }
 
     @Test

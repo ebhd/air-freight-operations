@@ -1,7 +1,6 @@
 package be.kdg.airfreight.cargo.api.flight;
 
 import be.kdg.airfreight.cargo.application.flight.UnknownFlightException;
-import be.kdg.airfreight.cargo.domain.cargoplan.LoadNotFinalizedException;
 import be.kdg.airfreight.cargo.domain.cargoplan.PositionOccupiedException;
 import be.kdg.airfreight.cargo.domain.cargoplan.UldNotBookedException;
 import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
@@ -19,7 +18,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 class CargoApiExceptionHandler {
     static final String CONCURRENT_CHANGE =
             "The cargo plan was changed by someone else at the same time. Reload and try again.";
-    static final String HARD_CHECKS_FAILED = "HARD_CHECKS_FAILED";
 
     // flight down is a clear 503 and never a fake empty list
     @ExceptionHandler(FlightLookupUnavailableException.class)
@@ -47,19 +45,6 @@ class CargoApiExceptionHandler {
         problem.setProperty("refusal", exception.getRefusal());
         problem.setProperty("opensAt", exception.getWindow().opensAt());
         problem.setProperty("closesAt", exception.getWindow().closesAt());
-        return problem;
-    }
-
-    // the same report as the load check so the page can show what to fix
-    @ExceptionHandler(LoadNotFinalizedException.class)
-    ProblemDetail loadNotFinalized(LoadNotFinalizedException exception) {
-        log.info(
-                "Refused to finalize the load of {}: a hard check failed",
-                exception.getFlightKey());
-        ProblemDetail problem =
-                ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
-        problem.setProperty("refusal", HARD_CHECKS_FAILED);
-        problem.setProperty("report", LoadCheckReportResponse.from(exception.getReport()));
         return problem;
     }
 

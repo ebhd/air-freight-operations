@@ -26,8 +26,6 @@ services:
       SPRING_RABBITMQ_HOST: app-rabbitmq
       SPRING_RABBITMQ_USERNAME: user
       SPRING_RABBITMQ_PASSWORD: password
-      # actual time tolerance from the shell when set otherwise from application.properties
-      FLIGHT_ACTUALTIMES_TOLERANCE:
     depends_on:
       keycloak:
         condition: service_healthy
@@ -66,8 +64,6 @@ services:
       # loading window offsets from the shell when set otherwise from application.properties
       CARGO_LOADINGWINDOW_OPENSBEFORESTD:
       CARGO_LOADINGWINDOW_CLOSESBEFOREETD:
-      # lateral balance tolerance from the shell when set otherwise from application.properties
-      CARGO_LOADCHECK_LATERALBALANCETOLERANCE:
       SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_FLIGHT_TOKENURI: http://keycloak:8080/realms/air-freight/protocol/openid-connect/token
       CARGO_SERVICE_CLIENT_SECRET:
     depends_on:
@@ -102,29 +98,6 @@ services:
       SPRING_RABBITMQ_PASSWORD: password
     depends_on:
       app-postgres:
-        condition: service_healthy
-      app-rabbitmq:
-        condition: service_healthy
-
-  message-formatter-service:
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--timeout=4", "--output-document=/dev/null", "http://localhost:8084/actuator/health"]
-      interval: 5s
-      timeout: 5s
-      start_period: 30s
-      retries: 12
-    build:
-      context: .
-      dockerfile: message-formatter-service/Dockerfile
-    ports:
-      - "127.0.0.1:8084:8084"
-    environment:
-      SERVER_PORT: 8084
-      SPRING_RABBITMQ_HOST: app-rabbitmq
-      SPRING_RABBITMQ_USERNAME: user
-      SPRING_RABBITMQ_PASSWORD: password
-    depends_on:
-      partner-communication-service:
         condition: service_healthy
       app-rabbitmq:
         condition: service_healthy

@@ -9,6 +9,7 @@ import be.kdg.airfreight.flight.application.FlightDelayService;
 import be.kdg.airfreight.flight.application.command.AddDelayCommand;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
 import be.kdg.airfreight.flight.domain.flight.Delay;
+import be.kdg.airfreight.flight.domain.flight.DelayType;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightRepository;
@@ -67,8 +68,7 @@ class OverlappingDelayChangesIT {
     @BeforeEach
     void setUp() {
         jdbc.sql("DELETE FROM outbox_messages").update();
-        jdbc.sql("DELETE FROM departure_delays").update();
-        jdbc.sql("DELETE FROM arrival_delays").update();
+        jdbc.sql("DELETE FROM flight_delays").update();
         jdbc.sql("DELETE FROM flights").update();
         flights.save(Flight.create(KEY, "AMS", "SXBAA", STD, STD.plus(Duration.ofHours(2))));
         doAnswer(
@@ -108,10 +108,7 @@ class OverlappingDelayChangesIT {
         }
 
         Flight stored = flights.findById(KEY).orElseThrow();
-        assertThat(stored.departureDelays())
-                .extracting(Delay::minutes)
-                .containsExactlyInAnyOrder(30, 60);
-        assertThat(stored.arrivalDelays()).isEmpty();
+        assertThat(stored.delays()).extracting(Delay::minutes).containsExactlyInAnyOrder(30, 60);
         assertThat(stored.estimatedDeparture()).isEqualTo(STD.plus(Duration.ofMinutes(90)));
 
         List<JsonNode> published = estimatesChangedMessages();
@@ -126,8 +123,8 @@ class OverlappingDelayChangesIT {
     }
 
     private Flight addDepartureDelay(int minutes) {
-        return flightDelayService.addDepartureDelay(
-                new AddDelayCommand(KEY, minutes, "71", "Fog at departure"));
+        return flightDelayService.addDelay(
+                new AddDelayCommand(KEY, DelayType.DEPARTURE, minutes, "71", "Fog at departure"));
     }
 
     private List<JsonNode> estimatesChangedMessages() {

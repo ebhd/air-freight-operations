@@ -48,8 +48,6 @@ variables:
         SERVICE_DIR: flight/flight-service
       - SERVICE: cargo:cargo-service
         SERVICE_DIR: cargo/cargo-service
-      - SERVICE: message-formatter-service
-        SERVICE_DIR: message-formatter-service
       - SERVICE: partner-communication-service
         SERVICE_DIR: partner-communication-service
 

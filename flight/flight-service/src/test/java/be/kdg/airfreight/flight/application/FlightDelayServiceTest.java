@@ -10,6 +10,7 @@ import be.kdg.airfreight.flight.domain.delayreason.DelayReason;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
 import be.kdg.airfreight.flight.domain.events.FlightEstimatesChanged;
 import be.kdg.airfreight.flight.domain.flight.Delay;
+import be.kdg.airfreight.flight.domain.flight.DelayType;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightRepository;
@@ -46,7 +47,7 @@ class FlightDelayServiceTest {
 
     @Test
     void departureDelayPublishesBothOldAndNewEstimates() {
-        service.addDepartureDelay(command(20));
+        service.addDelay(command(DelayType.DEPARTURE, 20));
 
         assertThat(events)
                 .singleElement()
@@ -64,7 +65,7 @@ class FlightDelayServiceTest {
 
     @Test
     void arrivalDelayPublishesAnUnchangedDepartureAndALaterArrival() {
-        service.addArrivalDelay(command(15));
+        service.addDelay(command(DelayType.ARRIVAL, 15));
 
         FlightEstimatesChanged event = (FlightEstimatesChanged) events.getFirst();
         assertThat(event.previousEstimatedDeparture()).isEqualTo(STD);
@@ -75,23 +76,23 @@ class FlightDelayServiceTest {
 
     @Test
     void descriptionOnlyEditPublishesNothing() {
-        UUID delayId = service.addDepartureDelay(command(20)).departureDelays().getFirst().id();
+        UUID delayId = service.addDelay(command(DelayType.DEPARTURE, 20)).delays().getFirst().id();
         events.clear();
 
-        service.updateDepartureDelay(new UpdateDelayCommand(KEY, delayId, 20, "Fog cleared later"));
+        service.updateDelay(new UpdateDelayCommand(KEY, delayId, 20, "Fog cleared later"));
 
         assertThat(events).isEmpty();
-        assertThat(flights.findById(KEY).orElseThrow().departureDelays())
+        assertThat(flights.findById(KEY).orElseThrow().delays())
                 .extracting(Delay::description)
                 .containsExactly("Fog cleared later");
     }
 
     @Test
     void removingTheLastDelayPublishesTheReturnToSchedule() {
-        UUID delayId = service.addDepartureDelay(command(20)).departureDelays().getFirst().id();
+        UUID delayId = service.addDelay(command(DelayType.DEPARTURE, 20)).delays().getFirst().id();
         events.clear();
 
-        service.removeDepartureDelay(KEY, delayId);
+        service.removeDelay(KEY, delayId);
 
         FlightEstimatesChanged event = (FlightEstimatesChanged) events.getFirst();
         assertThat(event.previousEstimatedDeparture()).isEqualTo(STD.plus(Duration.ofMinutes(20)));
@@ -105,14 +106,19 @@ class FlightDelayServiceTest {
 
         assertThatThrownBy(
                         () ->
-                                service.addDepartureDelay(
-                                        new AddDelayCommand(unknown, 20, "71", "Fog at departure")))
+                                service.addDelay(
+                                        new AddDelayCommand(
+                                                unknown,
+                                                DelayType.DEPARTURE,
+                                                20,
+                                                "71",
+                                                "Fog at departure")))
                 .isInstanceOf(NotFoundException.class);
         assertThat(events).isEmpty();
     }
 
-    private static AddDelayCommand command(int minutes) {
-        return new AddDelayCommand(KEY, minutes, "71", "Fog at departure");
+    private static AddDelayCommand command(DelayType type, int minutes) {
+        return new AddDelayCommand(KEY, type, minutes, "71", "Fog at departure");
     }
 
     private static final class InMemoryFlights implements FlightRepository {

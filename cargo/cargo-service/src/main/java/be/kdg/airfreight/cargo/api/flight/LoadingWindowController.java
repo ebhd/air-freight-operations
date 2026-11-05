@@ -26,7 +26,7 @@ public class LoadingWindowController {
                     LocalDate scheduledDepartureDate,
             @PathVariable String departureAirportCode) {
         FlightKey flightKey =
-                FlightKeyRequestMapper.toFlightKey(
+                CargoPlanController.toFlightKey(
                         flightNumber, scheduledDepartureDate, departureAirportCode);
         return LoadingWindowResponse.from(loadingWindowService.statusFor(flightKey));
     }

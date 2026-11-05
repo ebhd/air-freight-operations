@@ -4,14 +4,10 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-// what cargo knows about flights, read from cargos own copy
+// both throw FlightLookupUnavailableException if flight is unreachable
 public interface FlightRepository {
-    // the copy first otherwise one lookup at flight that is then kept in the copy
-    // so a miss writes the fetched flight in its own transaction, also during a read or a booking,
-    // and it stays when the callers transaction rolls back
-    // empty if flight doesnt know it, FlightLookupUnavailableException if flight is unreachable
+    // empty if flight doesnt know it
     Optional<FlightInformation> findByFlightKey(FlightKey flightKey);
 
-    // only the copy so the day overview keeps working while flight is down
     List<FlightInformation> findByScheduledDepartureDate(LocalDate scheduledDepartureDate);
 }

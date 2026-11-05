@@ -1,11 +1,12 @@
 package be.kdg.airfreight.flight.api.flight;
 
 import be.kdg.airfreight.flight.application.command.AddDelayCommand;
+import be.kdg.airfreight.flight.domain.flight.DelayType;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 
 // the command and the domain check the values so the client gets their message
-public record AddDelayRequest(int minutes, String reasonCode, String description) {
+public record AddDelayRequest(DelayType type, int minutes, String reasonCode, String description) {
     AddDelayCommand toCommand(FlightKey flightKey) {
-        return new AddDelayCommand(flightKey, minutes, reasonCode, description);
+        return new AddDelayCommand(flightKey, type, minutes, reasonCode, description);
     }
 }

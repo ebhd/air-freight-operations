@@ -148,51 +148,22 @@ class CargoPlanLoadingTest {
                                 + " HJ221/2026-10-22/BRU");
     }
 
-    // q07 is open so a booking keeps its own rule and the loading window does not limit it
+    // q07 is open so a booking keeps its own rule and is no loading action
     @Test
-    void bookingIsNotLimitedByTheLoadingWindow() {
-        CargoPlan draft = new CargoPlan(KEY);
+    void bookingIsNotLimitedByTheLoadingRules() {
+        CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of());
         LoadingContext closed =
                 context(KEY, FlightStatus.PLANNED, STD, WINDOW.closesAt().plusSeconds(1));
-        assertThat(draft.loadingRefusal(closed)).isPresent();
+        assertThat(finalized.loadingRefusal(closed)).isPresent();
 
-        boolean booked = draft.bookUld(new UldCode("AKE12345KL"), weight(), new AirportCode("AMS"));
+        boolean booked =
+                finalized.bookUld(
+                        new UldCode("AKE12345KL"),
+                        new Weight(new BigDecimal("1250.5"), WeightUnit.KG),
+                        new AirportCode("AMS"));
 
         assertThat(booked).isTrue();
-        assertThat(draft.getBookings()).hasSize(1);
-    }
-
-    // d4 our reading of car-14: a finalized load takes no new uld
-    @Test
-    void finalizedPlanRejectsANewBooking() {
-        CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of());
-
-        assertThatThrownBy(
-                        () ->
-                                finalized.bookUld(
-                                        new UldCode("AKE12345KL"),
-                                        weight(),
-                                        new AirportCode("AMS")))
-                .isInstanceOf(BookingRejectedException.class)
-                .hasMessage(
-                        "Cargo plan of flight HJ221/2026-10-22/BRU is finalized, no ULD can be"
-                                + " added");
-        assertThat(finalized.getBookings()).isEmpty();
-    }
-
-    // car-03 a repeat is ignored and that does not change after finalizing
-    @Test
-    void finalizedPlanStillIgnoresARepeatedBooking() {
-        UldBooking existing =
-                new UldBooking(new UldCode("AKE12345KL"), weight(), new AirportCode("AMS"));
-        CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of(existing));
-
-        assertThat(finalized.bookUld(new UldCode("AKE12345KL"), weight(), new AirportCode("AMS")))
-                .isFalse();
-    }
-
-    private static Weight weight() {
-        return new Weight(new BigDecimal("1250.5"), WeightUnit.KG);
+        assertThat(finalized.getBookings()).hasSize(1);
     }
 
     private static LoadingContext context(
