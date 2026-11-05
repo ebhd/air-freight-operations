@@ -1,5 +1,5 @@
 import type { AddDelayRequest, UpdateDelayRequest } from '../domain/Delay';
-import type { Flight, FlightKey, FlightOverview, FlightTimeline } from '../domain/Flight';
+import type { Flight, FlightKey, FlightOverview, FlightTimeline, ReplanFlightRequest } from '../domain/Flight';
 import { request } from './restUtils';
 
 export async function getFlights(date: string): Promise<FlightOverview[]> {
@@ -78,6 +78,24 @@ export async function recordArrival(key: FlightKey, actualArrival: string): Prom
         body: JSON.stringify({ actualArrival }),
     });
     return response.json();
+}
+
+// ends the flight and asks the planning system for the new one; answers the old flight
+export async function replanFlight(key: FlightKey, request: ReplanFlightRequest): Promise<Flight> {
+    const response = await requestJson(`${flightPath(key)}/replanning`, request);
+    return response.json();
+}
+
+async function requestJson(url: string, body: ReplanFlightRequest): Promise<Response> {
+    return request(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+}
+
+export function flightDetailsPage(key: FlightKey): string {
+    return `flight-details.html?${new URLSearchParams(key)}`;
 }
 
 function flightPath(key: FlightKey): string {

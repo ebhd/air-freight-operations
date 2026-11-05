@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 // what flight exposes to other services times are utc instants
+// replanning is null unless the flight was replanned, replaces is null for a normal flight
 public record FlightResponse(
         String flightNumber,
         LocalDate scheduledDepartureDate,
@@ -20,7 +21,9 @@ public record FlightResponse(
         Instant actualDeparture,
         Instant actualArrival,
         List<DelayResponse> departureDelays,
-        List<DelayResponse> arrivalDelays) {
+        List<DelayResponse> arrivalDelays,
+        ReplanningResponse replanning,
+        ReplacedFlightResponse replaces) {
     static FlightResponse from(Flight flight) {
         return new FlightResponse(
                 flight.key().flightNumber(),
@@ -35,6 +38,10 @@ public record FlightResponse(
                 flight.actualDeparture(),
                 flight.actualArrival(),
                 flight.departureDelays().stream().map(DelayResponse::from).toList(),
-                flight.arrivalDelays().stream().map(DelayResponse::from).toList());
+                flight.arrivalDelays().stream().map(DelayResponse::from).toList(),
+                flight.replanning()
+                        .map(replanning -> ReplanningResponse.from(flight, replanning))
+                        .orElse(null),
+                flight.replaces().map(ReplacedFlightResponse::from).orElse(null));
     }
 }

@@ -81,6 +81,24 @@ class FlightOperationsClientTest {
                                         .isEqualTo(Instant.parse("2026-10-19T08:00:00Z")));
     }
 
+    // flight returns the new status and a replanning object cargo does not read
+    @Test
+    void replannedFlightIsNotPlannedAndTheReplanningFieldIsIgnored() {
+        String json =
+                json("REPLANNED")
+                        .replace(
+                                "\"status\":\"REPLANNED\",",
+                                "\"status\":\"REPLANNED\",\"replanning\":{\"newFlightNumber\":\"HJ221A\"},");
+        flight.expect(requestTo(URL)).andRespond(withSuccess(json, MediaType.APPLICATION_JSON));
+
+        assertThat(client.fetch(KEY))
+                .hasValueSatisfying(
+                        info -> {
+                            assertThat(info.status()).isEqualTo(FlightStatus.REPLANNED);
+                            assertThat(info.planned()).isFalse();
+                        });
+    }
+
     @Test
     void notFoundMeansUnknownFlight() {
         flight.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));

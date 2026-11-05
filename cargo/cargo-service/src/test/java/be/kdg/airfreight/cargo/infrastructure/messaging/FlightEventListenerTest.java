@@ -12,7 +12,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import be.kdg.airfreight.cargo.application.cargoplan.MoveCargoPlanService;
 import be.kdg.airfreight.cargo.application.flight.FlightCopyService;
+import be.kdg.airfreight.cargo.domain.cargoplan.BookingRejectedException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
@@ -30,6 +32,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import tools.jackson.databind.json.JsonMapper;
 
 class FlightEventListenerTest {
@@ -44,9 +47,10 @@ class FlightEventListenerTest {
     private static final Instant ETA = Instant.parse("2026-10-19T09:55:00Z");
 
     private final FlightCopyService copyService = mock(FlightCopyService.class);
+    private final MoveCargoPlanService moveService = mock(MoveCargoPlanService.class);
     private final RejectedMessageStore rejectedMessages = mock(RejectedMessageStore.class);
     private final FlightEventListener listener =
-            new FlightEventListener(copyService, rejectedMessages, JSON);
+            new FlightEventListener(copyService, moveService, rejectedMessages, JSON);
 
     @Test
     void createdFlightIsPlannedWithTheScheduleAsEstimates() {
@@ -119,6 +123,59 @@ class FlightEventListenerTest {
 
         assertThatThrownBy(() -> listener.receiveDeparted(message(departed("version", 1))))
                 .isInstanceOf(DataAccessResourceFailureException.class);
+    }
+
+    @Test
+    void replannedFlightGetsItsStatusInTheCopy() {
+        listener.receiveReplanned(message(replanned("version", 1)));
+
+        verify(copyService).recordReplanned(KEY);
+        verifyNoInteractions(rejectedMessages, moveService);
+    }
+
+    @Test
+    void replacedFlightMovesItsCargo() {
+        listener.receiveReplaced(message(replaced("version", 1)));
+
+        verify(moveService)
+                .move(
+                        KEY,
+                        new FlightKey(
+                                "HJ221A", LocalDate.of(2026, 10, 20), new AirportCode("BRU")));
+        verifyNoInteractions(rejectedMessages, copyService);
+    }
+
+    @Test
+    void replacedWithAnotherVersionIsRejected() {
+        String payload = replaced("version", 2);
+
+        listener.receiveReplaced(message(payload));
+
+        verify(rejectedMessages).store(MESSAGE_ID, payload, "Message version must be 1, was 2");
+        verifyNoInteractions(moveService);
+    }
+
+    // the move hit a finalized new plan, retrying would not change that
+    @Test
+    void refusedMoveIsRejectedNotRetried() {
+        doThrow(new BookingRejectedException("that cargo plan is FINALIZED"))
+                .when(moveService)
+                .move(any(), any());
+        String payload = replaced("version", 1);
+
+        assertThatCode(() -> listener.receiveReplaced(message(payload))).doesNotThrowAnyException();
+
+        verify(rejectedMessages).store(MESSAGE_ID, payload, "that cargo plan is FINALIZED");
+    }
+
+    @Test
+    void moveDuringAConcurrentChangeIsRetried() {
+        doThrow(new ObjectOptimisticLockingFailureException("cargo_plans", "HJ221"))
+                .when(moveService)
+                .move(any(), any());
+
+        assertThatThrownBy(() -> listener.receiveReplaced(message(replaced("version", 1))))
+                .isInstanceOf(ObjectOptimisticLockingFailureException.class);
 
         verify(rejectedMessages, never()).store(any(), anyString(), anyString());
     }
@@ -283,6 +340,45 @@ class FlightEventListenerTest {
         message.put("arrivalAirportCode", "AMS");
         message.put("aircraftRegistration", "OO-ABC");
         message.put("actualArrival", "2026-10-19T09:58:00Z");
+        message.put(field, value);
+        return JSON.writeValueAsString(message);
+    }
+
+    // flights full json for flight.replanned
+    private static String replanned(String field, Object value) {
+        Map<String, Object> message = new LinkedHashMap<>();
+        message.put("messageId", MESSAGE_ID);
+        message.put("version", 1);
+        message.put("occurredOn", OCCURRED_ON.toString());
+        message.put("flightNumber", "HJ221");
+        message.put("scheduledDepartureDate", "2026-10-19");
+        message.put("departureAirportCode", "BRU");
+        message.put("arrivalAirportCode", "AMS");
+        message.put("aircraftRegistration", "OO-ABC");
+        message.put("scheduledDeparture", STD.toString());
+        message.put("scheduledArrival", STA.toString());
+        message.put("newFlightNumber", "HJ221A");
+        message.put("newScheduledDepartureDate", "2026-10-20");
+        message.put("newScheduledDeparture", "2026-10-20T05:00:00Z");
+        message.put("newScheduledArrival", "2026-10-20T10:20:00Z");
+        message.put(field, value);
+        return JSON.writeValueAsString(message);
+    }
+
+    // flights full json for flight.replaced
+    private static String replaced(String field, Object value) {
+        Map<String, Object> message = new LinkedHashMap<>();
+        message.put("messageId", MESSAGE_ID);
+        message.put("version", 1);
+        message.put("occurredOn", OCCURRED_ON.toString());
+        message.put("flightNumber", "HJ221");
+        message.put("scheduledDepartureDate", "2026-10-19");
+        message.put("departureAirportCode", "BRU");
+        message.put("newFlightNumber", "HJ221A");
+        message.put("newScheduledDepartureDate", "2026-10-20");
+        message.put("newDepartureAirportCode", "BRU");
+        message.put("newScheduledDeparture", "2026-10-20T05:00:00Z");
+        message.put("newScheduledArrival", "2026-10-20T10:20:00Z");
         message.put(field, value);
         return JSON.writeValueAsString(message);
     }

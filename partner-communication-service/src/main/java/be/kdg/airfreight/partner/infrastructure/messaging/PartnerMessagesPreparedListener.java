@@ -43,7 +43,7 @@ public class PartnerMessagesPreparedListener {
                 throw new IllegalArgumentException("Prepared content must not be null");
             }
             var content = new MessageContent(item.type(), item.payload(), item.formatVersion());
-            if (!Set.of("FLM", "MVT_ED", "MVT_EA", "MVT_AD", "MVT_AA", "CPM")
+            if (!Set.of("FLM", "MVT_ED", "MVT_EA", "MVT_AD", "MVT_AA", "CPM", "FLIGHT_REPLANNED")
                             .contains(content.type())
                     || !types.add(content.type())) {
                 throw new IllegalArgumentException(
@@ -54,6 +54,11 @@ public class PartnerMessagesPreparedListener {
             }
             if ("CPM".equals(content.type()) && !json.readTree(content.payload()).isObject()) {
                 throw new IllegalArgumentException("CPM payload must be a JSON object");
+            }
+            if ("FLIGHT_REPLANNED".equals(content.type())
+                    && !json.readTree(content.payload()).isObject()) {
+                throw new IllegalArgumentException(
+                        "FLIGHT_REPLANNED payload must be a JSON object");
             }
             contents.add(content);
         }

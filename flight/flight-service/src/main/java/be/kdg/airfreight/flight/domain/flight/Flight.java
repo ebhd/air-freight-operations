@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 public final class Flight {
@@ -19,7 +20,7 @@ public final class Flight {
     private final String aircraftRegistration;
     private final Instant scheduledDeparture;
     private final Instant scheduledArrival;
-    // changes when the actual departure or arrival is registered
+    // changes when the actual times are registered and when replanning ends the flight
     private FlightStatus status;
     private final List<Delay> departureDelays;
     private final List<Delay> arrivalDelays;
@@ -28,6 +29,12 @@ public final class Flight {
     // null until registered, then never changed
     private Instant actualDeparture;
     private Instant actualArrival;
+    // null until the flight is replanned
+    private Replanning replanning;
+    // true once the new flight was created from its ssm, a flag like finalizedLoadProcessed
+    private boolean replacementCreated;
+    // the key of the replanned flight this one replaces, null for a normal flight
+    private FlightKey replaces;
 
     private Flight(
             FlightKey key,
@@ -117,6 +124,9 @@ public final class Flight {
                 arrivalDelays,
                 finalizedLoadProcessed,
                 null,
+                null,
+                null,
+                false,
                 null);
     }
 
@@ -131,7 +141,10 @@ public final class Flight {
             List<Delay> arrivalDelays,
             boolean finalizedLoadProcessed,
             Instant actualDeparture,
-            Instant actualArrival) {
+            Instant actualArrival,
+            Replanning replanning,
+            boolean replacementCreated,
+            FlightKey replaces) {
         Flight flight =
                 new Flight(
                         key,
@@ -147,6 +160,9 @@ public final class Flight {
         flight.finalizedLoadProcessed = finalizedLoadProcessed;
         flight.actualDeparture = actualDeparture;
         flight.actualArrival = actualArrival;
+        flight.replanning = replanning;
+        flight.replacementCreated = replacementCreated;
+        flight.replaces = replaces;
         return flight;
     }
 
@@ -199,6 +215,126 @@ public final class Flight {
 
     public Instant actualArrival() {
         return actualArrival;
+    }
+
+    public Optional<Replanning> replanning() {
+        return Optional.ofNullable(replanning);
+    }
+
+    public boolean replacementCreated() {
+        return replacementCreated;
+    }
+
+    public Optional<FlightKey> replaces() {
+        return Optional.ofNullable(replaces);
+    }
+
+    // the back link, set once when this flight is created as the replacement of another
+    public void recordReplaces(FlightKey replannedFlight) {
+        if (replaces != null) {
+            throw new DomainRuleViolationException("this flight already replaces " + replaces);
+        }
+        replaces = Objects.requireNonNull(replannedFlight, "replanned flight must not be null");
+    }
+
+    // the schedule a replan would give, nothing changes; the service picks the free number
+    // because only it can see the other flights
+    public Replanning proposeReplanning(
+            DelayType delayType,
+            UUID delayId,
+            int minutes,
+            String reasonCode,
+            String description,
+            String newFlightNumber,
+            Instant now) {
+        if (status != FlightStatus.PLANNED) {
+            throw new ReplanningRefusedException(
+                    ReplanningRefusedException.NOT_PLANNED,
+                    "only a planned flight can be replanned, this flight is " + status);
+        }
+        Objects.requireNonNull(delayType, "delay type must not be null");
+        int validatedMinutes = Delay.requireMinutes(minutes);
+        String validatedDescription = Delay.requireText(description, "delay description");
+        List<Delay> delays = delayType == DelayType.DEPARTURE ? departureDelays : arrivalDelays;
+        // the requested change: an add counts fully, an edit counts the difference
+        String reason;
+        int change = validatedMinutes;
+        if (delayId == null) {
+            reason = Delay.requireText(reasonCode, "delay reason code");
+        } else {
+            Delay delay = requireDelay(delays, delayId);
+            reason = delay.reasonCode();
+            change = validatedMinutes - delay.minutes();
+        }
+        int departureAfter = departureDelayMinutes();
+        int arrivalAfter = arrivalDelayMinutes();
+        if (delayType == DelayType.DEPARTURE) {
+            departureAfter += change;
+        } else {
+            arrivalAfter += change;
+        }
+        int total = departureAfter + arrivalAfter;
+        if (total <= MAX_TOTAL_DELAY_MINUTES) {
+            throw new ReplanningRefusedException(
+                    ReplanningRefusedException.REPLANNING_NOT_NEEDED,
+                    "all delays together would be "
+                            + total
+                            + " minutes, within "
+                            + MAX_TOTAL_DELAY_MINUTES
+                            + ", so the delay can simply be saved");
+        }
+        // the would-be estimates become the new schedule (flt-09): a departure delay shifts
+        // both times, an arrival delay only the arrival
+        Instant newScheduledDeparture = scheduledDeparture.plus(Duration.ofMinutes(departureAfter));
+        Instant newScheduledArrival = scheduledArrival.plus(Duration.ofMinutes(total));
+        // an ssm says next day when arrival time is not after departure time, so at most 24 h
+        if (Duration.between(newScheduledDeparture, newScheduledArrival)
+                        .compareTo(Duration.ofHours(24))
+                > 0) {
+            throw new ReplanningRefusedException(
+                    ReplanningRefusedException.SCHEDULE_NOT_EXPRESSIBLE,
+                    "the new flight would last longer than 24 hours, which a schedule message"
+                            + " cannot express");
+        }
+        return new Replanning(
+                requireText(newFlightNumber, "new flight number"),
+                newScheduledDeparture,
+                newScheduledArrival,
+                delayType,
+                validatedMinutes,
+                reason,
+                validatedDescription,
+                Objects.requireNonNull(now, "now must not be null"));
+    }
+
+    // ends this flight; the delays and estimates stay as they are so no mvt is sent
+    public Replanning replan(
+            DelayType delayType,
+            UUID delayId,
+            int minutes,
+            String reasonCode,
+            String description,
+            String newFlightNumber,
+            Instant now) {
+        Replanning result =
+                proposeReplanning(
+                        delayType, delayId, minutes, reasonCode, description, newFlightNumber, now);
+        status = FlightStatus.REPLANNED;
+        replanning = result;
+        return result;
+    }
+
+    // false when the new flight was already linked so a second ssm has no effect
+    public boolean recordReplacementCreated() {
+        if (replacementCreated) {
+            return false;
+        }
+        if (replanning == null) {
+            throw new DomainRuleViolationException(
+                    "only a replanned flight can get a replacement flight");
+        }
+        replacementCreated = true;
+        return true;
     }
 
     // false when the cpm was already processed so a second delivery has no effect
@@ -432,6 +568,10 @@ public final class Flight {
     }
 
     private void requireArrivalDelayChangesAllowed() {
+        if (status == FlightStatus.REPLANNED) {
+            throw new DomainRuleViolationException(
+                    "this flight was replanned, change the delays of the new flight");
+        }
         if (status == FlightStatus.LANDED) {
             throw new DomainRuleViolationException(
                     "arrival delays cannot be changed after landing");

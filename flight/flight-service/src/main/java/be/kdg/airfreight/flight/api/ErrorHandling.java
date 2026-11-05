@@ -7,6 +7,8 @@ import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.InvalidActualTimeException;
 import be.kdg.airfreight.flight.domain.flight.InvalidDelayException;
 import be.kdg.airfreight.flight.domain.flight.InvalidScheduleException;
+import be.kdg.airfreight.flight.domain.flight.Replanning;
+import be.kdg.airfreight.flight.domain.flight.ReplanningRefusedException;
 import be.kdg.airfreight.flight.domain.flight.TotalDelayExceededException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -57,6 +59,20 @@ class ErrorHandling {
         problemDetail.setProperty("totalMinutes", exception.totalMinutes());
         problemDetail.setProperty("maxTotalMinutes", Flight.MAX_TOTAL_DELAY_MINUTES);
         problemDetail.setProperty("replanningPossible", exception.replanningPossible());
+        // the proposal the dialog shows, computed the same way as the replan itself
+        Replanning proposal = exception.proposal();
+        if (proposal != null) {
+            problemDetail.setProperty("newFlightNumber", proposal.newFlightNumber());
+            problemDetail.setProperty("newScheduledDeparture", proposal.newScheduledDeparture());
+            problemDetail.setProperty("newScheduledArrival", proposal.newScheduledArrival());
+        }
+        return problemDetail;
+    }
+
+    @ExceptionHandler(ReplanningRefusedException.class)
+    ProblemDetail replanningRefused(ReplanningRefusedException exception) {
+        ProblemDetail problemDetail = problem(HttpStatus.CONFLICT, exception.getMessage());
+        problemDetail.setProperty("refusal", exception.refusal());
         return problemDetail;
     }
 

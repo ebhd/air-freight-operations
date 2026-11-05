@@ -142,6 +142,35 @@ class FlightActualTimeRulesTest {
         assertThat(flight.status()).isEqualTo(FlightStatus.DEPARTED);
     }
 
+    // replanned is final, the new flight gets the actual times
+    @Test
+    void replannedFlightRefusesBothActualTimes() {
+        Flight flight =
+                Flight.restore(
+                        KEY,
+                        "AMS",
+                        "SXBAA",
+                        STD,
+                        STA,
+                        FlightStatus.REPLANNED,
+                        List.of(),
+                        List.of(),
+                        true);
+
+        assertThatThrownBy(() -> flight.recordDeparture(STD, NOW, FIVE_MINUTES))
+                .isInstanceOf(ActualTimeRefusedException.class)
+                .hasMessageContaining("This flight is REPLANNED")
+                .extracting("refusal")
+                .isEqualTo(ActualTimeRefusal.NOT_PLANNED);
+        assertThatThrownBy(() -> flight.recordArrival(STA, NOW, FIVE_MINUTES))
+                .isInstanceOf(ActualTimeRefusedException.class)
+                .hasMessageContaining("This flight is REPLANNED")
+                .extracting("refusal")
+                .isEqualTo(ActualTimeRefusal.NOT_DEPARTED);
+        assertThat(flight.actualDeparture()).isNull();
+        assertThat(flight.actualArrival()).isNull();
+    }
+
     // flt-14: registered once, never changed
     @Test
     void secondDepartureIsRefusedAndTheFirstTimeStays() {
@@ -391,6 +420,9 @@ class FlightActualTimeRulesTest {
                 List.of(),
                 true,
                 actualDeparture,
+                null,
+                null,
+                false,
                 null);
     }
 }

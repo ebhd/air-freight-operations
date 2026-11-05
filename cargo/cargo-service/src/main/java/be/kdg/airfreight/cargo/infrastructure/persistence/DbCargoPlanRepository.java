@@ -50,30 +50,51 @@ class DbCargoPlanRepository implements CargoPlanRepository {
                         .stream()
                         .map(JpaUldBooking::toDomain)
                         .toList();
+        JpaCargoPlanId movedTo = plan.get().getMovedTo();
         return Optional.of(
                 CargoPlan.restore(
-                        flightKey, plan.get().getState(), plan.get().getFinalizedAt(), stored));
+                        flightKey,
+                        plan.get().getState(),
+                        plan.get().getFinalizedAt(),
+                        movedTo == null ? null : movedTo.toFlightKey(),
+                        stored));
     }
 
     // load and save a plan in one transaction or the version check compares the wrong version
+    // save makes the stored bookings equal to the plan, so a moved booking is also deleted
     @Override
     public void save(CargoPlan cargoPlan) {
         JpaCargoPlanId id = JpaCargoPlanId.of(cargoPlan.getFlightKey());
         Optional<JpaCargoPlan> stored = plans.findById(id);
         Instant finalizedAt = cargoPlan.getFinalizedAt().orElse(null);
+        JpaCargoPlanId movedTo = cargoPlan.getMovedTo().map(JpaCargoPlanId::of).orElse(null);
         if (stored.isPresent() && stored.get().getState() != cargoPlan.getState()) {
-            // finalizing changes the plan row itself so hibernate raises and checks the version
-            stored.get().changeState(cargoPlan.getState(), finalizedAt);
+            // finalizing or moving changes the plan row itself so hibernate raises and checks
+            // the version
+            stored.get().changeState(cargoPlan.getState(), finalizedAt, movedTo);
         } else if (stored.isPresent()) {
             // only bookings change so make hibernate raise and check the plan version at commit
             entityManager.lock(stored.get(), LockModeType.OPTIMISTIC_FORCE_INCREMENT);
         } else {
             // the first save creates the plan row with version 0
-            plans.save(new JpaCargoPlan(id, cargoPlan.getState(), finalizedAt));
+            plans.save(new JpaCargoPlan(id, cargoPlan.getState(), finalizedAt, movedTo));
         }
-        bookings.saveAll(
+        List<JpaUldBooking> kept =
                 cargoPlan.getBookings().stream()
                         .map(booking -> JpaUldBooking.fromDomain(cargoPlan.getFlightKey(), booking))
-                        .toList());
+                        .toList();
+        List<JpaUldBooking> removed =
+                bookings
+                        .findByIdFlightNumberAndIdScheduledDepartureDateAndIdDepartureAirportCode(
+                                cargoPlan.getFlightKey().flightNumber(),
+                                cargoPlan.getFlightKey().scheduledDepartureDate(),
+                                cargoPlan.getFlightKey().departureAirportCode().value())
+                        .stream()
+                        .filter(row -> cargoPlan.findBooking(row.toDomain().getCode()).isEmpty())
+                        .toList();
+        bookings.deleteAll(removed);
+        // the deletes go to the database first so a moved position is free on the new plan
+        bookings.flush();
+        bookings.saveAll(kept);
     }
 }

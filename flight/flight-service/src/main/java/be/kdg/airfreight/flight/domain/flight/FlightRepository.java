@@ -17,4 +17,7 @@ public interface FlightRepository {
     List<Flight> findScheduledBefore(Instant end);
 
     Flight save(Flight flight);
+
+    // the replanned flight that expects a new flight with this key and std and has none yet
+    Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture);
 }

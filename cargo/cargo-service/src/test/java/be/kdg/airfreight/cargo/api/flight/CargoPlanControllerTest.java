@@ -101,6 +101,42 @@ class CargoPlanControllerTest {
     }
 
     @Test
+    void draftPlanHasItsStateAndNoMovedTo() throws Exception {
+        givenFlight(FlightStatus.PLANNED, booking("AKE12345KL", "1250.5", WeightUnit.KG, "AMS"));
+
+        mvc.perform(get(URL))
+                .andExpect(jsonPath("$.state").value("DRAFT"))
+                .andExpect(jsonPath("$.finalizedAt").value(nullValue()))
+                .andExpect(jsonPath("$.movedTo").value(nullValue()));
+    }
+
+    // the old plan of a replanning tells the page where the cargo went
+    @Test
+    void replannedPlanSaysWhereTheCargoMovedTo() throws Exception {
+        givenFlight(FlightStatus.REPLANNED);
+        when(cargoPlans.findByFlightKey(KEY))
+                .thenReturn(
+                        Optional.of(
+                                CargoPlan.restore(
+                                        KEY,
+                                        CargoPlanState.REPLANNED,
+                                        null,
+                                        new FlightKey(
+                                                "HJ221A",
+                                                LocalDate.of(2026, 10, 20),
+                                                new AirportCode("BRU")),
+                                        List.of())));
+
+        mvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("REPLANNED"))
+                .andExpect(jsonPath("$.bookings", hasSize(0)))
+                .andExpect(jsonPath("$.movedTo.flightNumber").value("HJ221A"))
+                .andExpect(jsonPath("$.movedTo.scheduledDepartureDate").value("2026-10-20"))
+                .andExpect(jsonPath("$.movedTo.departureAirportCode").value("BRU"));
+    }
+
+    @Test
     void sortsBookingsByUldCode() throws Exception {
         givenFlight(
                 FlightStatus.PLANNED,

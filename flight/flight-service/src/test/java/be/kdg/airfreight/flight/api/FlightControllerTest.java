@@ -1,5 +1,6 @@
 package be.kdg.airfreight.flight.api;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -9,6 +10,7 @@ import be.kdg.airfreight.flight.api.flight.FlightController;
 import be.kdg.airfreight.flight.application.FlightActualTimeService;
 import be.kdg.airfreight.flight.application.FlightDelayService;
 import be.kdg.airfreight.flight.application.FlightQueryService;
+import be.kdg.airfreight.flight.application.FlightReplanningService;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
@@ -67,6 +69,12 @@ class FlightControllerTest {
                     public Flight save(Flight saved) {
                         return saved;
                     }
+
+                    @Override
+                    public Optional<Flight> findReplacedBy(
+                            FlightKey newKey, Instant newScheduledDeparture) {
+                        return Optional.empty();
+                    }
                 };
         // security is the same filter chain as /api/status which StatusSecurityTest covers
         mvc =
@@ -76,9 +84,11 @@ class FlightControllerTest {
                                         new FlightDelayService(
                                                 flights,
                                                 mock(DelayReasonRepository.class),
+                                                mock(FlightReplanningService.class),
                                                 mock(ApplicationEventPublisher.class),
                                                 Clock.systemUTC()),
-                                        mock(FlightActualTimeService.class)))
+                                        mock(FlightActualTimeService.class),
+                                        mock(FlightReplanningService.class)))
                         .setControllerAdvice(new ErrorHandling())
                         .build();
     }
@@ -92,7 +102,9 @@ class FlightControllerTest {
                 .andExpect(jsonPath("$.departureAirportCode").value("BRU"))
                 .andExpect(jsonPath("$.arrivalAirportCode").value("AMS"))
                 .andExpect(jsonPath("$.status").value("PLANNED"))
-                .andExpect(jsonPath("$.scheduledDeparture").value("2026-10-19T08:00:00Z"));
+                .andExpect(jsonPath("$.scheduledDeparture").value("2026-10-19T08:00:00Z"))
+                .andExpect(jsonPath("$.replanning").value(nullValue()))
+                .andExpect(jsonPath("$.replaces").value(nullValue()));
     }
 
     @Test

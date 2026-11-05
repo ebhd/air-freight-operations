@@ -22,20 +22,24 @@ public final class CargoPlan {
     private CargoPlanState state;
     // null while the plan is a draft
     private Instant finalizedAt;
+    // the new flight the cargo moved to, null unless the plan is replanned
+    private FlightKey movedTo;
 
     public CargoPlan(FlightKey flightKey) {
-        this(flightKey, CargoPlanState.DRAFT, null);
+        this(flightKey, CargoPlanState.DRAFT, null, null);
     }
 
-    private CargoPlan(FlightKey flightKey, CargoPlanState state, Instant finalizedAt) {
+    private CargoPlan(
+            FlightKey flightKey, CargoPlanState state, Instant finalizedAt, FlightKey movedTo) {
         this.flightKey = Objects.requireNonNull(flightKey, "Flight key is required");
         this.state = Objects.requireNonNull(state, "State is required");
         this.finalizedAt = finalizedAt;
+        this.movedTo = movedTo;
     }
 
     public static CargoPlan restore(
             FlightKey flightKey, CargoPlanState state, List<UldBooking> bookings) {
-        return restore(flightKey, state, null, bookings);
+        return restore(flightKey, state, null, null, bookings);
     }
 
     public static CargoPlan restore(
@@ -43,7 +47,16 @@ public final class CargoPlan {
             CargoPlanState state,
             Instant finalizedAt,
             List<UldBooking> bookings) {
-        CargoPlan cargoPlan = new CargoPlan(flightKey, state, finalizedAt);
+        return restore(flightKey, state, finalizedAt, null, bookings);
+    }
+
+    public static CargoPlan restore(
+            FlightKey flightKey,
+            CargoPlanState state,
+            Instant finalizedAt,
+            FlightKey movedTo,
+            List<UldBooking> bookings) {
+        CargoPlan cargoPlan = new CargoPlan(flightKey, state, finalizedAt, movedTo);
         for (UldBooking booking : bookings) {
             cargoPlan.bookings.put(booking.getCode(), booking);
         }
@@ -62,7 +75,60 @@ public final class CargoPlan {
             throw new BookingRejectedException(
                     "Cargo plan of flight " + flightKey + " is finalized, no ULD can be added");
         }
+        if (isReplanned()) {
+            throw new BookingRejectedException(
+                    "Cargo of flight "
+                            + flightKey
+                            + " moved to "
+                            + movedTo
+                            + ", book on that flight");
+        }
         bookings.put(code, booking);
+        return true;
+    }
+
+    public boolean isReplanned() {
+        return state == CargoPlanState.REPLANNED;
+    }
+
+    // moves every booking to the plan of the new flight and leaves this plan as the marker
+    // false when this plan already moved, so a redelivered event changes nothing
+    public boolean moveTo(CargoPlan target) {
+        Objects.requireNonNull(target, "Target cargo plan is required");
+        if (isReplanned()) {
+            return false;
+        }
+        if (target.isFinalized() || target.isReplanned()) {
+            throw new BookingRejectedException(
+                    "Cargo of flight "
+                            + flightKey
+                            + " cannot move to "
+                            + target.flightKey
+                            + ": that cargo plan is "
+                            + target.state);
+        }
+        for (UldBooking booking : bookings.values()) {
+            // the same uld booked on the new flight already stays as it is there
+            if (target.bookings.containsKey(booking.getCode())) {
+                continue;
+            }
+            // a taken position is not stolen, the load planner places that uld again
+            LoadingPosition position =
+                    booking.getPosition()
+                            .filter(taken -> target.bookingAt(taken).isEmpty())
+                            .orElse(null);
+            target.bookings.put(
+                    booking.getCode(),
+                    new UldBooking(
+                            booking.getCode(),
+                            booking.getWeight(),
+                            booking.getDestination(),
+                            position));
+        }
+        bookings.clear();
+        state = CargoPlanState.REPLANNED;
+        // finalizedAt stays for the history, the new plan starts as a draft
+        movedTo = target.flightKey;
         return true;
     }
 
@@ -88,7 +154,8 @@ public final class CargoPlan {
         if (isFinalized()) {
             return Optional.of(LoadingRefusal.PLAN_FINALIZED);
         }
-        if (!context.flight().planned()) {
+        // the flight of a moved plan is replanned, also when the copy has not heard it yet
+        if (isReplanned() || !context.flight().planned()) {
             return Optional.of(LoadingRefusal.FLIGHT_NOT_PLANNED);
         }
         if (context.window().hasNotOpenedAt(context.now())) {
@@ -191,6 +258,10 @@ public final class CargoPlan {
 
     public Optional<Instant> getFinalizedAt() {
         return Optional.ofNullable(finalizedAt);
+    }
+
+    public Optional<FlightKey> getMovedTo() {
+        return Optional.ofNullable(movedTo);
     }
 
     public List<UldBooking> getBookings() {

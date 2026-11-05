@@ -9,6 +9,7 @@ import be.kdg.airfreight.flight.api.flight.FlightController;
 import be.kdg.airfreight.flight.application.FlightActualTimeService;
 import be.kdg.airfreight.flight.application.FlightDelayService;
 import be.kdg.airfreight.flight.application.FlightQueryService;
+import be.kdg.airfreight.flight.application.FlightReplanningService;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
 import be.kdg.airfreight.flight.domain.flight.ActualTimePolicy;
 import be.kdg.airfreight.flight.domain.flight.Flight;
@@ -60,13 +61,15 @@ class ActualTimeControllerTest {
                                         new FlightDelayService(
                                                 repository,
                                                 mock(DelayReasonRepository.class),
+                                                mock(FlightReplanningService.class),
                                                 mock(ApplicationEventPublisher.class),
                                                 clock),
                                         new FlightActualTimeService(
                                                 repository,
                                                 mock(ApplicationEventPublisher.class),
                                                 clock,
-                                                new ActualTimePolicy(Duration.ofMinutes(5)))))
+                                                new ActualTimePolicy(Duration.ofMinutes(5))),
+                                        mock(FlightReplanningService.class)))
                         .setControllerAdvice(new ErrorHandling())
                         .build();
     }
@@ -172,6 +175,11 @@ class ActualTimeControllerTest {
         @Override
         public Optional<Flight> findByIdForUpdate(FlightKey key) {
             return findById(key);
+        }
+
+        @Override
+        public Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture) {
+            return Optional.empty();
         }
 
         @Override
