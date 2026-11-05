@@ -1,6 +1,6 @@
 package be.kdg.airfreight.flight.infrastructure.messaging.cpm;
 
-import be.kdg.airfreight.flight.application.FinalizedLoadService;
+import be.kdg.airfreight.flight.application.finalizedload.FinalizedLoadService;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.infrastructure.messaging.RabbitConfiguration;
 import lombok.extern.slf4j.Slf4j;

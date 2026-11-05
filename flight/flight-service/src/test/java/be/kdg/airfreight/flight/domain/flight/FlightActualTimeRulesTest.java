@@ -4,6 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import be.kdg.airfreight.flight.domain.DomainRuleViolationException;
+import be.kdg.airfreight.flight.domain.flight.actualtime.ActualTimePolicy;
+import be.kdg.airfreight.flight.domain.flight.actualtime.ActualTimeRefusal;
+import be.kdg.airfreight.flight.domain.flight.actualtime.ActualTimeRefusedException;
+import be.kdg.airfreight.flight.domain.flight.actualtime.InvalidActualTimeException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;

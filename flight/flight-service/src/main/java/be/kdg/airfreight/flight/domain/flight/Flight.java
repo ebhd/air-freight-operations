@@ -2,6 +2,13 @@ package be.kdg.airfreight.flight.domain.flight;
 
 import be.kdg.airfreight.flight.domain.DomainRuleViolationException;
 import be.kdg.airfreight.flight.domain.NotFoundException;
+import be.kdg.airfreight.flight.domain.flight.actualtime.ActualTimePolicy;
+import be.kdg.airfreight.flight.domain.flight.actualtime.ActualTimeRefusal;
+import be.kdg.airfreight.flight.domain.flight.actualtime.ActualTimeRefusedException;
+import be.kdg.airfreight.flight.domain.flight.actualtime.InvalidActualTimeException;
+import be.kdg.airfreight.flight.domain.flight.replanning.Replanning;
+import be.kdg.airfreight.flight.domain.flight.replanning.ReplanningRefusal;
+import be.kdg.airfreight.flight.domain.flight.replanning.ReplanningRefusedException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -249,7 +256,7 @@ public final class Flight {
             Instant now) {
         if (status != FlightStatus.PLANNED) {
             throw new ReplanningRefusedException(
-                    ReplanningRefusedException.NOT_PLANNED,
+                    ReplanningRefusal.NOT_PLANNED,
                     "only a planned flight can be replanned, this flight is " + status);
         }
         Objects.requireNonNull(delayType, "delay type must not be null");
@@ -276,7 +283,7 @@ public final class Flight {
         int total = departureAfter + arrivalAfter;
         if (total <= MAX_TOTAL_DELAY_MINUTES) {
             throw new ReplanningRefusedException(
-                    ReplanningRefusedException.REPLANNING_NOT_NEEDED,
+                    ReplanningRefusal.REPLANNING_NOT_NEEDED,
                     "all delays together would be "
                             + total
                             + " minutes, within "
@@ -292,7 +299,7 @@ public final class Flight {
                         .compareTo(Duration.ofHours(24))
                 > 0) {
             throw new ReplanningRefusedException(
-                    ReplanningRefusedException.SCHEDULE_NOT_EXPRESSIBLE,
+                    ReplanningRefusal.SCHEDULE_NOT_EXPRESSIBLE,
                     "the new flight would last longer than 24 hours, which a schedule message"
                             + " cannot express");
         }

@@ -3,13 +3,13 @@ package be.kdg.airfreight.flight.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import be.kdg.airfreight.flight.application.FlightActualTimeService;
-import be.kdg.airfreight.flight.application.command.RecordArrivalCommand;
-import be.kdg.airfreight.flight.application.command.RecordDepartureCommand;
-import be.kdg.airfreight.flight.domain.flight.ActualTimeRefusedException;
+import be.kdg.airfreight.flight.application.actualtime.FlightActualTimeService;
+import be.kdg.airfreight.flight.application.actualtime.RecordArrivalCommand;
+import be.kdg.airfreight.flight.application.actualtime.RecordDepartureCommand;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightStatus;
+import be.kdg.airfreight.flight.domain.flight.actualtime.ActualTimeRefusedException;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaFlight;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaFlightId;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaFlightRepository;

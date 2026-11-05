@@ -24,10 +24,12 @@ import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.dao.RecoverableDataAccessException;
 import org.springframework.dao.TransientDataAccessResourceException;
 import org.springframework.transaction.CannotCreateTransactionException;
+import tools.jackson.databind.json.JsonMapper;
 
 class FlightMessageRecovererTest {
     private final FlightMessageRecoverer recoverer =
-            new FlightMessageRecoverer(Mockito.mock(RejectedMessageStore.class));
+            new FlightMessageRecoverer(
+                    Mockito.mock(RejectedMessageStore.class), JsonMapper.builder().build());
 
     @ParameterizedTest
     @MethodSource("temporaryDatabaseFailures")

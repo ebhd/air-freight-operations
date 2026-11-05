@@ -1,6 +1,6 @@
 package be.kdg.airfreight.flight.infrastructure;
 
-import be.kdg.airfreight.flight.domain.flight.ActualTimePolicy;
+import be.kdg.airfreight.flight.domain.flight.actualtime.ActualTimePolicy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;

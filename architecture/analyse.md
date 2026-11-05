@@ -501,7 +501,7 @@ classDiagram
 
 Invariants on `Flight`:
 
-1. `FlightKey`, scheduled departure and scheduled arrival cannot change. The key's `scheduledDepartureDate` is the UTC date of the original scheduled departure.
+1. `FlightKey`, scheduled departure and scheduled arrival cannot change. The key's `scheduledDepartureDate` is the UTC date of the original scheduled departure. Flight numbers contain 1–32 letters or digits, matching Cargo's accepted format.
 2. A flight moves only from `PLANNED` to `DEPARTED` to `LANDED`, or from `PLANNED` to `REPLANNED`. `REPLANNED` is final: no delay changes, no second replanning, no CPM, no departure.
 3. Departure delays can change only while planned, arrival delays can change while planned or departed. All delays freeze after landing and after replanning.
 4. Each delay is 1–720 minutes, and all delays of a flight together (departure and arrival) are at most 720 minutes (coach). A change that would pass that total is refused with 409 `TOTAL_DELAY_EXCEEDED`. ETD and ETA are calculated from the current delays, never entered manually.

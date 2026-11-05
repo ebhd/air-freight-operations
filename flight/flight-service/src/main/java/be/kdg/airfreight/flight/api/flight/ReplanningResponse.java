@@ -1,7 +1,7 @@
 package be.kdg.airfreight.flight.api.flight;
 
 import be.kdg.airfreight.flight.domain.flight.Flight;
-import be.kdg.airfreight.flight.domain.flight.Replanning;
+import be.kdg.airfreight.flight.domain.flight.replanning.Replanning;
 import java.time.Instant;
 import java.time.LocalDate;
 
