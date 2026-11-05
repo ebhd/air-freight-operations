@@ -626,6 +626,7 @@ classDiagram
 | --- | --- |
 | Aggregate root | `PartnerMessage` |
 | Value objects | `MessageId`, `MessageContent` |
+| Domain rule | `MvtTimeRule` |
 | Formatter implementations | `FlmFormatter`, `MvtEdFormatter`, `MvtEaFormatter`, `MvtAdFormatter`, `MvtAaFormatter`, `CpmFormatter`, `FlightReplannedFormatter` in Message Formatter |
 | Repository | `PartnerMessageRepository` |
 | Actors | Partners |
@@ -642,6 +643,10 @@ classDiagram
 | ATD / ATA registered | MVT-AD / MVT-AA (IATA text); line 2 keeps the scheduled departure day |
 | Load finalized in Cargo | CPM (JSON): flight number, scheduled departure date, departure airport, and only the positioned ULDs with code, position, weight with unit and destination; Partner adds message ID, creation time and format version |
 | New flight of a replanning exists | FLIGHT_REPLANNED (JSON, our own message: the course defines none, MSG-01 allows designed JSON messages): old and new flight (number, scheduled departure date, departure airport), new STD and STA. The new flight also gets its normal FLM |
+
+### Reading an MVT time
+
+Line 3 holds only `HHmm` in UTC. `MvtTimeRule` gives it a date: the one instant within 12 hours of the reference, where exactly 12 hours away counts as the later side (team reading). It does not depend on the flight day in line 2. The reference is the stored first reading, `createdAtUTC`, so a redelivery cannot change the result. Nothing in the baseline reads an MVT back, because Flight knows the real instants and partner telegrams are a later extension, so only tests call the rule.
 
 ### Publication lifecycle
 
