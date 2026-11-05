@@ -35,13 +35,13 @@
         </dl>
         <p id="permissions" class="mb-4"></p>
         <section id="actual-times" class="mb-6 rounded border border-slate-300 bg-white p-4" hidden>
-            <h2 class="mb-3 text-xl font-semibold">Actual times</h2>
+            <h2 class="mb-3 text-xl font-semibold"><i class="fa-solid fa-clock mr-2 text-accent" aria-hidden="true"></i>Actual times</h2>
             <form id="departure-form" hidden>
                 <fieldset id="departure-fields" class="flex flex-wrap items-end gap-4">
                     <label class="flex flex-col gap-1">Actual departure (Brussels time)
                         <input id="actual-departure-input" class="field" type="datetime-local" step="60" required>
                     </label>
-                    <button id="register-departure" class="button" type="submit">Register departure</button>
+                    <button id="register-departure" class="button" type="submit"><i class="fa-solid fa-plane-departure mr-1" aria-hidden="true"></i>Register departure</button>
                 </fieldset>
             </form>
             <form id="arrival-form" hidden>
@@ -49,7 +49,7 @@
                     <label class="flex flex-col gap-1">Actual arrival (Brussels time)
                         <input id="actual-arrival-input" class="field" type="datetime-local" step="60" required>
                     </label>
-                    <button id="register-arrival" class="button" type="submit">Register arrival</button>
+                    <button id="register-arrival" class="button" type="submit"><i class="fa-solid fa-plane-arrival mr-1" aria-hidden="true"></i>Register arrival</button>
                 </fieldset>
             </form>
         </section>
