@@ -1,6 +1,5 @@
 package be.kdg.airfreight.cargo.infrastructure.messaging;
 
-import be.kdg.airfreight.cargo.application.cargoplan.CargoEventOutbox;
 import be.kdg.airfreight.cargo.domain.cargoplan.LoadFinalized;
 import be.kdg.airfreight.cargo.infrastructure.messaging.outbox.OutboxMessage;
 import be.kdg.airfreight.cargo.infrastructure.persistence.jpa.JpaOutboxMessage;
@@ -12,13 +11,13 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import tools.jackson.databind.json.JsonMapper;
 
 @Component
 @Slf4j
-public class OutboxCargoEvents implements CargoEventOutbox {
+public class OutboxCargoEvents {
     private final JpaOutboxMessageRepository outboxRepository;
     private final JsonMapper jsonMapper;
     private final ApplicationEventPublisher events;
@@ -35,10 +34,8 @@ public class OutboxCargoEvents implements CargoEventOutbox {
         this.clock = clock;
     }
 
-    // mandatory fails without a transaction so the row is never written apart from the change
-    @Override
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void add(LoadFinalized event) {
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void on(LoadFinalized event) {
         LoadFinalizedMessage message =
                 new LoadFinalizedMessage(
                         UUID.randomUUID(),

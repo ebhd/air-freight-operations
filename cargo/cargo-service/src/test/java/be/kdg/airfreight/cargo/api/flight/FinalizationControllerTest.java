@@ -13,7 +13,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import be.kdg.airfreight.cargo.application.cargoplan.CargoEventOutbox;
 import be.kdg.airfreight.cargo.application.cargoplan.FinalizeLoadService;
 import be.kdg.airfreight.cargo.application.loading.LoadingWindowService;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
@@ -42,6 +41,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.MediaType;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.web.servlet.MockMvc;
@@ -58,7 +58,7 @@ class FinalizationControllerTest {
 
     private final FlightRepository flights = mock(FlightRepository.class);
     private final CargoPlanRepository cargoPlans = mock(CargoPlanRepository.class);
-    private final CargoEventOutbox outbox = mock(CargoEventOutbox.class);
+    private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
 
     @Test
     void finalizedLoadReturnsTheTimeAndTheReport() throws Exception {
@@ -78,7 +78,7 @@ class FinalizationControllerTest {
                 .andExpect(jsonPath("$.report.results[2].severity").value("SOFT"))
                 .andExpect(jsonPath("$.report.results[2].passed").value(false));
         verify(cargoPlans).save(cargoPlan);
-        verify(outbox).add(any());
+        verify(events).publishEvent(any(Object.class));
     }
 
     @Test
@@ -107,7 +107,7 @@ class FinalizationControllerTest {
                 .andExpect(jsonPath("$.report.results[0].name").value("Lateral balance"))
                 .andExpect(jsonPath("$.report.results[0].passed").value(false));
         verify(cargoPlans, never()).save(any());
-        verifyNoInteractions(outbox);
+        verifyNoInteractions(events);
     }
 
     @Test
@@ -118,7 +118,7 @@ class FinalizationControllerTest {
                 .perform(post(URL))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.refusal").value("PLAN_FINALIZED"));
-        verifyNoInteractions(outbox);
+        verifyNoInteractions(events);
     }
 
     @Test
@@ -154,7 +154,7 @@ class FinalizationControllerTest {
                 .thenThrow(new FlightLookupUnavailableException(KEY, null));
 
         mvcAt(INSIDE).perform(post(URL)).andExpect(status().isServiceUnavailable());
-        verifyNoInteractions(cargoPlans, outbox);
+        verifyNoInteractions(cargoPlans, events);
     }
 
     @Test
@@ -173,7 +173,7 @@ class FinalizationControllerTest {
                         cargoPlans,
                         loadingWindowService,
                         new LoadChecks(new LateralBalanceCheck(new BigDecimal("0.10"))),
-                        outbox,
+                        events,
                         TransactionOperations.withoutTransaction());
         return MockMvcBuilders.standaloneSetup(new FinalizationController(finalizeLoadService))
                 .setControllerAdvice(new CargoApiExceptionHandler())

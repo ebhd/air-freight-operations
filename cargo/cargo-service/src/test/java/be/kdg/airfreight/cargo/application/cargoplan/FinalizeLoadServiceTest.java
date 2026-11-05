@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionOperations;
@@ -53,7 +54,7 @@ class FinalizeLoadServiceTest {
 
     private final FlightRepository flights = mock(FlightRepository.class);
     private final CargoPlanRepository cargoPlans = mock(CargoPlanRepository.class);
-    private final CargoEventOutbox outbox = mock(CargoEventOutbox.class);
+    private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final List<String> steps = new ArrayList<>();
 
     // runs the work like spring would and records where the transaction starts and ends
@@ -77,21 +78,23 @@ class FinalizeLoadServiceTest {
                             new LoadingWindowPolicy(Duration.ofHours(12), Duration.ofMinutes(20)),
                             Clock.fixed(INSIDE, ZoneOffset.UTC)),
                     new LoadChecks(new LateralBalanceCheck(new BigDecimal("0.10"))),
-                    outbox,
+                    events,
                     transaction);
 
     @Test
     void savesThePlanAndAddsTheEventInOneTransaction() {
         CargoPlan cargoPlan = givenPlan(booking("AKE1", LoadingPosition.A1, "1000"));
         doAnswer(call -> steps.add("save plan")).when(cargoPlans).save(any());
-        doAnswer(call -> steps.add("add event")).when(outbox).add(any());
+        doAnswer(call -> steps.add("add event"))
+                .when(events)
+                .publishEvent(any(LoadFinalized.class));
 
         LoadFinalized event = service.finalizeLoad(KEY);
 
         assertThat(cargoPlan.isFinalized()).isTrue();
         assertThat(steps).containsExactly("begin", "save plan", "add event", "commit");
         ArgumentCaptor<LoadFinalized> added = ArgumentCaptor.forClass(LoadFinalized.class);
-        verify(outbox).add(added.capture());
+        verify(events).publishEvent(added.capture());
         assertThat(added.getValue()).isSameAs(event);
         assertThat(event.ulds()).hasSize(1);
     }
@@ -106,7 +109,7 @@ class FinalizeLoadServiceTest {
                 .isInstanceOf(LoadNotFinalizedException.class);
 
         verify(cargoPlans, never()).save(any());
-        verifyNoInteractions(outbox);
+        verifyNoInteractions(events);
     }
 
     // d3 no bookings yet is an empty load that can still be finalized
@@ -132,7 +135,7 @@ class FinalizeLoadServiceTest {
                 .isInstanceOf(FlightLookupUnavailableException.class);
 
         assertThat(steps).isEmpty();
-        verifyNoInteractions(outbox);
+        verifyNoInteractions(events);
     }
 
     private void givenFlight() {
