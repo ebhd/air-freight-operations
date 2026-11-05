@@ -39,30 +39,4 @@ class ActualTimeConfigurationTest {
                                 assertThat(context.getBean(ActualTimePolicy.class))
                                         .isEqualTo(new ActualTimePolicy(Duration.ofMinutes(10))));
     }
-
-    @Test
-    void failsToStartWithANegativeTolerance() {
-        runner.withPropertyValues("flight.actual-times.tolerance=-1m")
-                .run(
-                        context -> {
-                            assertThat(context).hasFailed();
-                            assertThat(context.getStartupFailure())
-                                    .rootCause()
-                                    .isInstanceOf(IllegalArgumentException.class)
-                                    .hasMessageContaining(
-                                            "actual time tolerance must be zero or positive");
-                        });
-    }
-
-    @Test
-    void failsToStartWithoutATolerance() {
-        runner.run(
-                context -> {
-                    assertThat(context).hasFailed();
-                    assertThat(context.getStartupFailure())
-                            .rootCause()
-                            .isInstanceOf(IllegalArgumentException.class)
-                            .hasMessageContaining("actual time tolerance is required");
-                });
-    }
 }

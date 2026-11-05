@@ -1,7 +1,6 @@
 package be.kdg.airfreight.cargo.api.flight;
 
 import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -25,13 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -39,11 +32,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 @ExtendWith(SpringExtension.class)
 @WebAppConfiguration
-@ContextConfiguration(classes = LoadCheckSecurityTest.Config.class)
+@ContextConfiguration(classes = CargoPlanSecurityConfiguration.class)
 class LoadCheckSecurityTest {
     private static final String URL = "/api/cargo-plans/HJ221/2026-10-19/BRU";
     private static final FlightKey KEY =
@@ -111,31 +103,5 @@ class LoadCheckSecurityTest {
 
     private static RequestPostProcessor planner(String role) {
         return jwt().authorities(new SimpleGrantedAuthority("ROLE_" + role));
-    }
-
-    @Configuration
-    @EnableWebMvc
-    @EnableWebSecurity
-    @ComponentScan("be.kdg.airfreight.cargo.infrastructure.security")
-    @Import({
-        LoadCheckController.class,
-        FinalizationController.class,
-        CargoApiExceptionHandler.class
-    })
-    static class Config {
-        @Bean
-        FinalizeLoadService finalizeLoadService() {
-            return mock(FinalizeLoadService.class);
-        }
-
-        @Bean
-        LoadCheckService loadCheckService() {
-            return mock(LoadCheckService.class);
-        }
-
-        @Bean
-        JwtDecoder jwtDecoder() {
-            return mock(JwtDecoder.class);
-        }
     }
 }

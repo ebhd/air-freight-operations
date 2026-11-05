@@ -27,7 +27,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "h2"})
 class FlmProcessingIntegrationTest {
     @Autowired private PartnerMessagesPreparedListener listener;
     @Autowired private JpaPartnerMessageRepository messages;

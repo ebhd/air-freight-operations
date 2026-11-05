@@ -2,7 +2,7 @@ package be.kdg.airfreight.cargo.api.flight;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -10,8 +10,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import be.kdg.airfreight.cargo.application.loadcheck.LoadCheckService;
-import be.kdg.airfreight.cargo.application.loading.LoadingWindowService;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanRepository;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanState;
@@ -26,32 +24,65 @@ import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
-import be.kdg.airfreight.cargo.domain.loadcheck.LateralBalanceCheck;
-import be.kdg.airfreight.cargo.domain.loadcheck.LoadChecks;
-import be.kdg.airfreight.cargo.domain.loading.LoadingWindowPolicy;
+import be.kdg.airfreight.cargo.support.PostgresTestConfiguration;
+import be.kdg.airfreight.cargo.support.TestHelper;
 import java.math.BigDecimal;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles({"test", "postgres"})
+@Import({PostgresTestConfiguration.class, TestHelper.class})
+@WithMockUser(roles = "load-planner")
 class LoadCheckControllerTest {
     private static final String URL = "/api/cargo-plans/HJ221/2026-10-19/BRU/load-check";
     private static final FlightKey KEY =
             new FlightKey("HJ221", LocalDate.of(2026, 10, 19), new AirportCode("BRU"));
-    private static final LoadingWindowPolicy POLICY =
-            new LoadingWindowPolicy(Duration.ofHours(12), Duration.ofMinutes(20));
     // inside the window 2026-10-18T20:00Z to 2026-10-19T07:40Z
     private static final Instant INSIDE = Instant.parse("2026-10-19T06:00:00Z");
 
-    private final FlightRepository flights = mock(FlightRepository.class);
-    private final CargoPlanRepository cargoPlans = mock(CargoPlanRepository.class);
+    @MockitoBean private FlightRepository flights;
+    @MockitoSpyBean private CargoPlanRepository cargoPlans;
+
+    @Autowired private MockMvc mvc;
+    @Autowired private TestHelper data;
+    @MockitoBean private Clock clock;
+    @MockitoBean private RabbitTemplate rabbit;
+    @MockitoBean private JwtDecoder jwtDecoder;
+
+    @MockitoBean(
+            name = "org.springframework.context.annotation.internalScheduledAnnotationProcessor")
+    private ScheduledAnnotationBeanPostProcessor scheduling;
+
+    @BeforeEach
+    void setUp() {
+        data.cleanUp();
+        data.prepare(clock, rabbit, Instant.parse("2026-10-19T06:00:00Z"));
+    }
+
+    @AfterEach
+    void cleanUp() {
+        data.cleanUp();
+    }
 
     @Test
     void returnsEveryCheckWithNameSeverityResultAndReason() throws Exception {
@@ -86,7 +117,6 @@ class LoadCheckControllerTest {
     @Test
     void flightWithoutBookingsGetsAnEmptyReport() throws Exception {
         givenFlight();
-        when(cargoPlans.findByFlightKey(KEY)).thenReturn(Optional.empty());
 
         mvcAt(INSIDE)
                 .perform(get(URL))
@@ -138,17 +168,8 @@ class LoadCheckControllerTest {
     }
 
     private MockMvc mvcAt(Instant now) {
-        LoadingWindowService loadingWindowService =
-                new LoadingWindowService(
-                        flights, cargoPlans, POLICY, Clock.fixed(now, ZoneOffset.UTC));
-        LoadCheckService loadCheckService =
-                new LoadCheckService(
-                        cargoPlans,
-                        loadingWindowService,
-                        new LoadChecks(new LateralBalanceCheck(new BigDecimal("0.10"))));
-        return MockMvcBuilders.standaloneSetup(new LoadCheckController(loadCheckService))
-                .setControllerAdvice(new CargoApiExceptionHandler())
-                .build();
+        when(clock.instant()).thenReturn(now);
+        return mvc;
     }
 
     private void givenFlight() {
@@ -166,8 +187,8 @@ class LoadCheckControllerTest {
 
     private void givenPlan(CargoPlanState state, UldBooking... bookings) {
         givenFlight();
-        when(cargoPlans.findByFlightKey(KEY))
-                .thenReturn(Optional.of(CargoPlan.restore(KEY, state, List.of(bookings))));
+        data.save(CargoPlan.restore(KEY, state, List.of(bookings)));
+        clearInvocations(cargoPlans);
     }
 
     private static UldBooking booking(String code, LoadingPosition position, String kilograms) {

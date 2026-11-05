@@ -2,7 +2,7 @@ package be.kdg.airfreight.flight.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -10,37 +10,41 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import be.kdg.airfreight.flight.api.delayreason.DelayReasonController;
-import be.kdg.airfreight.flight.api.flight.FlightController;
-import be.kdg.airfreight.flight.application.DelayReasonQueryService;
-import be.kdg.airfreight.flight.application.FlightActualTimeService;
-import be.kdg.airfreight.flight.application.FlightDelayService;
-import be.kdg.airfreight.flight.application.FlightQueryService;
-import be.kdg.airfreight.flight.application.FlightReplanningService;
-import be.kdg.airfreight.flight.domain.delayreason.DelayReason;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
 import be.kdg.airfreight.flight.domain.flight.Delay;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
-import be.kdg.airfreight.flight.domain.flight.FlightRepository;
 import be.kdg.airfreight.flight.domain.flight.FlightStatus;
+import be.kdg.airfreight.flight.support.TestHelper;
 import jakarta.servlet.ServletException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles({"test", "h2"})
+@Import(TestHelper.class)
+@WithMockUser(roles = "flight-planner")
 class DelayControllerTest {
     private static final FlightKey PLANNED =
             new FlightKey("HJ221", LocalDate.of(2026, 10, 19), "BRU");
@@ -50,22 +54,29 @@ class DelayControllerTest {
     private static final UUID ARRIVAL_DELAY = UUID.randomUUID();
     private static final String DEPARTED_PATH = "/api/flights/HJ222/2026-10-19/BRU";
 
-    private final Map<FlightKey, Flight> flights = new HashMap<>();
-    private boolean reasonTableBroken;
-    private MockMvc mvc;
+    @MockitoSpyBean private DelayReasonRepository reasons;
+    @Autowired private MockMvc mvc;
+    @Autowired private TestHelper data;
+    @MockitoBean private Clock clock;
+    @MockitoBean private RabbitTemplate rabbit;
+    @MockitoBean private JwtDecoder jwtDecoder;
+
+    @MockitoBean(
+            name = "org.springframework.context.annotation.internalScheduledAnnotationProcessor")
+    private ScheduledAnnotationBeanPostProcessor scheduling;
 
     @BeforeEach
     void setUp() {
-        flights.put(
-                PLANNED,
+        data.cleanUp();
+        data.prepare(clock, rabbit, Instant.parse("2026-10-19T12:00:00Z"));
+        data.save(
                 Flight.create(
                         PLANNED,
                         "AMS",
                         "SXBAA",
                         Instant.parse("2026-10-19T08:00:00Z"),
                         Instant.parse("2026-10-19T10:00:00Z")));
-        flights.put(
-                DEPARTED,
+        data.save(
                 Flight.restore(
                         DEPARTED,
                         "AMS",
@@ -75,26 +86,11 @@ class DelayControllerTest {
                         FlightStatus.DEPARTED,
                         List.of(Delay.restore(DEPARTURE_DELAY, 20, "71", "Fog at departure")),
                         List.of(Delay.restore(ARRIVAL_DELAY, 15, "71", "Holding"))));
-        FlightRepository flightRepository = new InMemoryFlights();
-        DelayReasonRepository reasons = new OneReason();
-        FlightReplanningService replanningService =
-                new FlightReplanningService(
-                        flightRepository, reasons, event -> {}, Clock.systemUTC());
-        mvc =
-                MockMvcBuilders.standaloneSetup(
-                                new FlightController(
-                                        new FlightQueryService(flightRepository),
-                                        new FlightDelayService(
-                                                flightRepository,
-                                                reasons,
-                                                replanningService,
-                                                event -> {},
-                                                Clock.systemUTC()),
-                                        mock(FlightActualTimeService.class),
-                                        replanningService),
-                                new DelayReasonController(new DelayReasonQueryService(reasons)))
-                        .setControllerAdvice(new ErrorHandling())
-                        .build();
+    }
+
+    @AfterEach
+    void cleanUp() {
+        data.cleanUp();
     }
 
     @Test
@@ -161,7 +157,7 @@ class DelayControllerTest {
                                         "All delays together would be 740 minutes (12 h 20 min)."
                                                 + " At most 720 minutes (12 h) is allowed. You can"
                                                 + " replan this flight as HJ221A instead."));
-        assertThat(flights.get(PLANNED).totalDelayMinutes()).isEqualTo(600);
+        assertThat(data.find(PLANNED).totalDelayMinutes()).isEqualTo(600);
     }
 
     @Test
@@ -178,7 +174,7 @@ class DelayControllerTest {
     // not translated by ErrorHandling so spring boot answers 500 instead of blaming the user
     @Test
     void otherIllegalArgumentExceptionIsNotTurnedIntoBadRequest() {
-        reasonTableBroken = true;
+        doThrow(new IllegalArgumentException("broken reason table")).when(reasons).findAll();
 
         assertThatThrownBy(() -> mvc.perform(get("/api/delay-reasons")))
                 .isInstanceOf(ServletException.class)
@@ -242,9 +238,8 @@ class DelayControllerTest {
 
     @Test
     void arrivalDelayChangesAfterLandingAreConflicts() throws Exception {
-        Flight departed = flights.get(DEPARTED);
-        flights.put(
-                DEPARTED,
+        Flight departed = data.find(DEPARTED);
+        data.save(
                 Flight.restore(
                         DEPARTED,
                         departed.arrivalAirportCode(),
@@ -314,67 +309,5 @@ class DelayControllerTest {
                                 {"minutes":%d,"description":"%s"}
                                 """
                                         .formatted(minutes, description)));
-    }
-
-    private final class InMemoryFlights implements FlightRepository {
-        @Override
-        public Optional<Flight> findById(FlightKey key) {
-            return Optional.ofNullable(flights.get(key));
-        }
-
-        @Override
-        public Optional<Flight> findByIdForUpdate(FlightKey key) {
-            return findById(key);
-        }
-
-        @Override
-        public List<Flight> findByScheduledDepartureDate(LocalDate date) {
-            return List.of();
-        }
-
-        @Override
-        public List<Flight> findScheduledBefore(Instant end) {
-            return flights.values().stream()
-                    .filter(flight -> flight.scheduledDeparture().isBefore(end))
-                    .sorted(Comparator.comparing(Flight::scheduledDeparture))
-                    .toList();
-        }
-
-        @Override
-        public Flight save(Flight flight) {
-            flights.put(flight.key(), flight);
-            return flight;
-        }
-
-        @Override
-        public List<FlightKey> findKeysUpTo(LocalDate lastDate) {
-            return List.of();
-        }
-
-        @Override
-        public void delete(FlightKey key) {}
-
-        @Override
-        public Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture) {
-            return Optional.empty();
-        }
-    }
-
-    // only reason 71 exists and a broken table throws a plain library exception
-    private final class OneReason implements DelayReasonRepository {
-        @Override
-        public Optional<DelayReason> findByCode(String code) {
-            return code.equals("71")
-                    ? Optional.of(new DelayReason("71", "Weather at departure station"))
-                    : Optional.empty();
-        }
-
-        @Override
-        public List<DelayReason> findAll() {
-            if (reasonTableBroken) {
-                throw new IllegalArgumentException("broken reason table");
-            }
-            return List.of(new DelayReason("71", "Weather at departure station"));
-        }
     }
 }

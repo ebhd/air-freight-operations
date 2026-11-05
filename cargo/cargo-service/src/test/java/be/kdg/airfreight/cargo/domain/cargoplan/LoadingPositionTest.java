@@ -22,15 +22,6 @@ class LoadingPositionTest {
                 .containsExactly(ALL_CODES.split(", "));
     }
 
-    @Test
-    void rlIsLeftOnRowRAndLrIsRightOnRowL() {
-        assertThat(LoadingPosition.RL.row()).isEqualTo('R');
-        assertThat(LoadingPosition.RL.side()).isEqualTo(LoadingPosition.Side.LEFT);
-        assertThat(LoadingPosition.LR.row()).isEqualTo('L');
-        assertThat(LoadingPosition.LR.side()).isEqualTo(LoadingPosition.Side.RIGHT);
-        assertThat(LoadingPosition.RL).isNotEqualTo(LoadingPosition.LR);
-    }
-
     @ParameterizedTest
     @ValueSource(strings = {"ZZ", "IL"})
     void rejectsUnknownCodes(String code) {

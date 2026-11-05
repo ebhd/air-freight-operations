@@ -32,7 +32,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 // the real service, flight, jpa and outbox on h2, with the real clock so the schedule is relative
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "h2"})
 class ActualTimeIntegrationTest {
     // a flight that left an hour ago: atd and ata in the past but within the tolerance
     private final Instant std =

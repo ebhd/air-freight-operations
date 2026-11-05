@@ -1,9 +1,10 @@
 package be.kdg.airfreight.cargo.api.flight;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -13,8 +14,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import be.kdg.airfreight.cargo.application.cargoplan.FinalizeLoadService;
-import be.kdg.airfreight.cargo.application.loading.LoadingWindowService;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanRepository;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanState;
@@ -29,45 +28,74 @@ import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
-import be.kdg.airfreight.cargo.domain.loadcheck.LateralBalanceCheck;
-import be.kdg.airfreight.cargo.domain.loadcheck.LoadChecks;
-import be.kdg.airfreight.cargo.domain.loading.LoadingWindowPolicy;
+import be.kdg.airfreight.cargo.support.PostgresTestConfiguration;
+import be.kdg.airfreight.cargo.support.TestHelper;
 import java.math.BigDecimal;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.transaction.support.TransactionOperations;
 
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles({"test", "postgres"})
+@Import({PostgresTestConfiguration.class, TestHelper.class})
+@WithMockUser(roles = "load-planner")
 class FinalizationControllerTest {
     private static final String URL = "/api/cargo-plans/HJ221/2026-10-19/BRU/finalization";
     private static final FlightKey KEY =
             new FlightKey("HJ221", LocalDate.of(2026, 10, 19), new AirportCode("BRU"));
-    private static final LoadingWindowPolicy POLICY =
-            new LoadingWindowPolicy(Duration.ofHours(12), Duration.ofMinutes(20));
     private static final Instant INSIDE = Instant.parse("2026-10-19T06:00:00Z");
 
-    private final FlightRepository flights = mock(FlightRepository.class);
-    private final CargoPlanRepository cargoPlans = mock(CargoPlanRepository.class);
-    private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+    @MockitoBean private FlightRepository flights;
+    @MockitoSpyBean private CargoPlanRepository cargoPlans;
+
+    @Autowired private MockMvc mvc;
+    @Autowired private TestHelper data;
+    @MockitoBean private Clock clock;
+    @MockitoBean private RabbitTemplate rabbit;
+    @MockitoBean private JwtDecoder jwtDecoder;
+
+    @MockitoBean(
+            name = "org.springframework.context.annotation.internalScheduledAnnotationProcessor")
+    private ScheduledAnnotationBeanPostProcessor scheduling;
+
+    @BeforeEach
+    void setUp() {
+        data.cleanUp();
+        data.prepare(clock, rabbit, Instant.parse("2026-10-19T06:00:00Z"));
+    }
+
+    @AfterEach
+    void cleanUp() {
+        data.cleanUp();
+    }
 
     @Test
     void finalizedLoadReturnsTheTimeAndTheReport() throws Exception {
-        CargoPlan cargoPlan =
-                givenPlan(
-                        CargoPlanState.DRAFT,
-                        // a single position counts for neither side so the balance passes
-                        booking("AKE1", LoadingPosition.A1),
-                        booking("PMC3", null));
+        givenPlan(
+                CargoPlanState.DRAFT,
+                // a single position counts for neither side so the balance passes
+                booking("AKE1", LoadingPosition.A1),
+                booking("PMC3", null));
 
         mvcAt(INSIDE)
                 .perform(post(URL))
@@ -77,8 +105,8 @@ class FinalizationControllerTest {
                 .andExpect(jsonPath("$.report.results", hasSize(3)))
                 .andExpect(jsonPath("$.report.results[2].severity").value("SOFT"))
                 .andExpect(jsonPath("$.report.results[2].passed").value(false));
-        verify(cargoPlans).save(cargoPlan);
-        verify(events).publishEvent(any(Object.class));
+        assertThat(data.find(KEY).getState()).isEqualTo(CargoPlanState.FINALIZED);
+        assertThat(data.outboxCount()).isEqualTo(1);
     }
 
     @Test
@@ -107,7 +135,7 @@ class FinalizationControllerTest {
                 .andExpect(jsonPath("$.report.results[0].name").value("Lateral balance"))
                 .andExpect(jsonPath("$.report.results[0].passed").value(false));
         verify(cargoPlans, never()).save(any());
-        verifyNoInteractions(events);
+        assertThat(data.outboxCount()).isZero();
     }
 
     @Test
@@ -118,7 +146,7 @@ class FinalizationControllerTest {
                 .perform(post(URL))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.refusal").value("PLAN_FINALIZED"));
-        verifyNoInteractions(events);
+        assertThat(data.outboxCount()).isZero();
     }
 
     @Test
@@ -154,7 +182,8 @@ class FinalizationControllerTest {
                 .thenThrow(new FlightLookupUnavailableException(KEY, null));
 
         mvcAt(INSIDE).perform(post(URL)).andExpect(status().isServiceUnavailable());
-        verifyNoInteractions(cargoPlans, events);
+        verifyNoInteractions(cargoPlans);
+        assertThat(data.outboxCount()).isZero();
     }
 
     @Test
@@ -165,22 +194,11 @@ class FinalizationControllerTest {
     }
 
     private MockMvc mvcAt(Instant now) {
-        LoadingWindowService loadingWindowService =
-                new LoadingWindowService(
-                        flights, cargoPlans, POLICY, Clock.fixed(now, ZoneOffset.UTC));
-        FinalizeLoadService finalizeLoadService =
-                new FinalizeLoadService(
-                        cargoPlans,
-                        loadingWindowService,
-                        new LoadChecks(new LateralBalanceCheck(new BigDecimal("0.10"))),
-                        events,
-                        TransactionOperations.withoutTransaction());
-        return MockMvcBuilders.standaloneSetup(new FinalizationController(finalizeLoadService))
-                .setControllerAdvice(new CargoApiExceptionHandler())
-                .build();
+        when(clock.instant()).thenReturn(now);
+        return mvc;
     }
 
-    private CargoPlan givenPlan(CargoPlanState state, UldBooking... bookings) {
+    private void givenPlan(CargoPlanState state, UldBooking... bookings) {
         when(flights.findByFlightKey(KEY))
                 .thenReturn(
                         Optional.of(
@@ -192,8 +210,8 @@ class FinalizationControllerTest {
                                         Instant.parse("2026-10-19T10:00:00Z"),
                                         Instant.parse("2026-10-19T08:00:00Z"))));
         CargoPlan cargoPlan = CargoPlan.restore(KEY, state, List.of(bookings));
-        when(cargoPlans.findByFlightKey(KEY)).thenReturn(Optional.of(cargoPlan));
-        return cargoPlan;
+        data.save(cargoPlan);
+        clearInvocations(cargoPlans);
     }
 
     private static UldBooking booking(String code, LoadingPosition position) {

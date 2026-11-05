@@ -12,18 +12,15 @@ import be.kdg.airfreight.flight.domain.flight.ActualTimePolicy;
 import be.kdg.airfreight.flight.domain.flight.ActualTimeRefusedException;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
-import be.kdg.airfreight.flight.domain.flight.FlightRepository;
 import be.kdg.airfreight.flight.domain.flight.FlightStatus;
+import be.kdg.airfreight.flight.support.InMemoryFlights;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -56,6 +53,7 @@ class FlightActualTimeServiceTest {
 
         Flight saved = service.recordDeparture(new RecordDepartureCommand(KEY, atd));
 
+        assertThat(flights.lockedLookups).isEqualTo(1);
         assertThat(saved.status()).isEqualTo(FlightStatus.DEPARTED);
         assertThat(flights.findById(KEY).orElseThrow().actualDeparture()).isEqualTo(atd);
         assertThat(events)
@@ -99,60 +97,5 @@ class FlightActualTimeServiceTest {
         assertThatThrownBy(() -> service.recordDeparture(new RecordDepartureCommand(unknown, STD)))
                 .isInstanceOf(NotFoundException.class);
         assertThat(events).isEmpty();
-    }
-
-    // the lock matters: a second click must wait for the first registration
-    @Test
-    void flightIsLoadedWithTheRowLock() {
-        service.recordDeparture(new RecordDepartureCommand(KEY, STD));
-
-        assertThat(flights.lockedLookups).isEqualTo(1);
-    }
-
-    private static final class InMemoryFlights implements FlightRepository {
-        private final Map<FlightKey, Flight> flights = new HashMap<>();
-        private int lockedLookups;
-        private int saves;
-
-        @Override
-        public Optional<Flight> findById(FlightKey key) {
-            return Optional.ofNullable(flights.get(key));
-        }
-
-        @Override
-        public Optional<Flight> findByIdForUpdate(FlightKey key) {
-            lockedLookups++;
-            return findById(key);
-        }
-
-        @Override
-        public List<FlightKey> findKeysUpTo(LocalDate lastDate) {
-            return List.of();
-        }
-
-        @Override
-        public void delete(FlightKey key) {}
-
-        @Override
-        public Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture) {
-            return Optional.empty();
-        }
-
-        @Override
-        public List<Flight> findByScheduledDepartureDate(LocalDate date) {
-            return List.of();
-        }
-
-        @Override
-        public List<Flight> findScheduledBefore(Instant end) {
-            return List.of();
-        }
-
-        @Override
-        public Flight save(Flight flight) {
-            saves++;
-            flights.put(flight.key(), flight);
-            return flight;
-        }
     }
 }

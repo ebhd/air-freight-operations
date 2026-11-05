@@ -12,20 +12,17 @@ import be.kdg.airfreight.flight.domain.events.FlightEstimatesChanged;
 import be.kdg.airfreight.flight.domain.flight.Delay;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
-import be.kdg.airfreight.flight.domain.flight.FlightRepository;
 import be.kdg.airfreight.flight.domain.flight.FlightStatus;
 import be.kdg.airfreight.flight.domain.flight.Replanning;
 import be.kdg.airfreight.flight.domain.flight.TotalDelayExceededException;
+import be.kdg.airfreight.flight.support.InMemoryFlights;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -167,52 +164,6 @@ class FlightDelayServiceTest {
 
     private static AddDelayCommand command(int minutes) {
         return new AddDelayCommand(KEY, minutes, "71", "Fog at departure");
-    }
-
-    private static final class InMemoryFlights implements FlightRepository {
-        private final Map<FlightKey, Flight> flights = new HashMap<>();
-
-        @Override
-        public Optional<Flight> findById(FlightKey key) {
-            return Optional.ofNullable(flights.get(key));
-        }
-
-        @Override
-        public Optional<Flight> findByIdForUpdate(FlightKey key) {
-            return findById(key);
-        }
-
-        @Override
-        public List<Flight> findByScheduledDepartureDate(LocalDate date) {
-            return List.of();
-        }
-
-        @Override
-        public List<Flight> findScheduledBefore(Instant end) {
-            return flights.values().stream()
-                    .filter(flight -> flight.scheduledDeparture().isBefore(end))
-                    .sorted(Comparator.comparing(Flight::scheduledDeparture))
-                    .toList();
-        }
-
-        @Override
-        public Flight save(Flight flight) {
-            flights.put(flight.key(), flight);
-            return flight;
-        }
-
-        @Override
-        public List<FlightKey> findKeysUpTo(LocalDate lastDate) {
-            return List.of();
-        }
-
-        @Override
-        public void delete(FlightKey key) {}
-
-        @Override
-        public Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture) {
-            return Optional.empty();
-        }
     }
 
     private static final class OneReason implements DelayReasonRepository {

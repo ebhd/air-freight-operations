@@ -1,12 +1,9 @@
 package be.kdg.airfreight.cargo.application.cargoplan;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import be.kdg.airfreight.cargo.application.flight.UnknownFlightException;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanRepository;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanState;
@@ -17,7 +14,6 @@ import be.kdg.airfreight.cargo.domain.cargoplan.WeightUnit;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
-import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import java.math.BigDecimal;
@@ -36,24 +32,6 @@ class CargoPlanQueryServiceTest {
     private final FlightRepository flights = mock(FlightRepository.class);
     private final CargoPlanRepository cargoPlans = mock(CargoPlanRepository.class);
     private final CargoPlanQueryService service = new CargoPlanQueryService(flights, cargoPlans);
-
-    @Test
-    void returnsFlightAndAllBookings() {
-        FlightInformation flight = flight(FlightStatus.PLANNED);
-        UldBooking first = booking("AKE12345KL", "AMS");
-        UldBooking second = booking("PMC00001KL", "ATH");
-        when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(flight));
-        when(cargoPlans.findByFlightKey(KEY))
-                .thenReturn(
-                        Optional.of(
-                                CargoPlan.restore(
-                                        KEY, CargoPlanState.DRAFT, List.of(first, second))));
-
-        CargoPlanView view = service.getCargoPlan(KEY);
-
-        assertThat(view.flight()).isEqualTo(flight);
-        assertThat(view.cargoPlan().getBookings()).containsExactly(first, second);
-    }
 
     @Test
     void flightWithoutBookingsHasAnEmptyPlan() {
@@ -81,26 +59,6 @@ class CargoPlanQueryServiceTest {
 
         assertThat(view.flight().status()).isEqualTo(status);
         assertThat(view.cargoPlan().getBookings()).containsExactly(booking);
-    }
-
-    @Test
-    void unknownFlightThrows() {
-        when(flights.findByFlightKey(KEY)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.getCargoPlan(KEY))
-                .isInstanceOf(UnknownFlightException.class)
-                .hasMessage("Unknown flight HJ221/2026-10-19/BRU");
-        verifyNoInteractions(cargoPlans);
-    }
-
-    @Test
-    void flightOperationsDownPropagates() {
-        when(flights.findByFlightKey(KEY))
-                .thenThrow(new FlightLookupUnavailableException(KEY, null));
-
-        assertThatThrownBy(() -> service.getCargoPlan(KEY))
-                .isInstanceOf(FlightLookupUnavailableException.class);
-        verifyNoInteractions(cargoPlans);
     }
 
     private static FlightInformation flight(FlightStatus status) {

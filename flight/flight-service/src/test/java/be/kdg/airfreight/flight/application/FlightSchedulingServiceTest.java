@@ -10,6 +10,7 @@ import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightSchedule;
 import be.kdg.airfreight.flight.domain.flight.FlightStatus;
+import be.kdg.airfreight.flight.support.InMemoryFlights;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.Instant;
@@ -17,12 +18,9 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -212,70 +210,5 @@ class FlightSchedulingServiceTest {
                 "BRU",
                 "AMS",
                 "SXBAA");
-    }
-
-    private static final class InMemoryFlights
-            implements be.kdg.airfreight.flight.domain.flight.FlightRepository {
-        private final Map<FlightKey, Flight> flights = new HashMap<>();
-
-        @Override
-        public Optional<Flight> findById(FlightKey key) {
-            return Optional.ofNullable(flights.get(key));
-        }
-
-        @Override
-        public Optional<Flight> findByIdForUpdate(FlightKey key) {
-            return findById(key);
-        }
-
-        @Override
-        public List<Flight> findByScheduledDepartureDate(LocalDate date) {
-            return flights.values().stream()
-                    .filter(flight -> flight.key().scheduledDepartureDate().equals(date))
-                    .toList();
-        }
-
-        @Override
-        public List<Flight> findScheduledBefore(Instant end) {
-            return flights.values().stream()
-                    .filter(flight -> flight.scheduledDeparture().isBefore(end))
-                    .sorted(Comparator.comparing(Flight::scheduledDeparture))
-                    .toList();
-        }
-
-        @Override
-        public Flight save(Flight flight) {
-            flights.put(flight.key(), flight);
-            return flight;
-        }
-
-        // the same rule as the database query
-        @Override
-        public List<FlightKey> findKeysUpTo(LocalDate lastDate) {
-            return List.of();
-        }
-
-        @Override
-        public void delete(FlightKey key) {}
-
-        @Override
-        public Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture) {
-            return flights.values().stream()
-                    .filter(flight -> flight.status() == FlightStatus.REPLANNED)
-                    .filter(flight -> !flight.replacementCreated())
-                    .filter(
-                            flight ->
-                                    flight.replanning()
-                                            .orElseThrow()
-                                            .newKey(flight.key().departureAirportCode())
-                                            .equals(newKey))
-                    .filter(
-                            flight ->
-                                    flight.replanning()
-                                            .orElseThrow()
-                                            .newScheduledDeparture()
-                                            .equals(newScheduledDeparture))
-                    .findFirst();
-        }
     }
 }

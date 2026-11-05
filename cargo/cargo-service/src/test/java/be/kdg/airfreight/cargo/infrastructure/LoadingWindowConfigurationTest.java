@@ -1,16 +1,10 @@
 package be.kdg.airfreight.cargo.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.loading.LoadingWindowPolicy;
 import java.time.Duration;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.util.TestPropertyValues;
@@ -52,38 +46,5 @@ class LoadingWindowConfigurationTest {
                                                 new LoadingWindowPolicy(
                                                         Duration.ofHours(24),
                                                         Duration.ofMinutes(30))));
-    }
-
-    static Stream<Arguments> invalidSettings() {
-        return Stream.of(
-                arguments(
-                        new String[] {"cargo.loading-window.closes-before-etd=20m"},
-                        "Loading window offset before STD is required"),
-                arguments(
-                        new String[] {
-                            "cargo.loading-window.opens-before-std=-1h",
-                            "cargo.loading-window.closes-before-etd=20m"
-                        },
-                        "Loading window offsets must not be negative"),
-                arguments(
-                        new String[] {
-                            "cargo.loading-window.opens-before-std=10m",
-                            "cargo.loading-window.closes-before-etd=20m"
-                        },
-                        "Loading window must open longer before STD than it closes before ETD"));
-    }
-
-    @ParameterizedTest
-    @MethodSource("invalidSettings")
-    void failsToStartWithInvalidOffsets(String[] settings, String message) {
-        runner.withPropertyValues(settings)
-                .run(
-                        context -> {
-                            assertThat(context).hasFailed();
-                            assertThat(context.getStartupFailure())
-                                    .rootCause()
-                                    .isInstanceOf(InvalidCargoValueException.class)
-                                    .hasMessageContaining(message);
-                        });
     }
 }

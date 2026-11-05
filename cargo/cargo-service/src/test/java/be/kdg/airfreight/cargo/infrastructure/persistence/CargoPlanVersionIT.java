@@ -21,6 +21,7 @@ import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import be.kdg.airfreight.cargo.domain.loading.LoadingContext;
 import be.kdg.airfreight.cargo.domain.loading.LoadingWindowPolicy;
+import be.kdg.airfreight.cargo.support.PostgresTestConfiguration;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
@@ -34,27 +35,25 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 // every step commits for real because the version is only raised and checked at commit
 @DataJpaTest
-@Testcontainers(disabledWithoutDocker = true)
+@ActiveProfiles({"test", "postgres"})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @Import({
+    PostgresTestConfiguration.class,
     DbCargoPlanRepository.class,
     DbProcessedMessageRepository.class,
     BookUldService.class,
@@ -84,9 +83,6 @@ class CargoPlanVersionIT {
     private static final UldCode PMC = new UldCode("PMC00001KL");
     // day 19 resolves to 2026-10-19 from this first receipt
     private static final Instant RECEIVED = Instant.parse("2026-10-15T10:00:00Z");
-
-    @Container @ServiceConnection
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.6-alpine");
 
     @Autowired private DbCargoPlanRepository repository;
     @Autowired private BookUldService bookUldService;

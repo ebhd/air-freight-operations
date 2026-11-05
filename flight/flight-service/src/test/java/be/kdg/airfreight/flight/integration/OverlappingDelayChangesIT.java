@@ -12,6 +12,7 @@ import be.kdg.airfreight.flight.domain.flight.Delay;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightRepository;
+import be.kdg.airfreight.flight.support.PostgresTestConfiguration;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -28,29 +29,22 @@ import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 // real postgresql with the real schema because the lock is a database feature
-@SpringBootTest(
-        properties = {"spring.jpa.hibernate.ddl-auto=validate", "spring.sql.init.mode=always"})
-@ActiveProfiles("test")
-@Testcontainers(disabledWithoutDocker = true)
+@SpringBootTest
+@Import(PostgresTestConfiguration.class)
+@ActiveProfiles({"test", "postgres"})
 class OverlappingDelayChangesIT {
     private static final FlightKey KEY = new FlightKey("HJ221", LocalDate.of(2026, 10, 19), "BRU");
     private static final Instant STD = Instant.parse("2026-10-19T08:00:00Z");
-
-    @Container @ServiceConnection
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.6-alpine");
 
     @Autowired private FlightDelayService flightDelayService;
     @Autowired private FlightRepository flights;

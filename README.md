@@ -212,4 +212,4 @@ npm ci                     # installs the Husky git hooks, needs Node.js
 ./gradlew check assemble   # format check, lint, tests and JARs
 ```
 
-Tools: Spotless, Checkstyle, JUnit, ArchUnit, Testcontainers, JaCoCo and Vitest. Coverage reports are in `<project>/build/reports/jacoco/test/`. Database tests (`*IT`) need Docker and are skipped without it, as in GitLab CI.
+Tools: Spotless, Checkstyle, JUnit, ArchUnit, Testcontainers, JaCoCo and Vitest. Coverage reports are in `<project>/build/reports/jacoco/test/`. Tests select the `test` profile together with `h2` or `postgres`. PostgreSQL tests in Flight and Cargo require Docker; GitLab provides Docker-in-Docker for those jobs and needs a runner that supports privileged containers. These tests fail if Docker is unavailable. H2 tests do not need Docker.

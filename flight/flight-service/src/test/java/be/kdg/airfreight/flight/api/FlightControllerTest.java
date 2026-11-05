@@ -1,36 +1,51 @@
 package be.kdg.airfreight.flight.api;
 
 import static org.hamcrest.Matchers.nullValue;
-import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import be.kdg.airfreight.flight.api.flight.FlightController;
-import be.kdg.airfreight.flight.application.FlightActualTimeService;
-import be.kdg.airfreight.flight.application.FlightDelayService;
-import be.kdg.airfreight.flight.application.FlightQueryService;
-import be.kdg.airfreight.flight.application.FlightReplanningService;
-import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
-import be.kdg.airfreight.flight.domain.flight.FlightRepository;
+import be.kdg.airfreight.flight.support.TestHelper;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles({"test", "h2"})
+@Import(TestHelper.class)
+@WithMockUser(roles = "flight-planner")
 class FlightControllerTest {
-    private MockMvc mvc;
+    @Autowired private MockMvc mvc;
+    @Autowired private TestHelper data;
+    @MockitoBean private Clock clock;
+    @MockitoBean private RabbitTemplate rabbit;
+    @MockitoBean private JwtDecoder jwtDecoder;
+
+    @MockitoBean(
+            name = "org.springframework.context.annotation.internalScheduledAnnotationProcessor")
+    private ScheduledAnnotationBeanPostProcessor scheduling;
 
     @BeforeEach
     void setUp() {
+        data.cleanUp();
+        data.prepare(clock, rabbit, Instant.parse("2026-10-19T12:00:00Z"));
         Flight flight =
                 Flight.create(
                         new FlightKey("HJ221", LocalDate.of(2026, 10, 19), "BRU"),
@@ -38,67 +53,12 @@ class FlightControllerTest {
                         "SXBAA",
                         Instant.parse("2026-10-19T08:00:00Z"),
                         Instant.parse("2026-10-19T10:00:00Z"));
-        // one flight in memory no database
-        FlightRepository flights =
-                new FlightRepository() {
-                    @Override
-                    public Optional<Flight> findById(FlightKey key) {
-                        return flight.key().equals(key) ? Optional.of(flight) : Optional.empty();
-                    }
+        data.save(flight);
+    }
 
-                    @Override
-                    public Optional<Flight> findByIdForUpdate(FlightKey key) {
-                        return findById(key);
-                    }
-
-                    @Override
-                    public List<Flight> findByScheduledDepartureDate(LocalDate date) {
-                        return flight.key().scheduledDepartureDate().equals(date)
-                                ? List.of(flight)
-                                : List.of();
-                    }
-
-                    @Override
-                    public List<Flight> findScheduledBefore(Instant end) {
-                        return flight.scheduledDeparture().isBefore(end)
-                                ? List.of(flight)
-                                : List.of();
-                    }
-
-                    @Override
-                    public Flight save(Flight saved) {
-                        return saved;
-                    }
-
-                    @Override
-                    public List<FlightKey> findKeysUpTo(LocalDate lastDate) {
-                        return List.of();
-                    }
-
-                    @Override
-                    public void delete(FlightKey key) {}
-
-                    @Override
-                    public Optional<Flight> findReplacedBy(
-                            FlightKey newKey, Instant newScheduledDeparture) {
-                        return Optional.empty();
-                    }
-                };
-        // security is the same filter chain as /api/status which StatusSecurityTest covers
-        mvc =
-                MockMvcBuilders.standaloneSetup(
-                                new FlightController(
-                                        new FlightQueryService(flights),
-                                        new FlightDelayService(
-                                                flights,
-                                                mock(DelayReasonRepository.class),
-                                                mock(FlightReplanningService.class),
-                                                mock(ApplicationEventPublisher.class),
-                                                Clock.systemUTC()),
-                                        mock(FlightActualTimeService.class),
-                                        mock(FlightReplanningService.class)))
-                        .setControllerAdvice(new ErrorHandling())
-                        .build();
+    @AfterEach
+    void cleanUp() {
+        data.cleanUp();
     }
 
     @Test

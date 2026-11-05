@@ -43,7 +43,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 // the replan transaction: the flight columns and the outbox row commit together
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "h2"})
 class ReplanningIntegrationTest {
     private static final FlightKey KEY = new FlightKey("HJ500", LocalDate.of(2026, 11, 10), "BRU");
 

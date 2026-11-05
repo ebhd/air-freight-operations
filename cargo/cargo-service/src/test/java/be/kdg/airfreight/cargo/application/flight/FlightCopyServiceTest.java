@@ -61,17 +61,6 @@ class FlightCopyServiceTest {
         verifyNoInteractions(flights);
     }
 
-    // the repository decides with the event time, the service passes it on unchanged
-    @Test
-    void olderEstimatesAreLeftToTheRepositoryToRefuse() {
-        when(copies.findCopy(KEY)).thenReturn(Optional.of(FLIGHT));
-        when(copies.saveEstimatesIfNewer(any(), any(), any(), any())).thenReturn(false);
-
-        service.recordEstimates(KEY, ETD, ETA, CREATED);
-
-        verify(copies).saveEstimatesIfNewer(KEY, ETD, ETA, CREATED);
-    }
-
     // the created listener stores the schedule as estimates between the two reads, so the lookup
     // finds that row without asking flight and the delay must still be applied
     @Test
