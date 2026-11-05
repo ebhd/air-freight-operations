@@ -6,7 +6,6 @@ import {
     replacementKey,
     replannedText,
     replanningOffer,
-    replanQuestion,
 } from '../../ts/presenter/replanning';
 
 // the plan example: HJ500 with 740 minutes becomes HJ500A departing 11 nov 05:00Z (06:00 brussels)
@@ -41,15 +40,7 @@ describe('replanningOffer', () => {
     });
 });
 
-describe('replanQuestion', () => {
-    it('names the new flight and its brussels times', () => {
-        expect(replanQuestion('HJ500', replanningOffer(PROBLEM, true)!)).toBe(
-            'All delays together would be 12 h 20 min, more than 12 h. ' +
-                'Replan HJ500 as HJ500A, departing 11/11/2026 06:00 and arriving 11/11/2026 11:20 Brussels time? ' +
-                'The current flight ends and the new flight is planned at those times.',
-        );
-    });
-
+describe('hoursAndMinutes', () => {
     it.each([
         [720, '12 h'],
         [721, '12 h 1 min'],

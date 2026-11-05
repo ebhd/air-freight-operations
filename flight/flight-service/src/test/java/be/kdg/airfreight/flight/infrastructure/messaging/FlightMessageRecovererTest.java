@@ -3,6 +3,7 @@ package be.kdg.airfreight.flight.infrastructure.messaging;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import be.kdg.airfreight.flight.infrastructure.persistence.RejectedMessageStore;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Map;
@@ -10,6 +11,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.ImmediateRequeueAmqpException;
 import org.springframework.amqp.core.Message;
@@ -24,7 +26,8 @@ import org.springframework.dao.TransientDataAccessResourceException;
 import org.springframework.transaction.CannotCreateTransactionException;
 
 class FlightMessageRecovererTest {
-    private final FlightMessageRecoverer recoverer = new FlightMessageRecoverer();
+    private final FlightMessageRecoverer recoverer =
+            new FlightMessageRecoverer(Mockito.mock(RejectedMessageStore.class));
 
     @ParameterizedTest
     @MethodSource("temporaryDatabaseFailures")
