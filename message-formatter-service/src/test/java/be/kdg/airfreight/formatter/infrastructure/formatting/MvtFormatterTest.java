@@ -73,6 +73,8 @@ class MvtFormatterTest {
                         new CpmFormatter(JsonMapper.builder().findAndAddModules().build()),
                         new MvtAdFormatter(),
                         new MvtAaFormatter(),
+                        new FlightReplannedFormatter(
+                                JsonMapper.builder().findAndAddModules().build()),
                         publisher);
         var sourceId = UUID.randomUUID();
         var changed =
@@ -100,6 +102,8 @@ class MvtFormatterTest {
                         new CpmFormatter(JsonMapper.builder().findAndAddModules().build()),
                         new MvtAdFormatter(),
                         new MvtAaFormatter(),
+                        new FlightReplannedFormatter(
+                                JsonMapper.builder().findAndAddModules().build()),
                         publisher);
         var sourceId = UUID.randomUUID();
         var changed =
@@ -126,6 +130,8 @@ class MvtFormatterTest {
                         new CpmFormatter(JsonMapper.builder().findAndAddModules().build()),
                         new MvtAdFormatter(),
                         new MvtAaFormatter(),
+                        new FlightReplannedFormatter(
+                                JsonMapper.builder().findAndAddModules().build()),
                         publisher);
         var unchanged =
                 fact(Instant.parse("2026-10-09T06:45:00Z"), Instant.parse("2026-10-09T08:45:00Z"));
@@ -203,6 +209,7 @@ class MvtFormatterTest {
                 new CpmFormatter(JsonMapper.builder().findAndAddModules().build()),
                 adFormatter,
                 aaFormatter,
+                new FlightReplannedFormatter(JsonMapper.builder().findAndAddModules().build()),
                 publisher);
     }
 

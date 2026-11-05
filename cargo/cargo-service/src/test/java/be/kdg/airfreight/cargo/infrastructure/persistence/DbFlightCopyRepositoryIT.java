@@ -129,6 +129,59 @@ class DbFlightCopyRepositoryIT {
         assertThat(repository.findCopy(KEY)).contains(delayed);
     }
 
+    // replanning changes only the status, the estimates of the old flight stay
+    @Test
+    void statusAdvancesFromPlannedAndKeepsTheEstimates() {
+        repository.saveIfNewer(flight(KEY, FlightStatus.PLANNED, ETD, ETA), CREATED);
+
+        assertThat(repository.advanceStatus(KEY, FlightStatus.REPLANNED)).isTrue();
+
+        assertThat(repository.findCopy(KEY))
+                .contains(flight(KEY, FlightStatus.REPLANNED, ETD, ETA));
+    }
+
+    // an estimate event with a later change time must never block the status change
+    @Test
+    void laterEstimatesDoNotBlockTheStatus() {
+        repository.saveIfNewer(flight(KEY, "08:00"), CREATED);
+        repository.saveEstimatesIfNewer(KEY, ETD, ETA, DELAYED);
+
+        assertThat(repository.advanceStatus(KEY, FlightStatus.REPLANNED)).isTrue();
+
+        assertThat(repository.findCopy(KEY))
+                .contains(flight(KEY, FlightStatus.REPLANNED, ETD, ETA));
+    }
+
+    @Test
+    void secondStatusEventAndUnknownFlightChangeNothing() {
+        repository.saveIfNewer(flight(KEY, "08:00"), CREATED);
+        repository.advanceStatus(KEY, FlightStatus.REPLANNED);
+
+        assertThat(repository.advanceStatus(KEY, FlightStatus.REPLANNED)).isFalse();
+        assertThat(
+                        repository.advanceStatus(
+                                new FlightKey("HJ999", DAY, BRU), FlightStatus.REPLANNED))
+                .isFalse();
+        // planned has no predecessor so nothing can go back to it
+        assertThat(repository.advanceStatus(KEY, FlightStatus.PLANNED)).isFalse();
+
+        assertThat(repository.findCopy(KEY).orElseThrow().status())
+                .isEqualTo(FlightStatus.REPLANNED);
+    }
+
+    // a late flight.created or http row updates the rest but never takes the status back
+    @Test
+    void wholeRowUpdateLeavesTheStatusAlone() {
+        repository.saveIfNewer(flight(KEY, "08:00"), CREATED);
+        repository.advanceStatus(KEY, FlightStatus.REPLANNED);
+
+        assertThat(repository.saveIfNewer(flight(KEY, FlightStatus.PLANNED, ETD, ETA), DELAYED))
+                .isTrue();
+
+        assertThat(repository.findCopy(KEY))
+                .contains(flight(KEY, FlightStatus.REPLANNED, ETD, ETA));
+    }
+
     // an estimate alone is not a whole flight so no row is made
     @Test
     void estimatesForAFlightNotInTheCopyStoreNothing() {

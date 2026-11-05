@@ -1,5 +1,6 @@
 package be.kdg.airfreight.flight.domain.flight;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -13,5 +14,10 @@ public interface FlightRepository {
     // utc departure date sorted by std
     List<Flight> findByScheduledDepartureDate(LocalDate date);
 
+    List<Flight> findScheduledBefore(Instant end);
+
     Flight save(Flight flight);
+
+    // the replanned flight that expects a new flight with this key and std and has none yet
+    Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture);
 }

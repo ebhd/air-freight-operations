@@ -126,7 +126,17 @@ class FlightActualTimeServiceTest {
         }
 
         @Override
+        public Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture) {
+            return Optional.empty();
+        }
+
+        @Override
         public List<Flight> findByScheduledDepartureDate(LocalDate date) {
+            return List.of();
+        }
+
+        @Override
+        public List<Flight> findScheduledBefore(Instant end) {
             return List.of();
         }
 

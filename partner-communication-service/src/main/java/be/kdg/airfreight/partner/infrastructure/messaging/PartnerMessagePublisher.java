@@ -117,6 +117,7 @@ public class PartnerMessagePublisher {
             case "MVT_AD" -> RabbitConfiguration.MVT_AD;
             case "MVT_AA" -> RabbitConfiguration.MVT_AA;
             case "CPM" -> RabbitConfiguration.CPM;
+            case "FLIGHT_REPLANNED" -> RabbitConfiguration.FLIGHT_REPLANNED;
             default ->
                     throw new IllegalArgumentException(
                             "Unsupported partner message type: " + message.content().type());
@@ -130,7 +131,8 @@ public class PartnerMessagePublisher {
         properties.setDeliveryMode(MessageDeliveryMode.PERSISTENT);
 
         byte[] body;
-        // flm and cpm are json so the metadata goes in an envelope, mvt text keeps headers
+        // flm, cpm and flight_replanned are json so the metadata goes in an envelope, mvt text
+        // keeps headers
         if (isJson(message.content().type())) {
             var envelope =
                     new PartnerMessageEnvelope(
@@ -154,7 +156,7 @@ public class PartnerMessagePublisher {
     }
 
     private static boolean isJson(String type) {
-        return "FLM".equals(type) || "CPM".equals(type);
+        return "FLM".equals(type) || "CPM".equals(type) || "FLIGHT_REPLANNED".equals(type);
     }
 
     private static void awaitConfirmation(PartnerMessage message, CorrelationData correlation)

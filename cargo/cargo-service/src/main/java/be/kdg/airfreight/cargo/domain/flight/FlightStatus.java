@@ -7,7 +7,9 @@ import java.util.Set;
 public enum FlightStatus {
     PLANNED,
     DEPARTED,
-    LANDED;
+    LANDED,
+    // the flight ended because its delays passed 12 hours, a new flight replaces it
+    REPLANNED;
 
     // the statuses a flight can come from: a flight never goes back, so the copy only moves
     // forward, add a new status here with the statuses it may follow
@@ -15,7 +17,8 @@ public enum FlightStatus {
             Map.of(
                     PLANNED, Set.of(),
                     DEPARTED, Set.of(PLANNED),
-                    LANDED, Set.of(PLANNED, DEPARTED));
+                    LANDED, Set.of(PLANNED, DEPARTED),
+                    REPLANNED, Set.of(PLANNED));
 
     public Set<FlightStatus> predecessors() {
         return PREDECESSORS.get(this);

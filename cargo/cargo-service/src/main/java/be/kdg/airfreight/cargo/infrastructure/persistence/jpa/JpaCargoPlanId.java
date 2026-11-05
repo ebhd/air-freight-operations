@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.infrastructure.persistence.jpa;
 
+import be.kdg.airfreight.cargo.domain.flight.AirportCode;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
@@ -38,6 +39,11 @@ public class JpaCargoPlanId implements Serializable {
                 flightKey.flightNumber(),
                 flightKey.scheduledDepartureDate(),
                 flightKey.departureAirportCode().value());
+    }
+
+    public FlightKey toFlightKey() {
+        return new FlightKey(
+                flightNumber, scheduledDepartureDate, new AirportCode(departureAirportCode));
     }
 
     @Override

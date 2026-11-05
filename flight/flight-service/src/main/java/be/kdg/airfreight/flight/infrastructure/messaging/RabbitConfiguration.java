@@ -21,6 +21,10 @@ public class RabbitConfiguration {
     public static final String FLIGHT_ESTIMATES_CHANGED = "flight.estimates-changed";
     public static final String FLIGHT_DEPARTED = "flight.departed";
     public static final String FLIGHT_LANDED = "flight.landed";
+    public static final String FLIGHT_REPLANNED = "flight.replanned";
+    public static final String FLIGHT_REPLACED = "flight.replaced";
+    // the planning systems inbox, in our project read by the simulator
+    public static final String PLANNING_REPLANNED_QUEUE = "planning.flight-replanned";
 
     public static final String SSM_QUEUE = "flight.ssm";
     static final String DEAD_LETTER_EXCHANGE = "flight.dlx";
@@ -54,6 +58,22 @@ public class RabbitConfiguration {
     @Bean
     Binding deadLetterBinding(Queue deadLetterQueue, FanoutExchange deadLetterExchange) {
         return BindingBuilder.bind(deadLetterQueue).to(deadLetterExchange);
+    }
+
+    // ----- Outgoing replanning request to the planning system -----
+    // flight declares this queue itself: with mandatory publishing and other bound queues a
+    // missing queue would silently lose the event for the planning system; declaring the same
+    // durable queue twice (here and in the simulator) is harmless when the arguments are equal
+    @Bean
+    Queue planningReplanned() {
+        return QueueBuilder.durable(PLANNING_REPLANNED_QUEUE)
+                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
+                .build();
+    }
+
+    @Bean
+    Binding planningReplannedBinding(Queue planningReplanned, TopicExchange flightEvents) {
+        return BindingBuilder.bind(planningReplanned).to(flightEvents).with(FLIGHT_REPLANNED);
     }
 
     // ----- Incoming cargo events (CPM as departure condition) -----

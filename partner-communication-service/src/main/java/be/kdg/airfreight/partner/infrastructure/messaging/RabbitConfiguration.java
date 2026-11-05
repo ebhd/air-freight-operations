@@ -34,6 +34,7 @@ public class RabbitConfiguration {
     static final String MVT_AD = "mvt.ad";
     static final String MVT_AA = "mvt.aa";
     static final String CPM = "cpm";
+    static final String FLIGHT_REPLANNED = "flight.replanned";
 
     @Bean
     TopicExchange formatterEvents() {

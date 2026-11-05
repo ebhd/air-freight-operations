@@ -3,26 +3,44 @@ package be.kdg.airfreight.flight.application;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import be.kdg.airfreight.flight.domain.events.FlightCreated;
+import be.kdg.airfreight.flight.domain.events.FlightReplaced;
+import be.kdg.airfreight.flight.domain.flight.Delay;
+import be.kdg.airfreight.flight.domain.flight.DelayType;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightSchedule;
+import be.kdg.airfreight.flight.domain.flight.FlightStatus;
+import java.time.Clock;
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class FlightSchedulingServiceTest {
+    private static final Instant NOW = Instant.parse("2026-11-10T14:03:15Z");
+    private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
+    private static final FlightKey OLD_KEY =
+            new FlightKey("HJ500", LocalDate.of(2026, 11, 10), "BRU");
+    private static final FlightKey NEW_KEY =
+            new FlightKey("HJ500A", LocalDate.of(2026, 11, 11), "BRU");
+    private static final Instant NEW_STD = Instant.parse("2026-11-11T05:00:00Z");
+    private static final Instant NEW_STA = Instant.parse("2026-11-11T10:20:00Z");
+
     @Test
     void newScheduleCreatesOneEventPerFlight() {
         var repository = new InMemoryFlights();
         var events = new ArrayList<Object>();
-        var service = new FlightSchedulingService(repository, events::add);
+        var service = new FlightSchedulingService(repository, events::add, CLOCK);
 
         var result =
                 service.createFlights(
@@ -40,7 +58,7 @@ class FlightSchedulingServiceTest {
     void overlappingScheduleOnlyCreatesEventsForNewDates() {
         var repository = new InMemoryFlights();
         var events = new ArrayList<Object>();
-        var service = new FlightSchedulingService(repository, events::add);
+        var service = new FlightSchedulingService(repository, events::add, CLOCK);
         service.createFlights(
                 "first", schedule(LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 14)));
         var originalFlights = new HashMap<>(repository.flights);
@@ -90,7 +108,7 @@ class FlightSchedulingServiceTest {
     void redeliveredMessageHasNoSecondEffect() {
         var repository = new InMemoryFlights();
         var publishedEvents = new ArrayList<Object>();
-        var service = new FlightSchedulingService(repository, publishedEvents::add);
+        var service = new FlightSchedulingService(repository, publishedEvents::add, CLOCK);
         var schedule = schedule(LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 12));
 
         var first = service.createFlights("message-1", schedule);
@@ -107,6 +125,80 @@ class FlightSchedulingServiceTest {
         assertThat(repository.flights.get(first.createdFlights().getFirst().key()))
                 .isSameAs(first.createdFlights().getFirst());
         assertThat(publishedEvents).containsExactly(originalEvent);
+    }
+
+    // the ssm the simulator sends for a replanned flight links old and new flight both ways
+    @Test
+    void ssmForTheExpectedKeyLinksTheReplannedFlightAndPublishesReplacedOnce() {
+        var repository = new InMemoryFlights();
+        Flight replanned = replannedFlight();
+        repository.save(replanned);
+        var events = new ArrayList<Object>();
+        var service = new FlightSchedulingService(repository, events::add, CLOCK);
+
+        var result = service.createFlights("replan-1", replacementSchedule(NEW_STD, NEW_STA));
+
+        Flight replacement = result.createdFlights().getFirst();
+        assertThat(replacement.replaces()).contains(OLD_KEY);
+        assertThat(repository.flights.get(NEW_KEY).replaces()).contains(OLD_KEY);
+        assertThat(repository.flights.get(OLD_KEY).replacementCreated()).isTrue();
+        assertThat(events)
+                .containsExactly(
+                        new FlightCreated(NEW_KEY, "AMS", NEW_STD, NEW_STA, NOW),
+                        new FlightReplaced(OLD_KEY, NEW_KEY, NEW_STD, NEW_STA, NOW));
+
+        // the same ssm again creates and links nothing
+        events.clear();
+        service.createFlights("replan-1", replacementSchedule(NEW_STD, NEW_STA));
+
+        assertThat(events).isEmpty();
+        assertThat(repository.flights).hasSize(2);
+    }
+
+    // another flight with the right key but another std is a normal flight, not the replacement
+    @Test
+    void ssmWithTheExpectedKeyButAnotherStdIsNotLinked() {
+        var repository = new InMemoryFlights();
+        repository.save(replannedFlight());
+        var events = new ArrayList<Object>();
+        var service = new FlightSchedulingService(repository, events::add, CLOCK);
+
+        var result =
+                service.createFlights(
+                        "other", replacementSchedule(NEW_STD.plusSeconds(3600), NEW_STA));
+
+        assertThat(result.createdFlights().getFirst().replaces()).isEmpty();
+        assertThat(repository.flights.get(OLD_KEY).replacementCreated()).isFalse();
+        assertThat(events).singleElement().isInstanceOf(FlightCreated.class);
+    }
+
+    private static Flight replannedFlight() {
+        Flight flight =
+                Flight.restore(
+                        OLD_KEY,
+                        "AMS",
+                        "SXBAA",
+                        Instant.parse("2026-11-10T20:00:00Z"),
+                        Instant.parse("2026-11-10T22:00:00Z"),
+                        FlightStatus.PLANNED,
+                        List.of(Delay.restore(UUID.randomUUID(), 400, "71", "Fog")),
+                        List.of(Delay.restore(UUID.randomUUID(), 200, "71", "Holding")));
+        flight.replan(DelayType.DEPARTURE, null, 140, "93", "Leak", "HJ500A", NOW);
+        return flight;
+    }
+
+    // one day, the utc times of the new schedule, as the simulator maps them
+    private static FlightSchedule replacementSchedule(Instant std, Instant sta) {
+        return new FlightSchedule(
+                LocalDate.of(2026, 11, 11),
+                LocalDate.of(2026, 11, 11),
+                EnumSet.of(DayOfWeek.WEDNESDAY),
+                LocalTime.ofInstant(std, ZoneOffset.UTC),
+                LocalTime.ofInstant(sta, ZoneOffset.UTC),
+                "HJ500A",
+                "BRU",
+                "AMS",
+                "SXBAA");
     }
 
     private static FlightSchedule schedule(LocalDate start, LocalDate end) {
@@ -144,9 +236,38 @@ class FlightSchedulingServiceTest {
         }
 
         @Override
+        public List<Flight> findScheduledBefore(Instant end) {
+            return flights.values().stream()
+                    .filter(flight -> flight.scheduledDeparture().isBefore(end))
+                    .sorted(Comparator.comparing(Flight::scheduledDeparture))
+                    .toList();
+        }
+
+        @Override
         public Flight save(Flight flight) {
             flights.put(flight.key(), flight);
             return flight;
+        }
+
+        // the same rule as the database query
+        @Override
+        public Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture) {
+            return flights.values().stream()
+                    .filter(flight -> flight.status() == FlightStatus.REPLANNED)
+                    .filter(flight -> !flight.replacementCreated())
+                    .filter(
+                            flight ->
+                                    flight.replanning()
+                                            .orElseThrow()
+                                            .newKey(flight.key().departureAirportCode())
+                                            .equals(newKey))
+                    .filter(
+                            flight ->
+                                    flight.replanning()
+                                            .orElseThrow()
+                                            .newScheduledDeparture()
+                                            .equals(newScheduledDeparture))
+                    .findFirst();
         }
     }
 }

@@ -150,4 +150,26 @@ class FlightCopyServiceTest {
         verify(copies, never()).saveIfNewer(any(), any());
         verify(copies, never()).saveEstimatesIfNewer(any(), any(), any(), any());
     }
+
+    @Test
+    void replannedFlightGetsTheStatusInTheCopy() {
+        when(copies.findCopy(KEY)).thenReturn(Optional.of(FLIGHT));
+
+        service.recordReplanned(KEY);
+
+        verify(copies).advanceStatus(KEY, FlightStatus.REPLANNED);
+        verifyNoInteractions(flights);
+    }
+
+    // not in the copy yet so flight is asked once, its answer already says replanned
+    @Test
+    void replannedFlightNotInTheCopyIsFetchedOnce() {
+        when(copies.findCopy(KEY)).thenReturn(Optional.empty());
+        when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(FLIGHT));
+
+        service.recordReplanned(KEY);
+
+        verify(flights).findByFlightKey(KEY);
+        verify(copies).advanceStatus(KEY, FlightStatus.REPLANNED);
+    }
 }

@@ -20,6 +20,7 @@ import be.kdg.airfreight.flight.application.DelayReasonQueryService;
 import be.kdg.airfreight.flight.application.FlightActualTimeService;
 import be.kdg.airfreight.flight.application.FlightDelayService;
 import be.kdg.airfreight.flight.application.FlightQueryService;
+import be.kdg.airfreight.flight.application.FlightReplanningService;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import java.time.Instant;
@@ -69,12 +70,17 @@ class FlightSecurityTest {
             """
             {"actualDeparture":"2026-10-19T08:03:00Z"}
             """;
+    private static final String REPLAN_BODY =
+            """
+            {"delayType":"DEPARTURE","minutes":140,"reasonCode":"71","description":"Leak"}
+            """;
 
     @Autowired private WebApplicationContext context;
     @Autowired private FlightQueryService flightQueryService;
     @Autowired private FlightDelayService flightDelayService;
     @Autowired private DelayReasonQueryService delayReasonQueryService;
     @Autowired private FlightActualTimeService flightActualTimeService;
+    @Autowired private FlightReplanningService flightReplanningService;
     private MockMvc mvc;
 
     @BeforeEach
@@ -83,7 +89,8 @@ class FlightSecurityTest {
                 flightQueryService,
                 flightDelayService,
                 delayReasonQueryService,
-                flightActualTimeService);
+                flightActualTimeService,
+                flightReplanningService);
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
         Flight flight =
                 Flight.create(
@@ -138,6 +145,47 @@ class FlightSecurityTest {
         mvc.perform(delete(DELAY).with(planner("flight-planner")))
                 .andExpect(status().isNoContent());
         verify(flightDelayService).removeDepartureDelay(any(), any());
+    }
+
+    @Test
+    void loadPlannerCannotReplanAFlight() throws Exception {
+        mvc.perform(
+                        post(FLIGHT + "/replanning")
+                                .with(planner("load-planner"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(REPLAN_BODY))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(flightReplanningService);
+    }
+
+    @Test
+    void replanWithoutTokenIsUnauthorized() throws Exception {
+        mvc.perform(
+                        post(FLIGHT + "/replanning")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(REPLAN_BODY))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(flightReplanningService);
+    }
+
+    @Test
+    void flightPlannerCanReplanAFlight() throws Exception {
+        when(flightReplanningService.replan(any()))
+                .thenReturn(
+                        Flight.create(
+                                new FlightKey("HJ221", LocalDate.of(2026, 10, 19), "BRU"),
+                                "AMS",
+                                "SXBAA",
+                                Instant.parse("2026-10-19T08:00:00Z"),
+                                Instant.parse("2026-10-19T10:00:00Z")));
+
+        mvc.perform(
+                        post(FLIGHT + "/replanning")
+                                .with(planner("flight-planner"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(REPLAN_BODY))
+                .andExpect(status().isOk());
+        verify(flightReplanningService).replan(any());
     }
 
     @Test
@@ -225,6 +273,11 @@ class FlightSecurityTest {
         @Bean
         FlightActualTimeService flightActualTimeService() {
             return mock(FlightActualTimeService.class);
+        }
+
+        @Bean
+        FlightReplanningService flightReplanningService() {
+            return mock(FlightReplanningService.class);
         }
     }
 }

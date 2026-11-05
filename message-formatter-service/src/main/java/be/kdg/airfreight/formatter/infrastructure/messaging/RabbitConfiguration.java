@@ -26,6 +26,8 @@ public class RabbitConfiguration {
     static final String FLIGHT_DEPARTED_QUEUE = "formatter.flight-departed";
     static final String FLIGHT_LANDED = "flight.landed";
     static final String FLIGHT_LANDED_QUEUE = "formatter.flight-landed";
+    static final String FLIGHT_REPLACED = "flight.replaced";
+    static final String FLIGHT_REPLACED_QUEUE = "formatter.flight-replaced";
 
     // ----- Incoming Cargo events -----
     static final String CARGO_EVENTS = "cargo.events";
@@ -94,6 +96,19 @@ public class RabbitConfiguration {
     @Bean
     Binding flightLandedBinding(Queue flightLandedQueue, TopicExchange flightEvents) {
         return BindingBuilder.bind(flightLandedQueue).to(flightEvents).with(FLIGHT_LANDED);
+    }
+
+    // only once the new flight exists, so flight.replanned itself is not read here
+    @Bean
+    Queue flightReplacedQueue() {
+        return QueueBuilder.durable(FLIGHT_REPLACED_QUEUE)
+                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
+                .build();
+    }
+
+    @Bean
+    Binding flightReplacedBinding(Queue flightReplacedQueue, TopicExchange flightEvents) {
+        return BindingBuilder.bind(flightReplacedQueue).to(flightEvents).with(FLIGHT_REPLACED);
     }
 
     // ----- Incoming Cargo events -----

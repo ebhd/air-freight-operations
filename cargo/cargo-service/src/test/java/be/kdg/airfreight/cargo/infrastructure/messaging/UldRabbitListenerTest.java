@@ -199,6 +199,34 @@ class UldRabbitListenerTest {
         verify(cargoPlans, never()).save(any());
     }
 
+    // the old flight of a replanning takes no bookings, the reason names the new flight to use
+    @Test
+    void bookingForAReplannedFlightIsRejectedNotRetried() {
+        FlightKey flightKey =
+                new FlightKey("HJ221", LocalDate.of(2026, 10, 19), new AirportCode("BRU"));
+        Instant std = Instant.parse("2026-10-19T08:00:00Z");
+        when(flights.findByFlightKey(flightKey))
+                .thenReturn(
+                        Optional.of(
+                                new FlightInformation(
+                                        flightKey,
+                                        new AirportCode("AMS"),
+                                        FlightStatus.REPLANNED,
+                                        std,
+                                        std.plusSeconds(7200),
+                                        std)));
+        String payload = validMessageWith("uldCode", "AKE12345KL");
+
+        assertThatCode(() -> listener.receive(message(payload))).doesNotThrowAnyException();
+
+        verify(rejectedMessages)
+                .store(
+                        MESSAGE_ID,
+                        payload,
+                        "Flight HJ221/2026-10-19/BRU was replanned, book on the new flight");
+        verify(cargoPlans, never()).save(any());
+    }
+
     private static String validMessageWith(String field, Object value) {
         Map<String, Object> message = new LinkedHashMap<>();
         message.put("messageId", MESSAGE_ID);

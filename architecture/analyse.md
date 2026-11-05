@@ -75,6 +75,8 @@ flowchart LR
         FO --> CPMReceiver
     end
 
+    Planning["Planning system<br/>(simulator in this project)"]
+
     subgraph MF_CTX["Message Formatter"]
         FlightFormatter["Flight and Cargo event listeners and formatters"]
     end
@@ -91,6 +93,8 @@ flowchart LR
 
     CPMReceiver -->|"Finalized load cargo.load-finalized - RabbitMQ<br/>«published language»"| CL
 
+    FO -->|"flight.replanned - RabbitMQ<br/>«published language»"| Planning
+    Planning -->|"SSM for the new flight - RabbitMQ"| FO
     FO -->|"Flight facts - RabbitMQ<br/>«published language»"| FlightFormatter
     CL -->|"Finalized load cargo.load-finalized - RabbitMQ<br/>«published language»"| FlightFormatter
     FlightFormatter -->|"Prepared messages - RabbitMQ"| PreparedACL
@@ -100,10 +104,11 @@ flowchart LR
 
 | Relationship |Pattern | Why |
 | --- | --- | --- |
-| Flight Operations -> Cargo Loading | Published Language (flight events) and Open Host Service for one unknown flight; Cargo anti-corruption layer | Cargo Loading keeps its own copy of the flights it needs, filled by `flight.created`, `flight.estimates-changed`, `flight.departed` and `flight.landed`, so it keeps working while Flight Operations is down. Its health endpoint still reports `DOWN` then, because `FlightApiHealthIndicator` checks Flight. It asks the flight-information API only for a flight that is not in the copy yet, for example when a ULD booking arrives before `flight.created`. Both paths are translated into Cargo's own model. |
+| Flight Operations -> Cargo Loading | Published Language (flight events) and Open Host Service for one unknown flight; Cargo anti-corruption layer | Cargo Loading keeps its own copy of the flights it needs, filled by `flight.created`, `flight.estimates-changed`, `flight.departed`, `flight.landed` and `flight.replanned`, so it keeps working while Flight Operations is down. `flight.replaced` tells Cargo that the new flight of a replanning exists, so it moves the cargo only then. Its health endpoint still reports `DOWN` then, because `FlightApiHealthIndicator` checks Flight. It asks the flight-information API only for a flight that is not in the copy yet, for example when a ULD booking arrives before `flight.created`. Both paths are translated into Cargo's own model. |
 | Cargo Loading -> Flight Operations | Published Language; Flight anti-corruption layer | Cargo Loading publishes the finalized load (`cargo.load-finalized`); Flight's `CpmReceiver` translates it into its departure prerequisite. |
 | Flight Operations / Cargo Loading -> Message Formatter | Published Language | Formatter consumes Flight facts for FLM/MVT and Cargo's finalized load for the partner CPM. Cargo never formats the partner CPM. |
 | Message Formatter -> Partner Communication | Sender anti-corruption layer | Sender translates prepared batches into its own message model, persists them and publishes them. |
+| Flight Operations -> Planning system | Published Language (`flight.replanned`), Conformist back | Flight only ends the old flight and publishes the proposed schedule; the planning system (the simulator here) answers with a normal SSM, the fixed external contract. The new flight enters like every other flight, so Flight never bypasses message processing. |
 
 ## 5. Deployment
 
@@ -135,6 +140,7 @@ flowchart TB
     C -->|Flight API - HTTP :8080, only a flight not in the copy| F
 
     Sim["Simulator<br/>(non-production)"] -->|SSM and ULD messages| MQ["RabbitMQ<br/>AMQP :5672 / UI :15672"]
+    MQ -->|flight.replanned - planning.flight-replanned| Sim
     MQ -->|SSM| F
     MQ -->|ULD message and flight changes| C
     F -->|flight changes| MQ
@@ -152,6 +158,7 @@ flowchart TB
 
 - One PostgreSQL instance hosts three databases: one for Flight Operations, one for Cargo Loading and one for Partner Communication.
 - Flight and Cargo each have an `outbox_messages` table. An event is written there in the same transaction as the change and sent after the commit with publisher confirms; a scheduled job resends what is still pending with the same message ID.
+- The simulator is not deployed. It also plays the external planning system for replanning: Flight declares the durable queue `planning.flight-replanned` itself, so a `flight.replanned` event waits there until the simulator runs.
 - Each service accesses only its own database. Services share information through APIs or RabbitMQ messages.
 - Keycloak keeps its realm, clients and users in its own MySQL database, as in the course example.
 
@@ -228,6 +235,7 @@ classDiagram
         <<enumeration>>
         DRAFT
         FINALIZED
+        REPLANNED
     }
     class FloorPlan {
         <<Later>>
@@ -317,6 +325,7 @@ Invariants on `CargoPlan`:
 2. Booking only while planned. Placement, checking and finalization require a load planner, a planned flight, an open loading period and an unfinalized plan. `requireLoadingAllowed(context)` enforces the last three and is the first call of every such method; the load-planner role is checked before, by Spring Security (section 9).
 3. Finalization reruns all checks; hard failures block it, soft failures warn.
 4. Finalized load cannot change.
+5. The cargo of a replanned flight moves once to the plan of the new flight (`moveTo`): bookings keep their position unless it is taken there, a ULD already booked on the new flight stays as it is, the old plan ends as `REPLANNED` with `movedTo` and takes no bookings or loading actions; the new plan is a `DRAFT`, also after a finalized load, so the load planner checks and finalizes again (new CPM). A second `flight.replaced` finds the marker and changes nothing.
 
 Every change to a cargo plan (booking, position, finalization) raises the version of its `cargo_plans` row, and Hibernate checks that version at commit (optimistic locking). Of two overlapping changes the second is rolled back and the API answers 409; a unique constraint on (flight, position) also guards invariant 1 in the database. A ULD with a position moves to a free position in one step; swapping two ULDs takes two steps (team reading of Q16).
 
@@ -413,6 +422,9 @@ classDiagram
         actualDeparture
         actualArrival
         finalizedLoadProcessed
+        replanning
+        replacementCreated
+        replaces
         create(flightKey, arrivalAirportCode, aircraftRegistration, scheduledDeparture, scheduledArrival)
         addDepartureDelay(minutes, reasonCode, description)
         addArrivalDelay(minutes, reasonCode, description)
@@ -423,6 +435,10 @@ classDiagram
         estimatedDeparture()
         estimatedArrival()
         recordFinalizedLoad()
+        proposeReplanning(delayType, delayId, minutes, reasonCode, description, newFlightNumber, now)
+        replan(delayType, delayId, minutes, reasonCode, description, newFlightNumber, now)
+        recordReplacementCreated()
+        recordReplaces(replannedFlight)
         recordDeparture(actualDeparture, now, policy)
         recordArrival(actualArrival, now, policy)
     }
@@ -443,6 +459,18 @@ classDiagram
         TOO_LATE
     }
 
+    class Replanning {
+        <<ValueObject>>
+        newFlightNumber
+        newScheduledDeparture
+        newScheduledArrival
+        delayType
+        minutes
+        reasonCode
+        description
+        replannedAt
+    }
+
     class FlightKey {
         <<ValueObject>>
         flightNumber
@@ -455,6 +483,13 @@ classDiagram
         PLANNED
         DEPARTED
         LANDED
+        REPLANNED
+    }
+
+    class DelayType {
+        <<enumeration>>
+        DEPARTURE
+        ARRIVAL
     }
 
     class Delay {
@@ -474,6 +509,9 @@ classDiagram
     Flight --> "1" FlightStatus : status
     Flight ..> ActualTimePolicy : checks ATD and ATA with
     Flight ..> ActualTimeRefusal : refuses with
+    Flight --> "0..1" Replanning : replanning
+    Flight --> "0..1" FlightKey : replaces
+    Replanning --> "1" DelayType : delayType
 
 ```
 
@@ -483,17 +521,17 @@ classDiagram
 | --- | --- |
 | Aggregate root | `Flight` (owns delays and controls the lifecycle) |
 | Entity | `Delay` |
-| Value objects | `FlightKey`, `ActualTimePolicy` (a delay's `id` is a plain `UUID`, no value object) |
+| Value objects | `FlightKey`, `ActualTimePolicy`, `Replanning` (a delay's `id` is a plain `UUID`, no value object) |
 | Enumerations | `FlightStatus`, `DelayType`, `ActualTimeRefusal` |
-| Domain events | `FlightCreated`, `FlightEstimatesChanged`, `FlightDeparted`, `FlightLanded` |
+| Domain events | `FlightCreated`, `FlightEstimatesChanged`, `FlightDeparted`, `FlightLanded`, `FlightReplanned`, `FlightReplaced` |
 | Repository | `FlightRepository` |
 | Actors | Flight planner, Load planner |
 
 Invariants on `Flight`:
 
 1. `FlightKey`, scheduled departure and scheduled arrival cannot change. The key's `scheduledDepartureDate` is the UTC date of the original scheduled departure.
-2. A flight moves only from `PLANNED` to `DEPARTED` to `LANDED`.
-3. Departure delays can change only while planned, arrival delays can change while planned or departed. All delays freeze after landing.
+2. A flight moves only from `PLANNED` to `DEPARTED` to `LANDED`, or from `PLANNED` to `REPLANNED`. `REPLANNED` is final: no delay changes, no second replanning, no CPM, no departure.
+3. Departure delays can change only while planned, arrival delays can change while planned or departed. All delays freeze after landing and after replanning.
 4. Each delay is 1–720 minutes, and all delays of a flight together (departure and arrival) are at most 720 minutes (coach). A change that would pass that total is refused with 409 `TOTAL_DELAY_EXCEEDED`. ETD and ETA are calculated from the current delays, never entered manually.
 5. Actual times are registered once and never change; a second registration is refused.
 6. ATD needs the processed CPM, is at most `now` and at most ETD plus the tolerance; ATA is later than ATD, at most `now` and at most ETA plus the tolerance. The limit itself is accepted. The tolerance (`ActualTimePolicy`, 5 minutes) is configuration; `now` comes from the service's clock, so the aggregate stays testable.
@@ -507,19 +545,32 @@ Invariants on `Flight`:
 - `recordDeparture(atd, now, policy)` checks in this order: planned, CPM processed, time present, not after `now`, at most ETD plus the tolerance. Then it stores the ATD and moves to `DEPARTED`; `FlightActualTimeService` publishes `FlightDeparted`, written to the outbox as `flight.departed`. `recordArrival(ata, now, policy)` checks departed, time present, not after `now`, later than the ATD, at most ETA plus the tolerance, then stores the ATA, moves to `LANDED` and `FlightLanded` becomes `flight.landed`. Every refusal is an `ActualTimeRefusedException` with an `ActualTimeRefusal` code (409 with `refusal`, `TOO_LATE` also carries `latestAllowed`); a refused registration publishes nothing. Registering changes no estimate, so no ED or EA follows.
 - The page enters the time in Brussels time and converts it to a UTC instant with whole minutes; the service checks the rules again against its own clock.
 
+### Replanning (out of scope, built anyway)
+
+The course says a flight held for more than twelve hours is replanned outside this system; only the 12 h total (invariant 4) is required. We still let a planner start it, because otherwise such a flight is stuck, and the flow shows the architecture: a state change with an outbox event, a consumer that stands in for an external system, the fixed SSM contract reused instead of changed, and eventual consistency with Cargo.
+
+- A refused delay change (409 `TOTAL_DELAY_EXCEEDED`) already carries the proposal: `FlightDelayService` asks `FlightReplanningService.propose(...)`, the same calculation as the replan itself, so the dialog and the result never differ. Only an explicit `POST .../replanning` by a flight planner replans; the server checks everything again.
+- `Flight.replan(...)` computes the new schedule from the would-be estimates (FLT-09): new STD = STD + all departure delays, new STA = STA + all delays, the requested change included. It refuses a flight that is not `PLANNED`, a total within 720 (`REPLANNING_NOT_NEEDED`) and a new flight longer than 24 h, which an SSM cannot express (`SCHEDULE_NOT_EXPRESSIBLE`). The service picks the flight number: the old number plus the next free letter on the new date (`FlightNumberSuffix`, HJ500 → HJ500A → HJ500B), `NO_FREE_FLIGHT_NUMBER` after Z. The key is always free this way, also when the new STD stays on the same UTC day or hits the next day's regular flight. The delays and estimates of the old flight stay, so no MVT is sent.
+- `FlightReplanned` goes through the outbox as `flight.replanned`. Flight declares the planning system's queue `planning.flight-replanned` itself: with mandatory publishing and other bound queues a missing queue would silently lose the event for the planning system.
+- When SSM processing creates a flight with exactly the expected key and STD, `FlightSchedulingService` links both flights in the same transaction (`replacementCreated` on the old one, `replaces` on the new one) and publishes `FlightReplaced` with the new STD/STA; a duplicate SSM does nothing. Cargo moves on `flight.replaced` only, because the new flight may never come (simulator down, key taken by another SSM: then the old flight waits, documented limitation). Partners get the FLM of the new flight and a designed `FLIGHT_REPLANNED` message.
+
 ### Flight lifecycle
 
 ```mermaid
 stateDiagram-v2
     [*] --> PLANNED: create flight from SSM
-    PLANNED --> PLANNED: add / edit / remove departure or arrival delay
+    PLANNED --> PLANNED: add / edit / remove departure or arrival delay (total at most 720 min)
     PLANNED --> PLANNED: process finalized-load CPM
+    PLANNED --> REPLANNED: replan (flight planner confirms, total would exceed 720 min)
     PLANNED --> DEPARTED: recordDeparture(ATD) — CPM processed, ATD ≤ now, ATD ≤ ETD + tolerance
-    DEPARTED --> DEPARTED: add / edit / remove arrival delay
+    DEPARTED --> DEPARTED: add / edit / remove arrival delay (total at most 720 min)
     DEPARTED --> LANDED: recordArrival(ATA) — ATA > ATD, ATA ≤ now, ATA ≤ ETA + tolerance
+    REPLANNED --> REPLANNED: replacement flight created (link set once, no state change)
+    REPLANNED --> [*]: retention
+    LANDED --> [*]: retention
 ```
 
-`DEPARTED` freezes the departure delays, `LANDED` all delays; actual times never change.
+`DEPARTED` freezes the departure delays, `LANDED` all delays; actual times never change. `REPLANNED` is final: delay changes, a second replan and ATD/ATA are refused. The "replacement created" link is a flag, not a state, like `finalizedLoadProcessed`.
 
 ## 8. Tactical design: Message Formatter and Partner Communication
 
@@ -593,6 +644,7 @@ classDiagram
 | ETA only changed | MVT-EA (IATA text) |
 | ATD / ATA registered (`flight.departed` / `flight.landed`, Formatter queues `formatter.flight-departed` / `formatter.flight-landed`) | MVT-AD / MVT-AA (IATA text): departure airport and ATD, arrival airport and ATA, line 2 keeps the scheduled departure day; routing keys `mvt.ad` / `mvt.aa` |
 | Load finalized in Cargo (`cargo.load-finalized`) | CPM (JSON): flight number, scheduled departure date, departure airport, positioned ULDs with code, position, weight with unit and destination; Partner adds message ID, creation time and format version |
+| New flight of a replanning exists (`flight.replaced`) | FLIGHT_REPLANNED (JSON, our own designed message, routing key `flight.replanned`): old flight and new flight (number, scheduled departure date, departure airport), new STD and STA; the new flight also gets its normal FLM. The course defines no such message (known deviation); MSG-01 allows designed JSON messages |
 
 ### Publication lifecycle
 
@@ -617,7 +669,7 @@ Times use UTC in the domain (`Instant`), database (`TIMESTAMP WITH TIME ZONE`), 
 
 Cargo signals a missing or invalid input value with its own `InvalidCargoValueException` from the value objects. The ULD listener stores such a message in `rejected_messages` without retrying; a REST controller turns it into 400 only while it builds the domain values from the URL, so bad data from Flight stays a 500. Flight's events go through the same reject or retry rules. `CargoApiExceptionHandler` gives every Cargo endpoint the same answers: 404 for a flight Flight does not know, 503 when Flight is unreachable, 409 with a refusal code when the loading rules refuse an action (`LoadingNotAllowedException`), and 409 with `HARD_CHECKS_FAILED` plus the check report when finalizing fails a hard check (`LoadNotFinalizedException`). Read use cases such as the cargo plan view (`CargoPlanQueryService`) load the aggregate through its repository and add Flight's data; they check no flight state, so the plan stays readable after departure.
 
-Cargo reads flight data from its own `flights` table (`FlightRepository`, implemented by `LocalFlightRepository`). `FlightEventListener` and `FlightCopyService` keep that copy up to date. Only a flight that is not in the copy is fetched once over HTTP (`FlightOperationsClient`) and then stored. Every row stores when Flight made its last change (`last_change_at`). `flight.created` and an HTTP lookup write the whole row with one SQL upsert; `flight.estimates-changed` updates only the two estimate columns, so it never overwrites another field. Both only change a row whose last change is older, so a retried or late event never takes the copy back in time. The status is different: `flight.departed` and `flight.landed` move it forward with `advanceStatus` (`UPDATE ... WHERE status IN (earlier statuses)`), without a time, because a flight never goes back. So a redelivery, an older event or `landed` before `departed` changes nothing, and an arrival-delay estimate stamped after the departure can never block it. The whole-row upsert leaves the status of an existing row alone for the same reason. Flight stamps an event before its commit, so a change can carry a time just before Cargo's HTTP call and still be missing from the answer. For an HTTP lookup Cargo therefore stores the time before the call minus five seconds (`COMMIT_MARGIN`): the event of such a change still counts as newer, and an older event that arrives later is harmless because the newest event of the same queue comes after it. This assumes the clocks of Flight and Cargo differ by less than that margin, which holds in Docker on one machine. The copy is a read model without business rules, so it uses `JdbcClient`: JPA cannot express the conditional upsert and update. A departed or landed flight disappears from the load planner's day overview (unless `includeDeparted`) and its cargo plan is read-only (`FLIGHT_NOT_PLANNED`).
+Cargo reads flight data from its own `flights` table (`FlightRepository`, implemented by `LocalFlightRepository`). `FlightEventListener` and `FlightCopyService` keep that copy up to date. Only a flight that is not in the copy is fetched once over HTTP (`FlightOperationsClient`) and then stored. Every row stores when Flight made its last change (`last_change_at`). `flight.created` and an HTTP lookup write the whole row with one SQL upsert; `flight.estimates-changed` updates only the two estimate columns, so it never overwrites another field. Both only change a row whose last change is older, so a retried or late event never takes the copy back in time. The status is different: `flight.departed`, `flight.landed` and `flight.replanned` move it forward with `advanceStatus` (`UPDATE ... WHERE status IN (earlier statuses)`, the lifecycle is in `FlightStatus.predecessors()`), without a time, because a flight never goes back. So a redelivery, an older event or `landed` before `departed` changes nothing, and an arrival-delay estimate stamped after the departure can never block it. The whole-row upsert leaves the status of an existing row alone for the same reason. Flight stamps an event before its commit, so a change can carry a time just before Cargo's HTTP call and still be missing from the answer. For an HTTP lookup Cargo therefore stores the time before the call minus five seconds (`COMMIT_MARGIN`): the event of such a change still counts as newer, and an older event that arrives later is harmless because the newest event of the same queue comes after it. This assumes the clocks of Flight and Cargo differ by less than that margin, which holds in Docker on one machine. The copy is a read model without business rules, so it uses `JdbcClient`: JPA cannot express the conditional upsert and update. A departed, landed or replanned flight disappears from the load planner's day overview (unless `includeDeparted`) and its cargo plan is read-only (`FLIGHT_NOT_PLANNED`).
 
 ## 10. Running it 
 

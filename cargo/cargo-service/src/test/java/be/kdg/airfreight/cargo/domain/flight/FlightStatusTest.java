@@ -12,5 +12,6 @@ class FlightStatusTest {
         assertThat(FlightStatus.DEPARTED.predecessors()).containsExactly(FlightStatus.PLANNED);
         assertThat(FlightStatus.LANDED.predecessors())
                 .containsExactlyInAnyOrder(FlightStatus.PLANNED, FlightStatus.DEPARTED);
+        assertThat(FlightStatus.REPLANNED.predecessors()).containsExactly(FlightStatus.PLANNED);
     }
 }

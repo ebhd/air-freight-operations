@@ -86,4 +86,9 @@ public class FlightCopyService {
             log.debug("Flight {} was already {} or further in the copy", flightKey, status);
         }
     }
+
+    // the old flight of a replanning is final, so its copy only needs the status
+    public void recordReplanned(FlightKey flightKey) {
+        advance(flightKey, FlightStatus.REPLANNED);
+    }
 }

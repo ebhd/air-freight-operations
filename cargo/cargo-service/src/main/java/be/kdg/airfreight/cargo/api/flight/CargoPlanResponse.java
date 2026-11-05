@@ -5,9 +5,13 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 
-// finalizedAt is null while the plan is a draft
+// finalizedAt is null while the plan is a draft, movedTo is null unless the state is REPLANNED
 public record CargoPlanResponse(
-        FlightOverviewResponse flight, List<UldBookingResponse> bookings, Instant finalizedAt) {
+        FlightOverviewResponse flight,
+        List<UldBookingResponse> bookings,
+        String state,
+        Instant finalizedAt,
+        MovedToResponse movedTo) {
     static CargoPlanResponse from(CargoPlanView view) {
         List<UldBookingResponse> bookings =
                 view.cargoPlan().getBookings().stream()
@@ -18,6 +22,8 @@ public record CargoPlanResponse(
         return new CargoPlanResponse(
                 FlightOverviewResponse.from(view.flight()),
                 bookings,
-                view.cargoPlan().getFinalizedAt().orElse(null));
+                view.cargoPlan().getState().name(),
+                view.cargoPlan().getFinalizedAt().orElse(null),
+                view.cargoPlan().getMovedTo().map(MovedToResponse::from).orElse(null));
     }
 }

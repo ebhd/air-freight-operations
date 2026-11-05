@@ -1,6 +1,6 @@
 import { clearError, getJson, postJson, showError } from './api.js';
 import { hasRole } from './auth.js';
-import { confirmDialog } from './confirm-dialog.js';
+import { confirmDialog, type ConfirmDetail } from './confirm-dialog.js';
 import { requiredElement } from './dom.js';
 import type { FlightOverview } from './flight-overview.js';
 import { renderLoadCheck, type LoadCheckReport } from './load-check.js';
@@ -19,6 +19,7 @@ import {
     loadNotFinalizedText,
     positionNotChangedText,
 } from './refusal-text.js';
+import { movedToLink, movedToText, type MovedTo } from './replanning.js';
 import { formatBrusselsDateTime } from './time.js';
 import type { UldBookingResponse } from './uld-booking.js';
 
@@ -26,8 +27,11 @@ import type { UldBookingResponse } from './uld-booking.js';
 type CargoPlanResponse = {
     flight: FlightOverview;
     bookings: UldBookingResponse[];
+    state: 'DRAFT' | 'FINALIZED' | 'REPLANNED';
     // null while the plan is a draft
     finalizedAt: string | null;
+    // the new flight the cargo moved to, null unless the state is REPLANNED
+    movedTo: MovedTo | null;
 };
 
 // the answer of a successful finalize as sent by FinalizationResponse
@@ -54,9 +58,15 @@ const loadCheckSection = requiredElement('#load-check', HTMLElement);
 const checkButton = requiredElement('#check-load', HTMLButtonElement);
 const finalizeButton = requiredElement('#finalize-load', HTMLButtonElement);
 const finalizedNote = requiredElement('#finalized', HTMLElement);
+const movedToNote = requiredElement('#moved-to', HTMLElement);
+const movedToTextElement = requiredElement('#moved-to-text', HTMLElement);
+const movedToLinkElement = requiredElement('#moved-to-link', HTMLAnchorElement);
 const loadCheckStatus = requiredElement('#load-check-status', HTMLElement);
 const loadCheckRows = requiredElement('#load-check-results', HTMLTableSectionElement);
 readOnlyNote.textContent = `You can view this cargo plan. ${LOAD_PLANNER_ONLY}`;
+
+// filled when the plan loads, so the finalize dialog can show what is being closed
+let finalizeDetails: ConfirmDetail[] = [];
 
 // shows the booked weight as is without converting units
 const weightFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 3 });
@@ -86,6 +96,7 @@ async function loadCargoPlan(): Promise<void> {
     readOnlyNote.hidden = true;
     loadCheckSection.hidden = true;
     finalizedNote.hidden = true;
+    movedToNote.hidden = true;
     rows.replaceChildren();
     const flightKey = readFlightKey(new URLSearchParams(location.search));
     if (!flightKey) {
@@ -114,15 +125,19 @@ async function loadCargoPlan(): Promise<void> {
         return;
     }
     renderFlight(cargoPlan.data.flight);
+    finalizeDetails = finalizeSummary(cargoPlan.data.flight, cargoPlan.data.bookings);
     renderFinalized(cargoPlan.data.finalizedAt);
+    renderMovedTo(cargoPlan.data.movedTo);
     renderLoadingWindow(windowBlock, loadingWindow.data);
     const loadPlanner = hasRole('load-planner');
     // a flight planner may read the plan but gets no dropdowns so the page says why
     readOnlyNote.hidden = loadPlanner;
-    const editablePath = loadPlanner && loadingWindow.data.loadingAllowed ? path : null;
+    // the cargo of a replanned flight lives on the new flight so nothing can change here
+    const moved = cargoPlan.data.state === 'REPLANNED';
+    const editablePath = loadPlanner && loadingWindow.data.loadingAllowed && !moved ? path : null;
     renderBookings(cargoPlan.data.bookings, positions.data, editablePath);
     // checks only run while loading is allowed so the report shows the current load
-    if (loadingWindow.data.loadingAllowed) {
+    if (loadingWindow.data.loadingAllowed && !moved) {
         checkButton.hidden = !loadPlanner;
         finalizeButton.hidden = !loadPlanner;
         loadCheckSection.hidden = false;
@@ -136,6 +151,15 @@ function renderFinalized(finalizedAt: string | null): void {
         finalizedAt === null
             ? ''
             : `Load finalized at ${formatBrusselsDateTime(finalizedAt)}. Positions can no longer change.`;
+}
+
+function renderMovedTo(movedTo: MovedTo | null): void {
+    movedToNote.hidden = movedTo === null;
+    if (movedTo !== null) {
+        movedToTextElement.textContent = movedToText(movedTo);
+        movedToLinkElement.href = movedToLink(movedTo);
+        movedToLinkElement.textContent = `${movedTo.flightNumber} cargo plan`;
+    }
 }
 
 // every reload checks again so the report never shows an older load
@@ -159,10 +183,18 @@ async function checkLoad(cargoPlanPath: string): Promise<void> {
         : 'A hard check failed, so the load cannot be finalized yet.';
 }
 
+function finalizeSummary(flight: FlightOverview, bookings: UldBookingResponse[]): ConfirmDetail[] {
+    return [
+        { label: 'Flight', value: `${flight.flightNumber}, ${flight.departureAirportCode} to ${flight.arrivalAirportCode}` },
+        { label: 'Booked ULDs', value: String(bookings.length) },
+    ];
+}
+
 async function finalizeLoad(cargoPlanPath: string): Promise<void> {
     const confirmed = await confirmDialog({
         title: 'Finalize the load?',
         message: 'Positions cannot be changed afterwards.',
+        details: finalizeDetails,
         confirmLabel: 'Finalize load',
     });
     if (!confirmed) {
@@ -196,6 +228,7 @@ function renderFlight(flight: FlightOverview): void {
     setText('#flight-arrival', formatBrusselsDateTime(flight.scheduledArrival));
     showEstimate('arrival', flight.scheduledArrival, flight.estimatedArrival);
     setText('#flight-status', flight.status);
+    requiredElement('#flight-status', HTMLElement).dataset.status = flight.status;
     flightBlock.hidden = false;
 }
 

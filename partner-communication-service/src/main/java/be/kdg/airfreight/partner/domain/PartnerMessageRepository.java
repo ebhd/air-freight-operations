@@ -9,6 +9,8 @@ public interface PartnerMessageRepository {
 
     List<PartnerMessage> findPending(int limit);
 
+    List<PartnerMessage> findLatest(int limit);
+
     Optional<PartnerMessage> findBySourceMessageIdAndType(UUID sourceMessageId, String type);
 
     PartnerMessage save(PartnerMessage message);

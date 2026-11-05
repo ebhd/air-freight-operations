@@ -19,10 +19,12 @@ class FlightOverviewServiceTest {
     private final FlightInformation planned = flight("HJ221", FlightStatus.PLANNED);
     private final FlightInformation departed = flight("HJ300", FlightStatus.DEPARTED);
     private final FlightInformation landed = flight("HJ400", FlightStatus.LANDED);
+    private final FlightInformation replanned = flight("HJ500", FlightStatus.REPLANNED);
 
+    // a replanned flight is no longer planned so it is hidden like a departed one
     @Test
-    void hidesDepartedAndLandedFlightsByDefault() {
-        var flights = new StubFlightRepository(List.of(planned, departed, landed));
+    void hidesDepartedLandedAndReplannedFlightsByDefault() {
+        var flights = new StubFlightRepository(List.of(planned, departed, landed, replanned));
 
         assertThat(new FlightOverviewService(flights).findFlightsOn(DAY, false))
                 .containsExactly(planned);
@@ -30,10 +32,10 @@ class FlightOverviewServiceTest {
 
     @Test
     void showsAllFlightsWhenDepartedAreIncluded() {
-        var flights = new StubFlightRepository(List.of(planned, departed, landed));
+        var flights = new StubFlightRepository(List.of(planned, departed, landed, replanned));
 
         assertThat(new FlightOverviewService(flights).findFlightsOn(DAY, true))
-                .containsExactly(planned, departed, landed);
+                .containsExactly(planned, departed, landed, replanned);
     }
 
     @Test
