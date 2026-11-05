@@ -7,9 +7,13 @@ import be.kdg.airfreight.cargo.domain.cargoplan.UldNotBookedException;
 import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.loading.LoadingNotAllowedException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.RecoverableDataAccessException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.transaction.TransactionException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -19,6 +23,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 class CargoApiExceptionHandler {
     static final String CONCURRENT_CHANGE =
             "The cargo plan was changed by someone else at the same time. Reload and try again.";
+    static final String DATABASE_FAILURE =
+            "The action was not saved because of a database problem. Try again later.";
     static final String HARD_CHECKS_FAILED = "HARD_CHECKS_FAILED";
 
     // flight down is a clear 503 and never a fake empty list
@@ -80,5 +86,18 @@ class CargoApiExceptionHandler {
     ProblemDetail concurrentChange(OptimisticLockingFailureException exception) {
         log.warn("Concurrent change on cargo plan refused: {}", exception.getMessage());
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, CONCURRENT_CHANGE);
+    }
+
+    // a database outage stays a 500, but the page can now say what happened
+    // only outages, so a constraint violation stays a bug like any other 500
+    @ExceptionHandler({
+        DataAccessResourceFailureException.class,
+        TransientDataAccessException.class,
+        RecoverableDataAccessException.class,
+        TransactionException.class
+    })
+    ProblemDetail databaseFailure(RuntimeException exception) {
+        log.error("Database failure during a cargo request", exception);
+        return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, DATABASE_FAILURE);
     }
 }
