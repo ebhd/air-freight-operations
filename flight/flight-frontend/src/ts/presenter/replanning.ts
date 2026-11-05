@@ -40,15 +40,6 @@ export function hoursAndMinutes(minutes: number): string {
 }
 
 // the question the planner answers before the flight is replanned, times in brussels time
-export function replanQuestion(flightNumber: string, offer: ReplanningOffer): string {
-    return (
-        `All delays together would be ${hoursAndMinutes(offer.totalMinutes)}, more than 12 h. ` +
-        `Replan ${flightNumber} as ${offer.newFlightNumber}, departing ${formatBrusselsDateTime(offer.newScheduledDeparture)} ` +
-        `and arriving ${formatBrusselsDateTime(offer.newScheduledArrival)} Brussels time? ` +
-        'The current flight ends and the new flight is planned at those times.'
-    );
-}
-
 // why the replan dialog appears
 export function replanReason(offer: ReplanningOffer): string {
     return `All delays together would be ${hoursAndMinutes(offer.totalMinutes)}, more than 12 h.`;
