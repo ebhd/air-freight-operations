@@ -1,6 +1,7 @@
 package be.kdg.airfreight.flight.infrastructure.messaging.ssm;
 
 import be.kdg.airfreight.flight.application.FlightSchedulingService;
+import be.kdg.airfreight.flight.application.ProcessSsmResult;
 import be.kdg.airfreight.flight.domain.flight.FlightSchedule;
 import be.kdg.airfreight.flight.infrastructure.messaging.RabbitConfiguration;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +19,11 @@ public class SsmRabbitListener {
 
     @RabbitListener(queues = RabbitConfiguration.SSM_QUEUE)
     public void receive(SsmMessage message) {
-        log.info("Received SSM message: {}", message);
+        log.info(
+                "Received SSM message {} for flight {}",
+                message.messageId(),
+                message.flightNumber());
+        log.debug("SSM message {} content: {}", message.messageId(), message);
         FlightSchedule schedule =
                 new FlightSchedule(
                         message.startDate(),
@@ -31,6 +36,13 @@ public class SsmRabbitListener {
                         message.arrivalAirportCode(),
                         message.aircraftRegistration());
 
-        flightSchedulingService.createFlights(message.messageId(), schedule);
+        ProcessSsmResult result =
+                flightSchedulingService.createFlights(message.messageId(), schedule);
+        // after the commit, so these flights are really saved
+        log.info(
+                "Processed SSM message {}: flights created {}, already existing {}",
+                result.messageId(),
+                result.createdFlights().size(),
+                result.duplicateFlightKeys().size());
     }
 }

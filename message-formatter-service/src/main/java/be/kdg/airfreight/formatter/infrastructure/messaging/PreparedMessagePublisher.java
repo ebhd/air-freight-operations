@@ -8,6 +8,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageDeliveryMode;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
 @Component
+@Slf4j
 public class PreparedMessagePublisher implements MessagePublisher {
     private final RabbitTemplate rabbit;
     private final JsonMapper json;
@@ -58,6 +60,10 @@ public class PreparedMessagePublisher implements MessagePublisher {
                 throw new AmqpException(
                         "Prepared messages were not confirmed and routed: " + sourceMessageId);
             }
+            log.info(
+                    "Delivered prepared batch {} to RabbitMQ ({} messages)",
+                    sourceMessageId,
+                    contents.size());
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new AmqpException("Interrupted publishing prepared messages", exception);

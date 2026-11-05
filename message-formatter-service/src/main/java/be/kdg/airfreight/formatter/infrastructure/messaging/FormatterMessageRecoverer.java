@@ -8,6 +8,7 @@ import org.springframework.amqp.rabbit.retry.ImmediateRequeueMessageRecoverer;
 import org.springframework.amqp.rabbit.retry.MessageRecoverer;
 import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.support.converter.MessageConversionException;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -30,6 +31,11 @@ class FormatterMessageRecoverer implements MessageRecoverer {
                 return;
             }
         }
+        log.warn(
+                "Rejected message {} on queue {}: {}",
+                message.getMessageProperties().getMessageId(),
+                message.getMessageProperties().getConsumerQueue(),
+                NestedExceptionUtils.getMostSpecificCause(failure).toString());
         reject.recover(message, failure);
     }
 }

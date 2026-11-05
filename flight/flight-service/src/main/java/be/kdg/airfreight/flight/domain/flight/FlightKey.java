@@ -25,4 +25,10 @@ public record FlightKey(
         }
         return code;
     }
+
+    // error texts and logs show this, the same form as in cargo
+    @Override
+    public String toString() {
+        return flightNumber + "/" + scheduledDepartureDate + "/" + departureAirportCode;
+    }
 }

@@ -67,7 +67,7 @@ public class FlightEventPublisher {
         outboxRepository.save(JpaOutboxMessage.fromDomain(outboxMessage));
         events.publishEvent(outboxMessage);
 
-        log.debug(
+        log.info(
                 "Recorded FlightCreated message {} in outbox for flight {}",
                 message.messageId(),
                 event.flightKey());
@@ -101,7 +101,7 @@ public class FlightEventPublisher {
 
         outboxRepository.save(JpaOutboxMessage.fromDomain(outboxMessage));
         events.publishEvent(outboxMessage);
-        log.debug(
+        log.info(
                 "Recorded FlightEstimatesChanged message {} in outbox for flight {}",
                 message.messageId(),
                 event.flightKey());
@@ -132,7 +132,7 @@ public class FlightEventPublisher {
 
         outboxRepository.save(JpaOutboxMessage.fromDomain(outboxMessage));
         events.publishEvent(outboxMessage);
-        log.debug(
+        log.info(
                 "Recorded FlightDeparted message {} in outbox for flight {}",
                 message.messageId(),
                 event.flightKey());
@@ -163,7 +163,7 @@ public class FlightEventPublisher {
 
         outboxRepository.save(JpaOutboxMessage.fromDomain(outboxMessage));
         events.publishEvent(outboxMessage);
-        log.debug(
+        log.info(
                 "Recorded FlightLanded message {} in outbox for flight {}",
                 message.messageId(),
                 event.flightKey());
@@ -199,7 +199,7 @@ public class FlightEventPublisher {
 
         outboxRepository.save(JpaOutboxMessage.fromDomain(outboxMessage));
         events.publishEvent(outboxMessage);
-        log.debug(
+        log.info(
                 "Recorded FlightReplanned message {} in outbox for flight {}",
                 message.messageId(),
                 event.flightKey());
@@ -232,7 +232,7 @@ public class FlightEventPublisher {
 
         outboxRepository.save(JpaOutboxMessage.fromDomain(outboxMessage));
         events.publishEvent(outboxMessage);
-        log.debug(
+        log.info(
                 "Recorded FlightReplaced message {} in outbox for flight {}",
                 message.messageId(),
                 event.flightKey());

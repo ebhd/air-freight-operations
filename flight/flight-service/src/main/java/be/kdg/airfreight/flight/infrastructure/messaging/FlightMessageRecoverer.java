@@ -9,11 +9,13 @@ import org.springframework.amqp.rabbit.retry.ImmediateRequeueMessageRecoverer;
 import org.springframework.amqp.rabbit.retry.MessageRecoverer;
 import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.RecoverableDataAccessException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionException;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -31,19 +33,38 @@ class FlightMessageRecoverer implements MessageRecoverer {
     @Override
     public void recover(@NonNull Message message, @NonNull Throwable cause) {
         if (isTemporaryDatabaseFailure(cause)) {
-            log.warn(
+            // an error because nothing was saved, the message itself is safe on the queue
+            log.error(
                     "Requeuing message {} on queue {} after a temporary database failure",
                     message.getMessageProperties().getMessageId(),
                     message.getMessageProperties().getConsumerQueue(),
                     cause);
             requeueRecoverer.recover(message, cause);
         } else {
-            // the reason is stored here because the dead letter queue only keeps the message
+            if (isDatabaseFailure(cause)) {
+                log.error(
+                        "Rejecting message {} on queue {} after a database failure that retries"
+                                + " did not fix",
+                        message.getMessageProperties().getMessageId(),
+                        message.getMessageProperties().getConsumerQueue(),
+                        cause);
+            }
+            storeRejection(message, cause);
+            deadLetterRecoverer.recover(message, cause);
+        }
+    }
+
+    // the reason is stored here because the dead letter queue only keeps the message
+    private void storeRejection(Message message, Throwable cause) {
+        String messageId = messageId(message);
+        try {
             rejectedMessages.store(
-                    messageId(message),
+                    messageId,
                     message.getBody(),
                     NestedExceptionUtils.getMostSpecificCause(cause).toString());
-            deadLetterRecoverer.recover(message, cause);
+        } catch (RuntimeException storeFailure) {
+            log.error("Could not store rejected message {}", messageId, storeFailure);
+            throw storeFailure;
         }
     }
 
@@ -60,6 +81,15 @@ class FlightMessageRecoverer implements MessageRecoverer {
         } catch (JacksonException unreadableBody) {
             return null; // the content and reason are still stored, only without an id
         }
+    }
+
+    private boolean isDatabaseFailure(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof DataAccessException || cause instanceof TransactionException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isTemporaryDatabaseFailure(Throwable failure) {

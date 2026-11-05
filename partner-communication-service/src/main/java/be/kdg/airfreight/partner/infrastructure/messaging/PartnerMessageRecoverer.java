@@ -6,11 +6,14 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.retry.ImmediateRequeueMessageRecoverer;
 import org.springframework.amqp.rabbit.retry.MessageRecoverer;
 import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.RecoverableDataAccessException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionException;
 
 @Component
 @Slf4j
@@ -21,15 +24,38 @@ class PartnerMessageRecoverer implements MessageRecoverer {
     @Override
     public void recover(Message message, Throwable cause) {
         if (isTemporaryDatabaseFailure(cause)) {
-            log.warn(
+            // an error because nothing was saved, the message itself is safe on the queue
+            log.error(
                     "Requeuing message {} on queue {} after a temporary database failure",
                     message.getMessageProperties().getMessageId(),
                     message.getMessageProperties().getConsumerQueue(),
                     cause);
             requeueRecoverer.recover(message, cause);
+        } else if (isDatabaseFailure(cause)) {
+            log.error(
+                    "Rejecting message {} on queue {} after a database failure that retries did"
+                            + " not fix",
+                    message.getMessageProperties().getMessageId(),
+                    message.getMessageProperties().getConsumerQueue(),
+                    cause);
+            deadLetterRecoverer.recover(message, cause);
         } else {
+            log.warn(
+                    "Rejected message {} on queue {}: {}",
+                    message.getMessageProperties().getMessageId(),
+                    message.getMessageProperties().getConsumerQueue(),
+                    NestedExceptionUtils.getMostSpecificCause(cause).toString());
             deadLetterRecoverer.recover(message, cause);
         }
+    }
+
+    private boolean isDatabaseFailure(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof DataAccessException || cause instanceof TransactionException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isTemporaryDatabaseFailure(Throwable failure) {
