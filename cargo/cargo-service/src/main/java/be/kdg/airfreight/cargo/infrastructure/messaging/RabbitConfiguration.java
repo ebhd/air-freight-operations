@@ -1,7 +1,10 @@
 package be.kdg.airfreight.cargo.infrastructure.messaging;
 
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.retry.ImmediateRequeueMessageRecoverer;
 import org.springframework.amqp.rabbit.retry.MessageRecoverer;
 import org.springframework.context.annotation.Bean;
@@ -11,9 +14,71 @@ import org.springframework.context.annotation.Configuration;
 class RabbitConfiguration {
     static final String ULD_QUEUE = "cargo.uld";
 
+    // ----- Incoming Flight events -----
+    static final String FLIGHT_EVENTS = "flight.events";
+    static final String FLIGHT_CREATED = "flight.created";
+    static final String FLIGHT_CREATED_QUEUE = "cargo.flight-created";
+    static final String FLIGHT_ESTIMATES_CHANGED = "flight.estimates-changed";
+    static final String FLIGHT_ESTIMATES_CHANGED_QUEUE = "cargo.flight-estimates-changed";
+    static final String FLIGHT_DEPARTED = "flight.departed";
+    static final String FLIGHT_DEPARTED_QUEUE = "cargo.flight-departed";
+    static final String FLIGHT_LANDED = "flight.landed";
+    static final String FLIGHT_LANDED_QUEUE = "cargo.flight-landed";
+
     @Bean
     Queue uldQueue() {
         return QueueBuilder.durable(ULD_QUEUE).build();
+    }
+
+    // ----- Incoming Flight events -----
+    // flight declares the same exchange so declaring it here too changes nothing
+    @Bean
+    TopicExchange flightEvents() {
+        return new TopicExchange(FLIGHT_EVENTS);
+    }
+
+    // cargos own queues so flight and partner never wait for cargo
+    @Bean
+    Queue flightCreatedQueue() {
+        return QueueBuilder.durable(FLIGHT_CREATED_QUEUE).build();
+    }
+
+    @Bean
+    Binding flightCreatedBinding(Queue flightCreatedQueue, TopicExchange flightEvents) {
+        return BindingBuilder.bind(flightCreatedQueue).to(flightEvents).with(FLIGHT_CREATED);
+    }
+
+    @Bean
+    Queue flightEstimatesChangedQueue() {
+        return QueueBuilder.durable(FLIGHT_ESTIMATES_CHANGED_QUEUE).build();
+    }
+
+    @Bean
+    Binding flightEstimatesChangedBinding(
+            Queue flightEstimatesChangedQueue, TopicExchange flightEvents) {
+        return BindingBuilder.bind(flightEstimatesChangedQueue)
+                .to(flightEvents)
+                .with(FLIGHT_ESTIMATES_CHANGED);
+    }
+
+    @Bean
+    Queue flightDepartedQueue() {
+        return QueueBuilder.durable(FLIGHT_DEPARTED_QUEUE).build();
+    }
+
+    @Bean
+    Binding flightDepartedBinding(Queue flightDepartedQueue, TopicExchange flightEvents) {
+        return BindingBuilder.bind(flightDepartedQueue).to(flightEvents).with(FLIGHT_DEPARTED);
+    }
+
+    @Bean
+    Queue flightLandedQueue() {
+        return QueueBuilder.durable(FLIGHT_LANDED_QUEUE).build();
+    }
+
+    @Bean
+    Binding flightLandedBinding(Queue flightLandedQueue, TopicExchange flightEvents) {
+        return BindingBuilder.bind(flightLandedQueue).to(flightEvents).with(FLIGHT_LANDED);
     }
 
     // after the retries put the message back on the queue instead of dropping it

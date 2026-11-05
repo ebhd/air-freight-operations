@@ -4,9 +4,9 @@ Stack: Java 22, Spring Boot 4.1.1, Gradle 9.7.1 (multi-project build), PostgreSQ
 
 | Project | Port | Database | Purpose |
 | --- | --- | --- | --- |
-| `flight/flight-service` and `flight/flight-frontend` | 8080 | `flight` | Flights from SSM, delays, flight planner pages |
-| `cargo/cargo-service` and `cargo/cargo-frontend` | 8081 | `cargo` | ULD bookings, loading window, positions, load planner pages |
-| `partner-communication-service` | 8082 | `partner_communication` | FLM and MVT ED/EA messages to partners |
+| `flight/flight-service` and `flight/flight-frontend` | 8080 | `flight` | Flights from SSM, delays, processed CPM as departure condition, actual departure and arrival, flight planner pages |
+| `cargo/cargo-service` and `cargo/cargo-frontend` | 8081 | `cargo` | ULD bookings, loading window, positions, load check, finalizing, load planner pages |
+| `message-formatter-service` / `partner-communication-service` | 8084 / 8082 | none / `partner_communication` | Formats FLM, MVT ED/EA/AD/AA and CPM / stores and publishes prepared messages to partners |
 | `simulator` | 8083 | none | Sends test SSM and ULD messages, local only |
 
 Each service uses the packages `domain`, `application`, `infrastructure` and `api`. The design is in [architecture/analyse.md](architecture/analyse.md).
@@ -22,7 +22,7 @@ docker compose down
 
 Pages: Flight at `http://localhost:8080/`, Cargo at `http://localhost:8081/`. Each service's `/actuator/health` checks its database and RabbitMQ; Cargo's also checks Flight.
 
-Each service creates its tables from `schema.sql` and Hibernate validates them. There is no migration tool, so after a schema change you recreate that service's database. Example for Cargo:
+Each service creates its tables from `schema.sql` and Hibernate validates them. There is no migration tool, so after a schema change you recreate that service's database (Flight's `actual_departure` and `actual_arrival` columns are the exception: `schema.sql` adds them with `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`). Example for Cargo:
 
 ```sh
 docker compose stop cargo-service
@@ -52,6 +52,10 @@ These credentials are for development only.
 Settings are in each service's `application.properties` and can be overridden with environment variables. Compose reads `.env`; the IDE does not, so set `CARGO_SERVICE_CLIENT_SECRET` in Cargo's run configuration.
 
 The loading window opens 12h before STD and closes 20m before ETD. Change this with `CARGO_LOADINGWINDOW_OPENSBEFORESTD` and `CARGO_LOADINGWINDOW_CLOSESBEFOREETD` (for example `48h`, `30m`) and restart Cargo.
+
+An actual departure or arrival may be at most 5m later than ETD or ETA (the limit itself is accepted). Change this with `FLIGHT_ACTUALTIMES_TOLERANCE` (for example `10m`, `0m`) and restart Flight; a negative value stops the start.
+
+Lateral balance: the heavier side may weigh at most the lighter side plus 10%, compared in kg (1 lb = 0.45359237 kg). Change the tolerance with `CARGO_LOADCHECK_LATERALBALANCETOLERANCE` (for example `0.15`) and restart Cargo.
 
 ### Frontends
 
@@ -94,15 +98,20 @@ Every API request needs a bearer token. Times are UTC. In the paths below, `{fli
 | Flight | GET | `/api/flights?date=2026-10-19` | any planner |
 | Flight | GET | `/api/flights/{flight}` | any planner |
 | Flight | GET | `/api/delay-reasons` | any planner |
-| Flight | POST | `/api/flights/{flight}/delays` | flight planner |
-| Flight | PATCH, DELETE | `/api/flights/{flight}/delays/{delayId}` | flight planner |
+| Flight | POST | `/api/flights/{flight}/departure-delays`, `/api/flights/{flight}/arrival-delays` | flight planner |
+| Flight | PATCH, DELETE | `/api/flights/{flight}/departure-delays/{delayId}`, `/api/flights/{flight}/arrival-delays/{delayId}` | flight planner |
+| Flight | POST | `/api/flights/{flight}/departure` with `{"actualDeparture": "2026-11-10T20:03:00Z"}`, `/api/flights/{flight}/arrival` with `{"actualArrival": ...}` (once; 200 with the flight, `DEPARTED` or `LANDED`) | flight planner |
 | Cargo | GET | `/api/flights?date=2026-10-19`, add `&includeDeparted=true` for departed flights | any planner |
 | Cargo | GET | `/api/cargo-plans/{flight}` | any planner |
 | Cargo | GET | `/api/cargo-plans/{flight}/loading-window` | any planner |
 | Cargo | GET | `/api/loading-positions` | any planner |
 | Cargo | PUT, DELETE | `/api/cargo-plans/{flight}/bookings/{uldCode}/position` | load planner |
+| Cargo | GET | `/api/cargo-plans/{flight}/load-check` (all checks, nothing changes) | any planner |
+| Cargo | POST | `/api/cargo-plans/{flight}/finalization` (reruns the checks; 200 with `finalizedAt` and the report) | load planner |
 
-Errors use `ProblemDetail`: 400 for invalid input, 404 for an unknown flight, 409 when a business rule refuses the action (with the reason), 503 when Cargo cannot reach Flight.
+Errors use `ProblemDetail`: 400 for invalid input, 404 for an unknown flight, 409 when a business rule refuses the action (with the reason), 503 when Cargo cannot reach Flight. A delay change that would bring all delays of a flight (departure and arrival together) over 720 minutes gives 409 with `refusal: TOTAL_DELAY_EXCEEDED`, `totalMinutes`, `maxTotalMinutes` and `replanningPossible` (true only for a planned flight). A finalize that fails a hard check gives 409 with `refusal: HARD_CHECKS_FAILED` and the same `report` as the load check. Check and finalize also refuse with the loading refusals (`PLAN_FINALIZED`, `WINDOW_CLOSED`, ...). An actual time is refused with 409 and `refusal` `NOT_PLANNED`, `NOT_DEPARTED`, `CPM_NOT_PROCESSED` (finalize the load first, then try again), `IN_THE_FUTURE`, `NOT_AFTER_DEPARTURE` or `TOO_LATE` (with `latestAllowed`: add a delay first); a missing time is 400. The page enters the time in Brussels time and sends a UTC instant with whole minutes.
+
+Cargo keeps its own copy of Flight's flights, filled by Flight's events (see [Messages](#messages)), and asks Flight over HTTP only for a flight that is not in the copy yet. So Cargo's pages keep working while Flight is down, except for a flight Cargo has never seen. Cargo's `/actuator/health` still reports `DOWN` then, because `FlightApiHealthIndicator` checks Flight, so Docker marks `cargo-service` unhealthy. A flight created before Cargo's queues first existed is missing from Cargo's day overview until someone opens it by its key (cargo plan or ULD booking). Start Cargo at least once before sending SSMs, or reset with `docker compose down -v`. The copy's status follows `flight.departed` and `flight.landed` and only moves forward.
 
 ## Messages
 
@@ -110,8 +119,9 @@ Errors use `ProblemDetail`: 400 for invalid input, 404 for an unknown flight, 40
 | --- | --- | --- |
 | `flight.ssm` | | SSM from the simulator |
 | `cargo.uld` | | ULD bookings, provisional format below (Q01) |
-| `flight.events` | `flight.created`, `flight.estimates-changed` | From Flight to Partner, sent through Flight's outbox |
-| `partner.messages` | `flm`, `mvt.ed`, `mvt.ea` | To partners: FLM as JSON, MVT as three lines of text with UTC times |
+| `flight.events` | `flight.created`, `flight.estimates-changed`, `flight.departed`, `flight.landed` | From Flight to Formatter and Cargo, sent through Flight's outbox; Formatter hands batches to Partner using `formatter.events` / `partner-messages.prepared` / `partner.messages-prepared`. Formatter reads them on `partner.flight-created`, `partner.flight-estimates-changed`, `formatter.flight-departed` and `formatter.flight-landed` (the two older queues kept their `partner.` name, newer Formatter queues use `formatter.`); Cargo on `cargo.flight-created`, `cargo.flight-estimates-changed`, `cargo.flight-departed` and `cargo.flight-landed`. Flight publishes with `mandatory=true`, so a consumer must have declared its queue once before the first event or that event stays pending in Flight's outbox |
+| `cargo.events` | `cargo.load-finalized` | From Cargo's outbox after finalizing, contract below. Flight (`flight.cargo-load-finalized`) records it as departure condition; Formatter (`formatter.cargo-load-finalized`) makes the partner CPM |
+| `partner.messages` | `flm`, `mvt.ed`, `mvt.ea`, `mvt.ad`, `mvt.aa`, `cpm` | To partners: FLM and CPM as JSON with `messageId`, `createdAt`, `formatVersion`, `type` and `payload`, MVT as three lines of text with UTC times (`MVT`, `HJ221/09.SXBAA.BRU`, `AD2003`) and the metadata in the AMQP headers |
 
 ULD booking:
 
@@ -128,7 +138,39 @@ ULD booking:
 }
 ```
 
-Every message has a stable ID and is processed only once. Cargo stores invalid ULD messages in its `rejected_messages` table. Flight and Partner send invalid messages to a dead-letter queue (`flight.dlq`, `partner.dlq`) and requeue temporary database failures on the original queue after the configured short retries.
+Load finalized, version 1 (only positioned ULDs, weight in the booked unit, the list may be empty; a field change needs version 2):
+
+```json
+{
+  "messageId": "81a28ad9-6b2e-4064-b231-02dd702a8198",
+  "version": 1,
+  "occurredOn": "2026-11-04T15:07:45.862Z",
+  "flightNumber": "HJ901",
+  "scheduledDepartureDate": "2026-11-04",
+  "departureAirportCode": "BRU",
+  "ulds": [
+    { "uldCode": "AKE90001HJ", "position": "CL", "weight": { "value": 1000, "unit": "KG" }, "destinationAirportCode": "AMS" }
+  ]
+}
+```
+
+Flight departed, version 1 (`flight.landed` has the same fields with `actualArrival` instead of `actualDeparture`; `occurredOn` is the registration time, the actual time is what the planner entered):
+
+```json
+{
+  "messageId": "3c0f4c0a-8f0e-4bd9-9d6d-5a1c2b3d4e5f",
+  "version": 1,
+  "occurredOn": "2026-11-10T20:04:11Z",
+  "flightNumber": "HJ500",
+  "scheduledDepartureDate": "2026-11-10",
+  "departureAirportCode": "BRU",
+  "arrivalAirportCode": "AMS",
+  "aircraftRegistration": "SXBAA",
+  "actualDeparture": "2026-11-10T20:03:00Z"
+}
+```
+
+Every message has a stable ID. Cargo processes a ULD message only once: it remembers the ID in `processed_messages`. Flight's events are not deduplicated by ID in Cargo but are idempotent: Cargo only changes a flight's schedule and estimates for a newer change time (`last_change_at`) and only moves its status forward, so the same event twice changes nothing. Partner stores one message per source event and type, so a redelivered `flight.departed` sends one AD. Cargo stores invalid ULD and flight messages in its `rejected_messages` table, also a booking for a finalized cargo plan ("Cargo plan of flight ... is finalized, no ULD can be added"). Flight, Formatter and Partner send invalid messages to a dead-letter queue (`flight.dlq`, Formatter's `partner.dlq`, Sender's `partner.sender.dlq`) and requeue temporary database failures and Formatter publication failures on the original queue after the configured short retries.
 
 ## Checks
 

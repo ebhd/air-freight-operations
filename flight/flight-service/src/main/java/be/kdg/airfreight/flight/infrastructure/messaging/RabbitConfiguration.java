@@ -19,10 +19,17 @@ public class RabbitConfiguration {
     public static final String FLIGHT_EVENTS = "flight.events";
     public static final String FLIGHT_CREATED = "flight.created";
     public static final String FLIGHT_ESTIMATES_CHANGED = "flight.estimates-changed";
+    public static final String FLIGHT_DEPARTED = "flight.departed";
+    public static final String FLIGHT_LANDED = "flight.landed";
 
     public static final String SSM_QUEUE = "flight.ssm";
     static final String DEAD_LETTER_EXCHANGE = "flight.dlx";
     static final String DEAD_LETTER_QUEUE = "flight.dlq"; // rejected messages queue
+
+    // ----- Incoming cargo events (CPM as departure condition) -----
+    static final String CARGO_EVENTS = "cargo.events";
+    static final String LOAD_FINALIZED = "cargo.load-finalized";
+    public static final String CARGO_LOAD_FINALIZED_QUEUE = "flight.cargo-load-finalized";
 
     @Bean
     TopicExchange flightEvents() {
@@ -47,6 +54,25 @@ public class RabbitConfiguration {
     @Bean
     Binding deadLetterBinding(Queue deadLetterQueue, FanoutExchange deadLetterExchange) {
         return BindingBuilder.bind(deadLetterQueue).to(deadLetterExchange);
+    }
+
+    // ----- Incoming cargo events (CPM as departure condition) -----
+    @Bean
+    TopicExchange cargoEvents() {
+        return new TopicExchange(CARGO_EVENTS);
+    }
+
+    // own queue so flight gets its own copy next to the formatter
+    @Bean
+    Queue cargoLoadFinalized() {
+        return QueueBuilder.durable(CARGO_LOAD_FINALIZED_QUEUE)
+                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
+                .build();
+    }
+
+    @Bean
+    Binding cargoLoadFinalizedBinding(Queue cargoLoadFinalized, TopicExchange cargoEvents) {
+        return BindingBuilder.bind(cargoLoadFinalized).to(cargoEvents).with(LOAD_FINALIZED);
     }
 
     @Bean

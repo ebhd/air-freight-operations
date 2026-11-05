@@ -1,12 +1,12 @@
-export type DelayType = 'DEPARTURE' | 'ARRIVAL';
-
 export type AddDelayRequest = {
-    type: DelayType;
     minutes: number;
     reasonCode: string;
     description: string;
 };
 
-export type UpdateDelayRequest = Pick<AddDelayRequest, 'minutes' | 'description'>;
+export type UpdateDelayRequest = {
+    minutes: number;
+    description: string;
+};
 
 export type Delay = AddDelayRequest & { id: string };

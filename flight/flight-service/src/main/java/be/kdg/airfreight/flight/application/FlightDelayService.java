@@ -37,47 +37,84 @@ public class FlightDelayService {
     }
 
     @Transactional
-    public Flight addDelay(AddDelayCommand command) {
+    public Flight addDepartureDelay(AddDelayCommand command) {
         Flight flight = requireFlight(command.getFlightKey());
         Instant previousDeparture = flight.estimatedDeparture();
         Instant previousArrival = flight.estimatedArrival();
-
-        delayReasonRepository
-                .findByCode(command.getReasonCode())
-                .orElseThrow(
-                        () ->
-                                new InvalidDelayException(
-                                        "Unknown delay reason code " + command.getReasonCode()));
-
-        flight.addDelay(
-                command.getType(),
-                command.getMinutes(),
-                command.getReasonCode(),
-                command.getDescription());
-
+        requireDelayReason(command.getReasonCode());
+        flight.addDepartureDelay(
+                command.getMinutes(), command.getReasonCode(), command.getDescription());
         Flight saved = saveAndPublishEstimatesChange(flight, previousDeparture, previousArrival);
-        log.info("Added {} delay to flight {}", command.getType(), command.getFlightKey());
+        log.info("Added departure delay to flight {}", command.getFlightKey());
         return saved;
     }
 
     @Transactional
-    public void updateDelay(UpdateDelayCommand command) {
+    public void updateDepartureDelay(UpdateDelayCommand command) {
         Flight flight = requireFlight(command.getFlightKey());
         Instant previousDeparture = flight.estimatedDeparture();
         Instant previousArrival = flight.estimatedArrival();
-        flight.updateDelay(command.getDelayId(), command.getMinutes(), command.getDescription());
+        flight.updateDepartureDelay(
+                command.getDelayId(), command.getMinutes(), command.getDescription());
         saveAndPublishEstimatesChange(flight, previousDeparture, previousArrival);
-        log.info("Updated delay {} for flight {}", command.getDelayId(), command.getFlightKey());
+        log.info(
+                "Updated departure delay {} for flight {}",
+                command.getDelayId(),
+                command.getFlightKey());
     }
 
     @Transactional
-    public void removeDelay(FlightKey flightKey, UUID delayId) {
+    public void removeDepartureDelay(FlightKey flightKey, UUID delayId) {
         Flight flight = requireFlight(flightKey);
         Instant previousDeparture = flight.estimatedDeparture();
         Instant previousArrival = flight.estimatedArrival();
-        flight.removeDelay(delayId);
+        flight.removeDepartureDelay(delayId);
         saveAndPublishEstimatesChange(flight, previousDeparture, previousArrival);
-        log.info("Removed delay {} from flight {}", delayId, flightKey);
+        log.info("Removed departure delay {} from flight {}", delayId, flightKey);
+    }
+
+    @Transactional
+    public Flight addArrivalDelay(AddDelayCommand command) {
+        Flight flight = requireFlight(command.getFlightKey());
+        Instant previousDeparture = flight.estimatedDeparture();
+        Instant previousArrival = flight.estimatedArrival();
+        requireDelayReason(command.getReasonCode());
+        flight.addArrivalDelay(
+                command.getMinutes(), command.getReasonCode(), command.getDescription());
+        Flight saved = saveAndPublishEstimatesChange(flight, previousDeparture, previousArrival);
+        log.info("Added arrival delay to flight {}", command.getFlightKey());
+        return saved;
+    }
+
+    @Transactional
+    public void updateArrivalDelay(UpdateDelayCommand command) {
+        Flight flight = requireFlight(command.getFlightKey());
+        Instant previousDeparture = flight.estimatedDeparture();
+        Instant previousArrival = flight.estimatedArrival();
+        flight.updateArrivalDelay(
+                command.getDelayId(), command.getMinutes(), command.getDescription());
+        saveAndPublishEstimatesChange(flight, previousDeparture, previousArrival);
+        log.info(
+                "Updated arrival delay {} for flight {}",
+                command.getDelayId(),
+                command.getFlightKey());
+    }
+
+    @Transactional
+    public void removeArrivalDelay(FlightKey flightKey, UUID delayId) {
+        Flight flight = requireFlight(flightKey);
+        Instant previousDeparture = flight.estimatedDeparture();
+        Instant previousArrival = flight.estimatedArrival();
+        flight.removeArrivalDelay(delayId);
+        saveAndPublishEstimatesChange(flight, previousDeparture, previousArrival);
+        log.info("Removed arrival delay {} from flight {}", delayId, flightKey);
+    }
+
+    private void requireDelayReason(String reasonCode) {
+        delayReasonRepository
+                .findByCode(reasonCode)
+                .orElseThrow(
+                        () -> new InvalidDelayException("Unknown delay reason code " + reasonCode));
     }
 
     private Flight saveAndPublishEstimatesChange(

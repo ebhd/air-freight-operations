@@ -51,6 +51,62 @@ Authorization: Bearer {{flight_access_token}}
 GET http://localhost:8080/api/flights?date=2026-10-19
 Authorization: Bearer {{flight_access_token}}
 
+### Add a departure delay (200; moves ETD and ETA, partners get ED and EA)
+POST http://localhost:8080/api/flights/HJ221/2026-10-19/BRU/departure-delays
+Authorization: Bearer {{flight_access_token}}
+Content-Type: application/json
+
+{"minutes": 20, "reasonCode": "71", "description": "Fog at departure"}
+
+### Register the actual departure (200 with the DEPARTED flight; needs the processed CPM of the finalized load, ATD at most now and at most ETD + 5 minutes; UTC)
+POST http://localhost:8080/api/flights/HJ221/2026-10-19/BRU/departure
+Authorization: Bearer {{flight_access_token}}
+Content-Type: application/json
+
+{"actualDeparture": "2026-10-19T08:03:00Z"}
+
+### Register the actual departure before the CPM is processed (409 CPM_NOT_PROCESSED; finalize the load in Cargo first, then retry)
+POST http://localhost:8080/api/flights/HJ221/2026-10-19/BRU/departure
+Authorization: Bearer {{flight_access_token}}
+Content-Type: application/json
+
+{"actualDeparture": "2026-10-19T08:03:00Z"}
+
+### Register the actual departure too late (409 TOO_LATE with latestAllowed; add a departure delay first, then retry)
+POST http://localhost:8080/api/flights/HJ221/2026-10-19/BRU/departure
+Authorization: Bearer {{flight_access_token}}
+Content-Type: application/json
+
+{"actualDeparture": "2026-10-19T09:30:00Z"}
+
+### Register the actual departure again (409 NOT_PLANNED, the stored time stays)
+POST http://localhost:8080/api/flights/HJ221/2026-10-19/BRU/departure
+Authorization: Bearer {{flight_access_token}}
+Content-Type: application/json
+
+{"actualDeparture": "2026-10-19T08:04:00Z"}
+
+### Register the actual arrival (200 with the LANDED flight; ATA after ATD, at most now and at most ETA + 5 minutes)
+POST http://localhost:8080/api/flights/HJ221/2026-10-19/BRU/arrival
+Authorization: Bearer {{flight_access_token}}
+Content-Type: application/json
+
+{"actualArrival": "2026-10-19T09:58:00Z"}
+
+### Register the actual arrival before the departure (409 NOT_DEPARTED)
+POST http://localhost:8080/api/flights/HJ222/2026-10-19/BRU/arrival
+Authorization: Bearer {{flight_access_token}}
+Content-Type: application/json
+
+{"actualArrival": "2026-10-19T09:58:00Z"}
+
+### Register an actual time without the time (400)
+POST http://localhost:8080/api/flights/HJ221/2026-10-19/BRU/departure
+Authorization: Bearer {{flight_access_token}}
+Content-Type: application/json
+
+{}
+
 ### Cargo day overview for the load planner (only planned flights; 503 when Flight is down)
 GET http://localhost:8081/api/flights?date=2026-10-19
 Authorization: Bearer {{cargo_access_token}}
@@ -151,6 +207,13 @@ client_id=cargo-service&client_secret={{cargo-client-secret}}&grant_type=passwor
 ### Flight planner can read Cargo (200)
 GET http://localhost:8081/api/flights?date=2026-10-19
 Authorization: Bearer {{cargo_flight_planner_token}}
+
+### Load planner cannot register a departure (403; get the load planner token first)
+POST http://localhost:8080/api/flights/HJ221/2026-10-19/BRU/departure
+Authorization: Bearer {{cargo_access_token}}
+Content-Type: application/json
+
+{"actualDeparture": "2026-10-19T08:03:00Z"}
 
 ### Flight planner cannot change a position (403, even with a valid Cargo audience)
 PUT http://localhost:8081/api/cargo-plans/HJ221/2026-10-19/BRU/bookings/AKE12345KL/position
