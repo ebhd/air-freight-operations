@@ -16,9 +16,11 @@ import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
@@ -46,6 +48,8 @@ public class OutboxPublisher {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public synchronized void onCommitted(OutboxMessage message) {
+        // after the commit, so the action and this message are saved together
+        log.info("Outbox message {} ({}) stored", message.id(), message.routingKey());
         try {
             repository
                     .findById(message.id())
@@ -92,15 +96,28 @@ public class OutboxPublisher {
             sendAndConfirm(message);
             repository.save(JpaOutboxMessage.fromDomain(message.publish(Instant.now(clock))));
             log.info(
-                    "Published outbox message {} with routing key {}",
+                    "Outbox message {} ({}) delivered to RabbitMQ",
                     message.id(),
                     message.routingKey());
             return true;
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             return false;
+        } catch (DataAccessException | TransactionException exception) {
+            // rabbitmq has it, but the row stays pending so consumers get it again and ignore it
+            log.error(
+                    "Outbox message {} ({}) delivered to RabbitMQ but not marked as published;"
+                            + " it will be sent again",
+                    message.id(),
+                    message.routingKey(),
+                    exception);
+            return false;
         } catch (Exception exception) {
-            log.warn("Outbox message {} remains pending; will retry", message.id(), exception);
+            log.warn(
+                    "Outbox message {} ({}) waiting for sending; will retry",
+                    message.id(),
+                    message.routingKey(),
+                    exception);
             return false;
         }
     }

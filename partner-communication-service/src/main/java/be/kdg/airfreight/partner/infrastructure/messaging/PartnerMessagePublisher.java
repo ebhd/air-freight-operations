@@ -14,8 +14,10 @@ import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.dao.DataAccessException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
@@ -42,6 +44,8 @@ public class PartnerMessagePublisher {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public synchronized void onCommitted(PartnerMessage message) {
+        // after the commit, so the message survives a broker outage
+        log.info("Partner message {} ({}) stored", message.id().value(), message.content().type());
         try {
             repository
                     .findById(message.id())
@@ -83,17 +87,27 @@ public class PartnerMessagePublisher {
             message.markPublished();
             repository.save(message);
             log.info(
-                    "Published partner message {}, {}",
+                    "Partner message {} ({}) delivered to RabbitMQ",
                     message.id().value(),
                     message.content().type());
             return true;
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             return false;
+        } catch (DataAccessException | TransactionException exception) {
+            // rabbitmq has it, but the row stays pending so it is sent again with the same id
+            log.error(
+                    "Partner message {} ({}) delivered to RabbitMQ but not marked as published;"
+                            + " it will be sent again",
+                    message.id().value(),
+                    message.content().type(),
+                    exception);
+            return false;
         } catch (Exception exception) {
             log.warn(
-                    "Partner message {} remains pending will retry",
+                    "Partner message {} ({}) waiting for sending; will retry",
                     message.id().value(),
+                    message.content().type(),
                     exception);
             return false;
         }
