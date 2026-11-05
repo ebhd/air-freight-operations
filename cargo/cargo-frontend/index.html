@@ -9,14 +9,18 @@
     <script type="module" src="/src/ts/flights-to-load.ts"></script>
 </head>
 <body class="bg-slate-50 text-slate-800">
-<header class="flex flex-wrap items-center gap-x-6 gap-y-2 bg-blue-950 px-8 py-4 text-white">
-    <img class="-mr-3 h-10 w-10" src="/src/images/logo-mark.svg" alt="Air Freight Operations">
-    <h1 class="text-2xl font-semibold">Flights to load</h1>
-    <p class="flex-1">Date: scheduled departure date (UTC). Times: Brussels time (Europe/Brussels).</p>
-    <span id="user-name"></span>
-    <button id="sign-out" class="cursor-pointer rounded border border-white/60 px-3 py-1 hover:bg-white/10" type="button" hidden>Sign out</button>
+<header class="bg-blue-950 text-white">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-6 py-3">
+        <img class="h-9 w-9" src="/src/images/logo-mark.svg" alt="Air Freight Operations">
+        <h1 class="text-xl font-semibold">Flights to load</h1>
+        <span id="user-name" class="ml-auto text-sm text-white/80 max-sm:hidden"></span>
+        <button id="sign-out" class="cursor-pointer rounded border border-white/60 px-3 py-1 text-sm hover:bg-white/10 max-sm:ml-auto" type="button" hidden>Sign out</button>
+    </div>
 </header>
-<main class="px-8 py-4">
+<main class="mx-auto max-w-6xl px-6 py-5">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-sm text-slate-600">
+        <p>Date: scheduled departure date (UTC). Times: Brussels time (Europe/Brussels).</p>
+    </div>
     <div id="error" class="error mb-4" role="alert" hidden></div>
 
     <section id="content" hidden>

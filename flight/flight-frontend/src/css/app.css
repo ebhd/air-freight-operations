@@ -15,8 +15,6 @@
     --color-blue-900: #0b2a4a;
     --color-blue-800: #16406b;
     --color-blue-600: #24619e;
-    /* only used for links on the navy header */
-    --color-blue-200: #ffb27a;
 }
 
 @layer base {
@@ -32,7 +30,21 @@
 
     /* digits line up in the time and weight columns */
     table {
+        @apply border border-slate-200 max-md:block max-md:overflow-x-auto;
         font-variant-numeric: tabular-nums;
+    }
+
+    th {
+        @apply text-sm font-semibold text-slate-600;
+    }
+
+    /* the long reason list must not make a form wider than a small screen */
+    fieldset {
+        min-width: 0;
+    }
+
+    fieldset label {
+        max-width: 100%;
     }
 
     :focus-visible {
@@ -47,7 +59,7 @@
     }
 
     .details-list {
-        @apply grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1;
+        @apply grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-4 gap-y-1 rounded border border-slate-200 bg-white p-4 md:grid-cols-[max-content_1fr_max-content_1fr];
     }
 
     .field {
