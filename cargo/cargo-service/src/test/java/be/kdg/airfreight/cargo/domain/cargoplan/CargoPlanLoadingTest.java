@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -156,7 +157,12 @@ class CargoPlanLoadingTest {
                 context(KEY, FlightStatus.PLANNED, STD, WINDOW.closesAt().plusSeconds(1));
         assertThat(draft.loadingRefusal(closed)).isPresent();
 
-        boolean booked = draft.bookUld(new UldCode("AKE12345KL"), weight(), new AirportCode("AMS"));
+        boolean booked =
+                draft.bookUld(
+                        new UldCode("AKE12345KL"),
+                        weight(),
+                        new AirportCode("AMS"),
+                        plannedFlight(KEY));
 
         assertThat(booked).isTrue();
         assertThat(draft.getBookings()).hasSize(1);
@@ -172,7 +178,8 @@ class CargoPlanLoadingTest {
                                 finalized.bookUld(
                                         new UldCode("AKE12345KL"),
                                         weight(),
-                                        new AirportCode("AMS")))
+                                        new AirportCode("AMS"),
+                                        plannedFlight(KEY)))
                 .isInstanceOf(BookingRejectedException.class)
                 .hasMessage(
                         "Cargo plan of flight HJ221/2026-10-22/BRU is finalized, no ULD can be"
@@ -187,7 +194,12 @@ class CargoPlanLoadingTest {
                 new UldBooking(new UldCode("AKE12345KL"), weight(), new AirportCode("AMS"));
         CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of(existing));
 
-        assertThat(finalized.bookUld(new UldCode("AKE12345KL"), weight(), new AirportCode("AMS")))
+        assertThat(
+                        finalized.bookUld(
+                                new UldCode("AKE12345KL"),
+                                weight(),
+                                new AirportCode("AMS"),
+                                plannedFlight(KEY)))
                 .isFalse();
     }
 

@@ -167,7 +167,7 @@ flowchart TB
 classDiagram
     class CargoPlan {
         <<AggregateRoot>>
-        bookUld(code, weight, destination)
+        bookUld(code, weight, destination, flight)
         loadingRefusal(context)
         requireLoadingAllowed(context)
         assignPosition(code, position, context)

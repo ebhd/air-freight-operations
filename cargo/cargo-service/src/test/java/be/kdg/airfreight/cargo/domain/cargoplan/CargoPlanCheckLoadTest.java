@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -34,7 +35,8 @@ class CargoPlanCheckLoadTest {
     @Test
     void checksTheBookingsAgainstTheArrivalAirportOfTheFlight() {
         CargoPlan cargoPlan = new CargoPlan(KEY);
-        cargoPlan.bookUld(new UldCode("AKE1"), kg("1000"), new AirportCode("AMS"));
+        cargoPlan.bookUld(
+                new UldCode("AKE1"), kg("1000"), new AirportCode("AMS"), plannedFlight(KEY));
 
         LoadCheckReport report =
                 cargoPlan.checkLoad(context(Instant.parse("2026-10-22T06:00:00Z")), CHECKS);

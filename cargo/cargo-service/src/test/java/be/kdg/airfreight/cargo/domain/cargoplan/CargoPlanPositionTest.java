@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -171,7 +172,8 @@ class CargoPlanPositionTest {
     @Test
     void unpositionedBookingsStayAndRestoreKeepsPositions() {
         CargoPlan cargoPlan = planWith(booking(AKE, LoadingPosition.RL), booking(PMC, null));
-        cargoPlan.bookUld(new UldCode("AKE00002KL"), weight(), new AirportCode("ATH"));
+        cargoPlan.bookUld(
+                new UldCode("AKE00002KL"), weight(), new AirportCode("ATH"), plannedFlight(KEY));
 
         assertThat(cargoPlan.getBookings())
                 .extracting(booking -> booking.getCode().value())

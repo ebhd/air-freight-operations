@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -158,7 +159,8 @@ class CargoPlanMoveTest {
                                 old.bookUld(
                                         new UldCode("AKE00003HJ"),
                                         new Weight(new BigDecimal("100"), WeightUnit.KG),
-                                        AMS))
+                                        AMS,
+                                        plannedFlight(OLD)))
                 .isInstanceOf(BookingRejectedException.class)
                 .hasMessage(
                         "Cargo of flight HJ500/2026-11-10/BRU moved to HJ500A/2026-11-11/BRU,"

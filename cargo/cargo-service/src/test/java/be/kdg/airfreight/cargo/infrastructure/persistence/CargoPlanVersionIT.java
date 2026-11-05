@@ -180,7 +180,10 @@ class CargoPlanVersionIT {
                                                 first.assignPosition(AKE, LoadingPosition.CL, OPEN),
                                         second ->
                                                 second.bookUld(
-                                                        late, weight(), new AirportCode("AMS"))))
+                                                        late,
+                                                        weight(),
+                                                        new AirportCode("AMS"),
+                                                        PLANNED)))
                 .isInstanceOf(OptimisticLockingFailureException.class);
         assertThat(book("uld-late", late)).isEqualTo(BookUldResult.Outcome.BOOKED);
 
