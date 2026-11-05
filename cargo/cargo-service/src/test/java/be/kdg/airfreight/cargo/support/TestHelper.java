@@ -7,7 +7,10 @@ import static org.mockito.Mockito.when;
 
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanRepository;
+import be.kdg.airfreight.cargo.domain.flight.AirportCode;
+import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
+import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -25,6 +28,12 @@ public class TestHelper {
     @Autowired private CargoPlanRepository plans;
     @Autowired private PlatformTransactionManager transactions;
     @Autowired private JdbcClient jdbc;
+
+    public static FlightInformation plannedFlight(FlightKey key) {
+        Instant std = key.scheduledDepartureDate().atTime(8, 0).toInstant(ZoneOffset.UTC);
+        return new FlightInformation(
+                key, new AirportCode("ATH"), FlightStatus.PLANNED, std, std.plusSeconds(7200), std);
+    }
 
     public void save(CargoPlan plan) {
         new TransactionTemplate(transactions).executeWithoutResult(status -> plans.save(plan));

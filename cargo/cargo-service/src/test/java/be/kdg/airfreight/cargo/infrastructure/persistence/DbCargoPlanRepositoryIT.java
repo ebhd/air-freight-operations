@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.infrastructure.persistence;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -43,8 +44,13 @@ class DbCargoPlanRepositoryIT {
     @Test
     void findsOnlyTheBookingsOfThatFlight() {
         CargoPlan cargoPlan = new CargoPlan(KEY);
-        cargoPlan.bookUld(new UldCode("AKE12345KL"), weight("1250.5", WeightUnit.KG), AMS);
-        cargoPlan.bookUld(new UldCode("PMC00001KL"), weight("1000", WeightUnit.LB), ATH);
+        cargoPlan.bookUld(
+                new UldCode("AKE12345KL"),
+                weight("1250.5", WeightUnit.KG),
+                AMS,
+                plannedFlight(KEY));
+        cargoPlan.bookUld(
+                new UldCode("PMC00001KL"), weight("1000", WeightUnit.LB), ATH, plannedFlight(KEY));
         repository.save(cargoPlan);
         saveOneBooking(new FlightKey("HJ222", DAY, BRU), "OTHERNUMBER");
         saveOneBooking(new FlightKey("HJ221", DAY.plusDays(1), BRU), "OTHERDATE");
@@ -194,7 +200,8 @@ class DbCargoPlanRepositoryIT {
 
     private void saveOneBooking(FlightKey flightKey, String uldCode) {
         CargoPlan cargoPlan = new CargoPlan(flightKey);
-        cargoPlan.bookUld(new UldCode(uldCode), weight("1", WeightUnit.KG), AMS);
+        cargoPlan.bookUld(
+                new UldCode(uldCode), weight("1", WeightUnit.KG), AMS, plannedFlight(flightKey));
         repository.save(cargoPlan);
     }
 

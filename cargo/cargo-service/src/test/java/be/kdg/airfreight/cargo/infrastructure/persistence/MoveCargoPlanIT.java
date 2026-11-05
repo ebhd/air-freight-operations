@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.infrastructure.persistence;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -133,7 +134,8 @@ class MoveCargoPlanIT {
                                             late.bookUld(
                                                     PMC,
                                                     new Weight(new BigDecimal("1"), WeightUnit.KG),
-                                                    new AirportCode("AMS"));
+                                                    new AirportCode("AMS"),
+                                                    plannedFlight(OLD));
                                             repository.save(late);
                                         }))
                 .isInstanceOf(OptimisticLockingFailureException.class);

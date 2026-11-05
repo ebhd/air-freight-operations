@@ -8,7 +8,6 @@ import be.kdg.airfreight.cargo.domain.flight.DayOfMonthDateRule;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
-import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
@@ -53,14 +52,18 @@ public class BookUldService {
                         command.flightNumber(),
                         scheduledDepartureDate,
                         command.departureAirportCode());
-        requirePlannedFlight(flightKey);
+        FlightInformation flight =
+                flightRepository
+                        .findByFlightKey(flightKey)
+                        .orElseThrow(
+                                () -> new BookingRejectedException("Unknown flight " + flightKey));
 
         CargoPlan cargoPlan =
                 cargoPlanRepository
                         .findByFlightKey(flightKey)
                         .orElseGet(() -> new CargoPlan(flightKey));
         BookUldResult.Outcome outcome;
-        if (cargoPlan.bookUld(command.uldCode(), command.weight(), command.destination())) {
+        if (cargoPlan.bookUld(command.uldCode(), command.weight(), command.destination(), flight)) {
             cargoPlanRepository.save(cargoPlan);
             outcome = BookUldResult.Outcome.BOOKED;
             log.info(
@@ -97,20 +100,5 @@ public class BookUldService {
                 existing.getDestination(),
                 repeat.weight(),
                 repeat.destination());
-    }
-
-    private void requirePlannedFlight(FlightKey flightKey) {
-        FlightInformation flight =
-                flightRepository
-                        .findByFlightKey(flightKey)
-                        .orElseThrow(
-                                () -> new BookingRejectedException("Unknown flight " + flightKey));
-        if (flight.status() == FlightStatus.REPLANNED) {
-            throw new BookingRejectedException(
-                    "Flight " + flightKey + " was replanned, book on the new flight");
-        }
-        if (!flight.planned()) {
-            throw new BookingRejectedException("Flight " + flightKey + " is no longer planned");
-        }
     }
 }

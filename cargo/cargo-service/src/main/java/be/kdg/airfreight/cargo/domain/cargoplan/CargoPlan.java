@@ -2,7 +2,9 @@ package be.kdg.airfreight.cargo.domain.cargoplan;
 
 import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
+import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
+import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadCheckReport;
 import be.kdg.airfreight.cargo.domain.loadcheck.LoadChecks;
 import be.kdg.airfreight.cargo.domain.loading.LoadingContext;
@@ -64,7 +66,9 @@ public final class CargoPlan {
     }
 
     // false on a duplicate and the existing booking stays
-    public boolean bookUld(UldCode code, Weight weight, AirportCode destination) {
+    public boolean bookUld(
+            UldCode code, Weight weight, AirportCode destination, FlightInformation flight) {
+        requirePlannedForBooking(flight);
         UldBooking booking = new UldBooking(code, weight, destination);
         // a repeat changes nothing so it stays an ignored duplicate also after finalizing
         if (bookings.containsKey(code)) {
@@ -85,6 +89,17 @@ public final class CargoPlan {
         }
         bookings.put(code, booking);
         return true;
+    }
+
+    // a booking only needs a planned flight, the loading window does not limit it
+    private void requirePlannedForBooking(FlightInformation flight) {
+        if (flight.status() == FlightStatus.REPLANNED) {
+            throw new BookingRejectedException(
+                    "Flight " + flightKey + " was replanned, book on the new flight");
+        }
+        if (!flight.planned()) {
+            throw new BookingRejectedException("Flight " + flightKey + " is no longer planned");
+        }
     }
 
     public boolean isReplanned() {
