@@ -1,5 +1,6 @@
 package be.kdg.airfreight.flight.infrastructure.persistence.jpa;
 
+import be.kdg.airfreight.flight.domain.flight.Delay;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightStatus;
 import jakarta.persistence.CascadeType;
@@ -16,6 +17,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -47,9 +50,18 @@ public class JpaFlight {
             cascade = CascadeType.ALL,
             orphanRemoval = true,
             fetch = FetchType.EAGER)
-    // a fixed order so an edited delay keeps its place in the list
+    @Fetch(FetchMode.SELECT)
     @OrderBy("id")
-    private List<JpaDelay> delays = new ArrayList<>();
+    private List<JpaDepartureDelay> departureDelays = new ArrayList<>();
+
+    @OneToMany(
+            mappedBy = "flight",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.EAGER)
+    @Fetch(FetchMode.SELECT)
+    @OrderBy("id")
+    private List<JpaArrivalDelay> arrivalDelays = new ArrayList<>();
 
     protected JpaFlight() {}
 
@@ -77,10 +89,12 @@ public class JpaFlight {
                         flight.scheduledDeparture(),
                         flight.scheduledArrival(),
                         flight.status());
-        jpaFlight.delays =
-                flight.delays().stream()
-                        .map(delay -> JpaDelay.fromDomain(delay, jpaFlight))
-                        .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        for (Delay delay : flight.departureDelays()) {
+            jpaFlight.departureDelays.add(JpaDepartureDelay.fromDomain(delay, jpaFlight));
+        }
+        for (Delay delay : flight.arrivalDelays()) {
+            jpaFlight.arrivalDelays.add(JpaArrivalDelay.fromDomain(delay, jpaFlight));
+        }
         return jpaFlight;
     }
 
@@ -92,6 +106,7 @@ public class JpaFlight {
                 scheduledDeparture,
                 scheduledArrival,
                 status,
-                delays.stream().map(JpaDelay::toDomain).toList());
+                departureDelays.stream().map(JpaDepartureDelay::toDomain).toList(),
+                arrivalDelays.stream().map(JpaArrivalDelay::toDomain).toList());
     }
 }

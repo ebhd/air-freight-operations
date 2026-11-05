@@ -6,7 +6,7 @@ Stack: Java 22, Spring Boot 4.1.1, Gradle 9.7.1 (multi-project build), PostgreSQ
 | --- | --- | --- | --- |
 | `flight/flight-service` and `flight/flight-frontend` | 8080 | `flight` | Flights from SSM, delays, flight planner pages |
 | `cargo/cargo-service` and `cargo/cargo-frontend` | 8081 | `cargo` | ULD bookings, loading window, positions, load planner pages |
-| `partner-communication-service` | 8082 | `partner_communication` | FLM and MVT ED/EA messages to partners |
+| `message-formatter-service` / `partner-communication-service` | 8084 / 8082 | none / `partner_communication` | Formats FLM and MVT ED/EA / stores and publishes prepared messages to partners |
 | `simulator` | 8083 | none | Sends test SSM and ULD messages, local only |
 
 Each service uses the packages `domain`, `application`, `infrastructure` and `api`. The design is in [architecture/analyse.md](architecture/analyse.md).
@@ -91,11 +91,11 @@ Every API request needs a bearer token. Times are UTC. In the paths below, `{fli
 
 | Service | Method | Path | Role needed |
 | --- | --- | --- | --- |
-| Flight | GET | `/api/flights?date=2026-10-19` | any planner |
+| Flight | GET | `/api/flights?date=2026-10-19` (UTC departure day), `/api/flights/timeline?date=2026-10-19` (Brussels day) | any planner |
 | Flight | GET | `/api/flights/{flight}` | any planner |
 | Flight | GET | `/api/delay-reasons` | any planner |
-| Flight | POST | `/api/flights/{flight}/delays` | flight planner |
-| Flight | PATCH, DELETE | `/api/flights/{flight}/delays/{delayId}` | flight planner |
+| Flight | POST | `/api/flights/{flight}/departure-delays`, `/api/flights/{flight}/arrival-delays` | flight planner |
+| Flight | PATCH, DELETE | `/api/flights/{flight}/departure-delays/{delayId}`, `/api/flights/{flight}/arrival-delays/{delayId}` | flight planner |
 | Cargo | GET | `/api/flights?date=2026-10-19`, add `&includeDeparted=true` for departed flights | any planner |
 | Cargo | GET | `/api/cargo-plans/{flight}` | any planner |
 | Cargo | GET | `/api/cargo-plans/{flight}/loading-window` | any planner |
@@ -110,7 +110,7 @@ Errors use `ProblemDetail`: 400 for invalid input, 404 for an unknown flight, 40
 | --- | --- | --- |
 | `flight.ssm` | | SSM from the simulator |
 | `cargo.uld` | | ULD bookings, provisional format below (Q01) |
-| `flight.events` | `flight.created`, `flight.estimates-changed` | From Flight to Partner, sent through Flight's outbox |
+| `flight.events` | `flight.created`, `flight.estimates-changed` | From Flight to Formatter, sent through Flight's outbox; Formatter hands batches to Partner using `formatter.events` / `partner-messages.prepared` / `partner.messages-prepared` |
 | `partner.messages` | `flm`, `mvt.ed`, `mvt.ea` | To partners: FLM as JSON, MVT as three lines of text with UTC times |
 
 ULD booking:
@@ -128,7 +128,7 @@ ULD booking:
 }
 ```
 
-Every message has a stable ID and is processed only once. Cargo stores invalid ULD messages in its `rejected_messages` table. Flight and Partner send invalid messages to a dead-letter queue (`flight.dlq`, `partner.dlq`) and requeue temporary database failures on the original queue after the configured short retries.
+Every message has a stable ID and is processed only once. Cargo stores invalid ULD messages in its `rejected_messages` table. Flight, Formatter and Partner send invalid messages to a dead-letter queue (`flight.dlq`, Formatter's `partner.dlq`, Sender's `partner.sender.dlq`) and requeue temporary database failures and Formatter publication failures on the original queue after the configured short retries.
 
 ## Checks
 

@@ -1,6 +1,7 @@
 package be.kdg.airfreight.flight.api;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -15,7 +16,6 @@ import be.kdg.airfreight.flight.application.FlightQueryService;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReason;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
 import be.kdg.airfreight.flight.domain.flight.Delay;
-import be.kdg.airfreight.flight.domain.flight.DelayType;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightRepository;
@@ -24,6 +24,7 @@ import jakarta.servlet.ServletException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,8 @@ class DelayControllerTest {
     private static final FlightKey DEPARTED =
             new FlightKey("HJ222", LocalDate.of(2026, 10, 19), "BRU");
     private static final UUID DEPARTURE_DELAY = UUID.randomUUID();
+    private static final UUID ARRIVAL_DELAY = UUID.randomUUID();
+    private static final String DEPARTED_PATH = "/api/flights/HJ222/2026-10-19/BRU";
 
     private final Map<FlightKey, Flight> flights = new HashMap<>();
     private boolean reasonTableBroken;
@@ -66,13 +69,8 @@ class DelayControllerTest {
                         Instant.parse("2026-10-19T09:00:00Z"),
                         Instant.parse("2026-10-19T11:00:00Z"),
                         FlightStatus.DEPARTED,
-                        List.of(
-                                Delay.restore(
-                                        DEPARTURE_DELAY,
-                                        DelayType.DEPARTURE,
-                                        20,
-                                        "71",
-                                        "Fog at departure"))));
+                        List.of(Delay.restore(DEPARTURE_DELAY, 20, "71", "Fog at departure")),
+                        List.of(Delay.restore(ARRIVAL_DELAY, 15, "71", "Holding"))));
         FlightRepository flightRepository = new InMemoryFlights();
         DelayReasonRepository reasons = new OneReason();
         mvc =
@@ -154,14 +152,116 @@ class DelayControllerTest {
                 .hasRootCauseInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void arrivalDelayCanBeAddedAfterDeparture() throws Exception {
+        mvc.perform(
+                        post(DEPARTED_PATH + "/arrival-delays")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                        {"minutes":10,"reasonCode":"71","description":"Holding"}
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.arrivalDelays.length()").value(2))
+                .andExpect(jsonPath("$.arrivalDelays[1].minutes").value(10))
+                .andExpect(jsonPath("$.estimatedArrival").value("2026-10-19T11:45:00Z"));
+    }
+
+    @Test
+    void arrivalDelayCanBeEditedAfterDeparture() throws Exception {
+        mvc.perform(
+                        patch(DEPARTED_PATH + "/arrival-delays/" + ARRIVAL_DELAY)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                        {"minutes":30,"description":"Longer holding"}
+                        """))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get(DEPARTED_PATH))
+                .andExpect(jsonPath("$.arrivalDelays[0].minutes").value(30))
+                .andExpect(jsonPath("$.arrivalDelays[0].description").value("Longer holding"))
+                .andExpect(jsonPath("$.estimatedArrival").value("2026-10-19T11:50:00Z"));
+    }
+
+    @Test
+    void arrivalDelayCanBeDeletedAfterDeparture() throws Exception {
+        mvc.perform(delete(DEPARTED_PATH + "/arrival-delays/" + ARRIVAL_DELAY))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get(DEPARTED_PATH))
+                .andExpect(jsonPath("$.arrivalDelays").isEmpty())
+                .andExpect(jsonPath("$.departureDelays[0].minutes").value(20))
+                .andExpect(jsonPath("$.estimatedArrival").value("2026-10-19T11:20:00Z"));
+    }
+
+    @Test
+    void departureDelayCannotBeAddedAfterDeparture() throws Exception {
+        mvc.perform(
+                        post(DEPARTED_PATH + "/departure-delays")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                        {"minutes":10,"reasonCode":"71","description":"Fog"}
+                        """))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void arrivalDelayChangesAfterLandingAreConflicts() throws Exception {
+        Flight departed = flights.get(DEPARTED);
+        flights.put(
+                DEPARTED,
+                Flight.restore(
+                        DEPARTED,
+                        departed.arrivalAirportCode(),
+                        departed.aircraftRegistration(),
+                        departed.scheduledDeparture(),
+                        departed.scheduledArrival(),
+                        FlightStatus.LANDED,
+                        departed.departureDelays(),
+                        departed.arrivalDelays()));
+
+        mvc.perform(
+                        post(DEPARTED_PATH + "/arrival-delays")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                        {"minutes":10,"reasonCode":"71","description":"Holding"}
+                        """))
+                .andExpect(status().isConflict());
+        mvc.perform(
+                        patch(DEPARTED_PATH + "/arrival-delays/" + ARRIVAL_DELAY)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                        {"minutes":30,"description":"Longer holding"}
+                        """))
+                .andExpect(status().isConflict());
+        mvc.perform(delete(DEPARTED_PATH + "/arrival-delays/" + ARRIVAL_DELAY))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void departureDelayIdOnArrivalRouteIsNotFound() throws Exception {
+        mvc.perform(
+                        patch(DEPARTED_PATH + "/arrival-delays/" + DEPARTURE_DELAY)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                        {"minutes":30,"description":"Holding"}
+                        """))
+                .andExpect(status().isNotFound());
+    }
+
     private ResultActions addDelay(int minutes, String reasonCode, String description)
             throws Exception {
         return mvc.perform(
-                post("/api/flights/HJ221/2026-10-19/BRU/delays")
+                post("/api/flights/HJ221/2026-10-19/BRU/departure-delays")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(
                                 """
-                                {"type":"DEPARTURE","minutes":%d,"reasonCode":"%s","description":"%s"}
+                                {"minutes":%d,"reasonCode":"%s","description":"%s"}
                                 """
                                         .formatted(minutes, reasonCode, description)));
     }
@@ -170,7 +270,7 @@ class DelayControllerTest {
             throws Exception {
         return mvc.perform(
                 patch(
-                                "/api/flights/{number}/{date}/{airport}/delays/{id}",
+                                "/api/flights/{number}/{date}/{airport}/departure-delays/{id}",
                                 key.flightNumber(),
                                 key.scheduledDepartureDate(),
                                 key.departureAirportCode(),
@@ -197,6 +297,14 @@ class DelayControllerTest {
         @Override
         public List<Flight> findByScheduledDepartureDate(LocalDate date) {
             return List.of();
+        }
+
+        @Override
+        public List<Flight> findScheduledBefore(Instant end) {
+            return flights.values().stream()
+                    .filter(flight -> flight.scheduledDeparture().isBefore(end))
+                    .sorted(Comparator.comparing(Flight::scheduledDeparture))
+                    .toList();
         }
 
         @Override

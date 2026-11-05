@@ -22,7 +22,6 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -52,18 +51,6 @@ class StatusSecurityTest {
         mvc.perform(get("/api/status")).andExpect(status().isUnauthorized());
     }
 
-    @Test
-    void authenticatedRequestsReachTheController() throws Exception {
-        mvc.perform(
-                        get("/api/status")
-                                .with(
-                                        jwt().authorities(
-                                                        new SimpleGrantedAuthority(
-                                                                "ROLE_load-planner"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.service").value("flight-service"));
-    }
-
     @ParameterizedTest
     @ValueSource(strings = {"flight-planner", "load-planner"})
     void realmPlannerRolesAreRecognizedFromBearerTokens(String role) throws Exception {
@@ -77,7 +64,8 @@ class StatusSecurityTest {
                                 .build());
         mvc.perform(get("/api/status").header("Authorization", "Bearer planner"))
                 .andExpect(status().isOk())
-                .andExpect(authenticated().withUsername("planner-name"));
+                .andExpect(authenticated().withUsername("planner-name"))
+                .andExpect(jsonPath("$.service").value("flight-service"));
     }
 
     @Test

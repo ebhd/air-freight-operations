@@ -15,25 +15,41 @@ CREATE TABLE IF NOT EXISTS delay_reasons (
     label VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS flight_delays (
+CREATE TABLE IF NOT EXISTS departure_delays (
     id UUID PRIMARY KEY,
     flight_number VARCHAR(32) NOT NULL,
     scheduled_departure_date DATE NOT NULL,
     departure_airport_code CHAR(3) NOT NULL,
-    type VARCHAR(16) NOT NULL,
     minutes INTEGER NOT NULL CHECK (minutes BETWEEN 1 AND 720),
     reason_code VARCHAR(16) NOT NULL,
     description TEXT NOT NULL,
-    CONSTRAINT fk_flight_delays_flight
+    CONSTRAINT fk_departure_delays_flight
         FOREIGN KEY (flight_number, scheduled_departure_date, departure_airport_code)
         REFERENCES flights (flight_number, scheduled_departure_date, departure_airport_code),
-    CONSTRAINT fk_flight_delays_reason
+    CONSTRAINT fk_departure_delays_reason
         FOREIGN KEY (reason_code) REFERENCES delay_reasons (code)
 );
 
-CREATE INDEX IF NOT EXISTS flight_delays_flight_idx
-    ON flight_delays (flight_number, scheduled_departure_date, departure_airport_code);
+CREATE INDEX IF NOT EXISTS departure_delays_flight_idx
+    ON departure_delays (flight_number, scheduled_departure_date, departure_airport_code);
 
+CREATE TABLE IF NOT EXISTS arrival_delays (
+    id UUID PRIMARY KEY,
+    flight_number VARCHAR(32) NOT NULL,
+    scheduled_departure_date DATE NOT NULL,
+    departure_airport_code CHAR(3) NOT NULL,
+    minutes INTEGER NOT NULL CHECK (minutes BETWEEN 1 AND 720),
+    reason_code VARCHAR(16) NOT NULL,
+    description TEXT NOT NULL,
+    CONSTRAINT fk_arrival_delays_flight
+        FOREIGN KEY (flight_number, scheduled_departure_date, departure_airport_code)
+        REFERENCES flights (flight_number, scheduled_departure_date, departure_airport_code),
+    CONSTRAINT fk_arrival_delays_reason
+        FOREIGN KEY (reason_code) REFERENCES delay_reasons (code)
+);
+
+CREATE INDEX IF NOT EXISTS arrival_delays_flight_idx
+    ON arrival_delays (flight_number, scheduled_departure_date, departure_airport_code);
 
 
 CREATE TABLE IF NOT EXISTS outbox_messages (

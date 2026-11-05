@@ -55,10 +55,10 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 @ContextConfiguration(classes = FlightSecurityTest.Config.class)
 class FlightSecurityTest {
     private static final String FLIGHT = "/api/flights/HJ221/2026-10-19/BRU";
-    private static final String DELAY = FLIGHT + "/delays/" + UUID.randomUUID();
+    private static final String DELAY = FLIGHT + "/departure-delays/" + UUID.randomUUID();
     private static final String ADD_BODY =
             """
-            {"type":"DEPARTURE","minutes":20,"reasonCode":"71","description":"Fog"}
+            {"minutes":20,"reasonCode":"71","description":"Fog"}
             """;
     private static final String EDIT_BODY =
             """
@@ -87,10 +87,11 @@ class FlightSecurityTest {
         when(delayReasonQueryService.findAll()).thenReturn(List.of());
     }
 
-    @Test
-    void loadPlannerCannotAddADelay() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"departure-delays", "arrival-delays"})
+    void loadPlannerCannotAddADelay(String category) throws Exception {
         mvc.perform(
-                        post(FLIGHT + "/delays")
+                        post(FLIGHT + "/" + category)
                                 .with(planner("load-planner"))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(ADD_BODY))
@@ -98,10 +99,11 @@ class FlightSecurityTest {
         verifyNoInteractions(flightDelayService);
     }
 
-    @Test
-    void loadPlannerCannotEditADelay() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"departure-delays", "arrival-delays"})
+    void loadPlannerCannotEditADelay(String category) throws Exception {
         mvc.perform(
-                        patch(DELAY)
+                        patch(FLIGHT + "/" + category + "/" + UUID.randomUUID())
                                 .with(planner("load-planner"))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(EDIT_BODY))
@@ -109,9 +111,13 @@ class FlightSecurityTest {
         verifyNoInteractions(flightDelayService);
     }
 
-    @Test
-    void loadPlannerCannotDeleteADelay() throws Exception {
-        mvc.perform(delete(DELAY).with(planner("load-planner"))).andExpect(status().isForbidden());
+    @ParameterizedTest
+    @ValueSource(strings = {"departure-delays", "arrival-delays"})
+    void loadPlannerCannotDeleteADelay(String category) throws Exception {
+        mvc.perform(
+                        delete(FLIGHT + "/" + category + "/" + UUID.randomUUID())
+                                .with(planner("load-planner")))
+                .andExpect(status().isForbidden());
         verifyNoInteractions(flightDelayService);
     }
 
@@ -120,7 +126,16 @@ class FlightSecurityTest {
     void flightPlannerCanDeleteADelay() throws Exception {
         mvc.perform(delete(DELAY).with(planner("flight-planner")))
                 .andExpect(status().isNoContent());
-        verify(flightDelayService).removeDelay(any(), any());
+        verify(flightDelayService).removeDepartureDelay(any(), any());
+    }
+
+    @Test
+    void flightPlannerCanDeleteAnArrivalDelay() throws Exception {
+        mvc.perform(
+                        delete(FLIGHT + "/arrival-delays/" + UUID.randomUUID())
+                                .with(planner("flight-planner")))
+                .andExpect(status().isNoContent());
+        verify(flightDelayService).removeArrivalDelay(any(), any());
     }
 
     @ParameterizedTest

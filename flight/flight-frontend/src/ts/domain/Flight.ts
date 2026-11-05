@@ -18,4 +18,13 @@ export type FlightKey = {
     departureAirportCode: string;
 };
 
-export type Flight = FlightOverview & { delays: Delay[] };
+export type Flight = FlightOverview & {
+    departureDelays: Delay[];
+    arrivalDelays: Delay[];
+};
+
+export type FlightTimeline = {
+    start: string;
+    end: string;
+    flights: FlightOverview[];
+};

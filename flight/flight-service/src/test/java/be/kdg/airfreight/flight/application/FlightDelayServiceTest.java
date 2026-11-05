@@ -10,7 +10,6 @@ import be.kdg.airfreight.flight.domain.delayreason.DelayReason;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
 import be.kdg.airfreight.flight.domain.events.FlightEstimatesChanged;
 import be.kdg.airfreight.flight.domain.flight.Delay;
-import be.kdg.airfreight.flight.domain.flight.DelayType;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightRepository;
@@ -20,6 +19,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +47,7 @@ class FlightDelayServiceTest {
 
     @Test
     void departureDelayPublishesBothOldAndNewEstimates() {
-        service.addDelay(command(DelayType.DEPARTURE, 20));
+        service.addDepartureDelay(command(20));
 
         assertThat(events)
                 .singleElement()
@@ -65,7 +65,7 @@ class FlightDelayServiceTest {
 
     @Test
     void arrivalDelayPublishesAnUnchangedDepartureAndALaterArrival() {
-        service.addDelay(command(DelayType.ARRIVAL, 15));
+        service.addArrivalDelay(command(15));
 
         FlightEstimatesChanged event = (FlightEstimatesChanged) events.getFirst();
         assertThat(event.previousEstimatedDeparture()).isEqualTo(STD);
@@ -76,23 +76,23 @@ class FlightDelayServiceTest {
 
     @Test
     void descriptionOnlyEditPublishesNothing() {
-        UUID delayId = service.addDelay(command(DelayType.DEPARTURE, 20)).delays().getFirst().id();
+        UUID delayId = service.addDepartureDelay(command(20)).departureDelays().getFirst().id();
         events.clear();
 
-        service.updateDelay(new UpdateDelayCommand(KEY, delayId, 20, "Fog cleared later"));
+        service.updateDepartureDelay(new UpdateDelayCommand(KEY, delayId, 20, "Fog cleared later"));
 
         assertThat(events).isEmpty();
-        assertThat(flights.findById(KEY).orElseThrow().delays())
+        assertThat(flights.findById(KEY).orElseThrow().departureDelays())
                 .extracting(Delay::description)
                 .containsExactly("Fog cleared later");
     }
 
     @Test
     void removingTheLastDelayPublishesTheReturnToSchedule() {
-        UUID delayId = service.addDelay(command(DelayType.DEPARTURE, 20)).delays().getFirst().id();
+        UUID delayId = service.addDepartureDelay(command(20)).departureDelays().getFirst().id();
         events.clear();
 
-        service.removeDelay(KEY, delayId);
+        service.removeDepartureDelay(KEY, delayId);
 
         FlightEstimatesChanged event = (FlightEstimatesChanged) events.getFirst();
         assertThat(event.previousEstimatedDeparture()).isEqualTo(STD.plus(Duration.ofMinutes(20)));
@@ -106,19 +106,14 @@ class FlightDelayServiceTest {
 
         assertThatThrownBy(
                         () ->
-                                service.addDelay(
-                                        new AddDelayCommand(
-                                                unknown,
-                                                DelayType.DEPARTURE,
-                                                20,
-                                                "71",
-                                                "Fog at departure")))
+                                service.addDepartureDelay(
+                                        new AddDelayCommand(unknown, 20, "71", "Fog at departure")))
                 .isInstanceOf(NotFoundException.class);
         assertThat(events).isEmpty();
     }
 
-    private static AddDelayCommand command(DelayType type, int minutes) {
-        return new AddDelayCommand(KEY, type, minutes, "71", "Fog at departure");
+    private static AddDelayCommand command(int minutes) {
+        return new AddDelayCommand(KEY, minutes, "71", "Fog at departure");
     }
 
     private static final class InMemoryFlights implements FlightRepository {
@@ -137,6 +132,14 @@ class FlightDelayServiceTest {
         @Override
         public List<Flight> findByScheduledDepartureDate(LocalDate date) {
             return List.of();
+        }
+
+        @Override
+        public List<Flight> findScheduledBefore(Instant end) {
+            return flights.values().stream()
+                    .filter(flight -> flight.scheduledDeparture().isBefore(end))
+                    .sorted(Comparator.comparing(Flight::scheduledDeparture))
+                    .toList();
         }
 
         @Override
