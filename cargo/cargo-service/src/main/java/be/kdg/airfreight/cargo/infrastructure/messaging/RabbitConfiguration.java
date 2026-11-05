@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.infrastructure.messaging;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
@@ -9,8 +10,10 @@ import org.springframework.amqp.rabbit.retry.ImmediateRequeueMessageRecoverer;
 import org.springframework.amqp.rabbit.retry.MessageRecoverer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.NestedExceptionUtils;
 
 @Configuration
+@Slf4j
 class RabbitConfiguration {
     static final String ULD_QUEUE = "cargo.uld";
 
@@ -108,8 +111,17 @@ class RabbitConfiguration {
     }
 
     // after the retries put the message back on the queue instead of dropping it
+    // only an outage gets here, the listeners store rejections themselves
     @Bean
     MessageRecoverer requeueAfterRetries() {
-        return new ImmediateRequeueMessageRecoverer();
+        MessageRecoverer requeue = new ImmediateRequeueMessageRecoverer();
+        return (message, cause) -> {
+            log.error(
+                    "Requeuing message {} on queue {}, not processed after the retries: {}",
+                    message.getMessageProperties().getMessageId(),
+                    message.getMessageProperties().getConsumerQueue(),
+                    NestedExceptionUtils.getMostSpecificCause(cause).toString());
+            requeue.recover(message, cause);
+        };
     }
 }
