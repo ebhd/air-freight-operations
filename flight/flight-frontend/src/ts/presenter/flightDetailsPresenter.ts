@@ -16,6 +16,7 @@ import {
 } from '../infrastructure/flightRest';
 import { ResponseError } from '../infrastructure/restUtils';
 import { actualTimeRefusalText } from './actualTimeText';
+import { confirmDialog } from './confirmDialog';
 import { clearError, showError } from './messagePresenter';
 import { brusselsNowForInput, brusselsToInstant, formatBrusselsDateTime } from './timeFormat';
 import { initializeUser } from './userPresenter';
@@ -341,7 +342,13 @@ async function deleteDelay(delay: Delay, departure: boolean): Promise<void> {
     if (isBusy || !canChangeDelay(departure)) {
         return;
     }
-    if (!confirm('Delete this delay? Partners will be notified of the new times.')) {
+    const confirmed = await confirmDialog({
+        title: 'Delete this delay?',
+        message: 'Partners will be notified of the new times.',
+        confirmLabel: 'Delete delay',
+        danger: true,
+    });
+    if (!confirmed) {
         return;
     }
     clearError();

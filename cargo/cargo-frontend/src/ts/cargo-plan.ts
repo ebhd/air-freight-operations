@@ -1,5 +1,6 @@
 import { clearError, getJson, postJson, showError } from './api.js';
 import { hasRole } from './auth.js';
+import { confirmDialog } from './confirm-dialog.js';
 import { requiredElement } from './dom.js';
 import type { FlightOverview } from './flight-overview.js';
 import { renderLoadCheck, type LoadCheckReport } from './load-check.js';
@@ -159,7 +160,12 @@ async function checkLoad(cargoPlanPath: string): Promise<void> {
 }
 
 async function finalizeLoad(cargoPlanPath: string): Promise<void> {
-    if (!confirm('Finalize the load? Positions cannot be changed afterwards.')) {
+    const confirmed = await confirmDialog({
+        title: 'Finalize the load?',
+        message: 'Positions cannot be changed afterwards.',
+        confirmLabel: 'Finalize load',
+    });
+    if (!confirmed) {
         return;
     }
     checkButton.disabled = true;
