@@ -110,7 +110,9 @@ function displayFlightDetails(flight: Flight): void {
     document.querySelector<HTMLElement>('#flight-date')!.textContent = flight.scheduledDepartureDate;
     document.querySelector<HTMLElement>('#flight-from')!.textContent = flight.departureAirportCode;
     document.querySelector<HTMLElement>('#flight-to')!.textContent = flight.arrivalAirportCode;
-    document.querySelector<HTMLElement>('#flight-status')!.textContent = flight.status;
+    const status = document.querySelector<HTMLElement>('#flight-status')!;
+    status.textContent = flight.status;
+    status.dataset.status = flight.status;
     document.querySelector<HTMLElement>('#scheduled-departure')!.textContent = formatBrusselsDateTime(flight.scheduledDeparture);
     document.querySelector<HTMLElement>('#scheduled-arrival')!.textContent = formatBrusselsDateTime(flight.scheduledArrival);
     displayEstimate('departure', flight.scheduledDeparture, flight.estimatedDeparture);
@@ -167,13 +169,13 @@ function createDelayRow(delay: Delay, departure: boolean): HTMLTableRowElement {
         const edit = document.createElement('button');
         edit.type = 'button';
         edit.className = 'button mr-2';
-        edit.textContent = 'Edit';
+        edit.innerHTML = '<i class="fa-solid fa-pen mr-1" aria-hidden="true"></i>Edit';
         edit.disabled = isBusy;
         edit.addEventListener('click', () => editDelay(delay, departure));
         const remove = document.createElement('button');
         remove.type = 'button';
         remove.className = 'button';
-        remove.textContent = 'Delete';
+        remove.innerHTML = '<i class="fa-solid fa-trash mr-1" aria-hidden="true"></i>Delete';
         remove.disabled = isBusy;
         remove.addEventListener('click', () => deleteDelay(delay, departure));
         actions.append(edit, remove);
