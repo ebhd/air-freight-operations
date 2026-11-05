@@ -11,5 +11,7 @@ public interface JpaPartnerMessageRepository extends JpaRepository<JpaPartnerMes
     List<JpaPartnerMessage> findByStateOrderByCreatedAtUTCAscIdAsc(
             PublicationState state, Pageable pageable);
 
+    List<JpaPartnerMessage> findAllByOrderByCreatedAtUTCDescIdDesc(Pageable pageable);
+
     Optional<JpaPartnerMessage> findBySourceMessageIdAndType(UUID sourceMessageId, String type);
 }

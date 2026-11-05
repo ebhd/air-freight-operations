@@ -32,6 +32,11 @@ public class PartnerMessageService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public List<PartnerMessage> findLatest(int limit) {
+        return messages.findLatest(limit);
+    }
+
     private PartnerMessage prepare(UUID sourceMessageId, MessageContent content) {
         var existing = messages.findBySourceMessageIdAndType(sourceMessageId, content.type());
         if (existing.isPresent()) {

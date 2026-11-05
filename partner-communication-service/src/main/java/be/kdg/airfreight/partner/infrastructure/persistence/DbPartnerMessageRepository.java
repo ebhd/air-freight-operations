@@ -36,6 +36,13 @@ class DbPartnerMessageRepository implements PartnerMessageRepository {
     }
 
     @Override
+    public List<PartnerMessage> findLatest(int limit) {
+        return messages.findAllByOrderByCreatedAtUTCDescIdDesc(PageRequest.of(0, limit)).stream()
+                .map(JpaPartnerMessage::toDomain)
+                .toList();
+    }
+
+    @Override
     public Optional<PartnerMessage> findBySourceMessageIdAndType(
             UUID sourceMessageId, String type) {
         return messages.findBySourceMessageIdAndType(sourceMessageId, type)
