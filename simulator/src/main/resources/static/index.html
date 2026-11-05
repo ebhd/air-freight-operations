@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Simulator - Air Freight Operations</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="stylesheet" href="css/app.css">
+    <script type="module" src="js/app.js"></script>
+</head>
+<body>
+<header class="page-header">
+    <div class="page-column header-content">
+        <img src="images/logo-mark.svg" alt="Air Freight Operations">
+        <h1>Simulator</h1>
+    </div>
+</header>
+<main class="page-column page-main">
+    <p class="note">Flight and Cargo must be running, and a flight must exist before its ULDs are sent. A 202 answer only means published: the Flight and Cargo pages show what was processed.</p>
+    <div class="columns">
+        <section class="card">
+            <h2><i class="fa-solid fa-plane" aria-hidden="true"></i>Create flight</h2>
+            <form id="flight-form" class="form-grid">
+                <label>Flight number
+                    <input class="field" name="flightNumber" maxlength="32" required>
+                </label>
+                <label>Registration
+                    <input class="field" name="aircraftRegistration" value="SXBAA" maxlength="32" required>
+                </label>
+                <label>From
+                    <input class="field" name="departureAirportCode" value="BRU" pattern="[A-Za-z]{3}" title="Three letters" required>
+                </label>
+                <label>To
+                    <input class="field" name="arrivalAirportCode" pattern="[A-Za-z]{3}" title="Three letters" required>
+                </label>
+                <label>Departure (Brussels time)
+                    <input class="field" name="departure" type="datetime-local" required>
+                </label>
+                <label>Arrival (Brussels time)
+                    <input class="field" name="arrival" type="datetime-local" required>
+                </label>
+                <p class="note form-wide">You enter Brussels time and the page sends UTC, because the SSM uses UTC. Keep the departure within two weeks, because a ULD message only carries the day of the month.</p>
+                <div class="actions form-wide">
+                    <button class="button" type="submit"><i class="fa-solid fa-plane" aria-hidden="true"></i>Create flight</button>
+                    <button id="random-flight" class="button button-secondary" type="button"><i class="fa-solid fa-shuffle" aria-hidden="true"></i>Random flight</button>
+                </div>
+            </form>
+        </section>
+        <section class="card">
+            <h2><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i>Add ULD bookings</h2>
+            <label>ULDs per click
+                <input id="uld-count" class="field field-small" type="number" value="3" min="1" max="20" required>
+            </label>
+            <ul id="flights" class="flights"></ul>
+        </section>
+    </div>
+    <section class="card">
+        <h2><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>Results</h2>
+        <ul id="results" class="results" aria-live="polite"></ul>
+    </section>
+</main>
+<template id="flight-template">
+    <li class="flight">
+        <p class="flight-title"></p>
+        <p class="flight-details"></p>
+        <div class="actions">
+            <button class="button add-ulds" type="button"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i>Add ULDs</button>
+            <a class="flight-link" target="_blank" rel="noopener">Flight page<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+            <a class="cargo-link" target="_blank" rel="noopener">Cargo page<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+        </div>
+    </li>
+</template>
+</body>
+</html>
