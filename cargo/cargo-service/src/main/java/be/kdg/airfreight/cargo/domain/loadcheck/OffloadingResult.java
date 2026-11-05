@@ -1,4 +1,4 @@
-package be.kdg.airfreight.cargo.domain.offloading;
+package be.kdg.airfreight.cargo.domain.loadcheck;
 
 import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition;

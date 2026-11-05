@@ -1,4 +1,4 @@
-package be.kdg.airfreight.cargo.domain.offloading;
+package be.kdg.airfreight.cargo.domain.loadcheck;
 
 import static be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition.CL;
 import static be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition.CR;
