@@ -9,7 +9,10 @@ const includeDepartedInput = requiredElement('#include-departed', HTMLInputEleme
 const rows = requiredElement('#flights', HTMLTableSectionElement);
 const tableStatus = requiredElement('#table-status', HTMLElement);
 
+let latestRequestId = 0;
+
 async function loadFlights(): Promise<void> {
+    const requestId = ++latestRequestId;
     clearError();
     rows.replaceChildren();
     if (!dateInput.value) {
@@ -23,6 +26,9 @@ async function loadFlights(): Promise<void> {
         includeDeparted: String(includeDepartedInput.checked),
     });
     const result = await getJson<FlightOverview[]>(`/api/flights?${query}`);
+    if (requestId !== latestRequestId) {
+        return;
+    }
     if (!result.ok) {
         // an error is never shown as an empty day
         tableStatus.textContent = '';

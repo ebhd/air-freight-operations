@@ -9,8 +9,7 @@ export async function getJson<T>(path: string): Promise<ApiResult<T>> {
     if (!result.ok) {
         return result;
     }
-    // typescript does not check json at runtime so the requested type must match the java response
-    return { ok: true, data: (await result.data.json()) as T };
+    return readJson<T>(result.data);
 }
 
 // a 204 answer has no body so success carries null
@@ -33,7 +32,15 @@ export async function postJson<T>(path: string): Promise<ApiResult<T>> {
     if (!result.ok) {
         return result;
     }
-    return { ok: true, data: (await result.data.json()) as T };
+    return readJson<T>(result.data);
+}
+
+async function readJson<T>(response: Response): Promise<ApiResult<T>> {
+    try {
+        return { ok: true, data: (await response.json()) as T };
+    } catch {
+        return { ok: false, status: response.status, message: 'Cargo service returned an unreadable response. Reload the page.' };
+    }
 }
 
 // adds the token and turns every failed request into a failure with the message to show
@@ -65,7 +72,11 @@ async function problemBody(response: Response): Promise<ProblemDetail | null> {
     if (!contentType.includes('application/problem+json')) {
         return null;
     }
-    return (await response.json()) as ProblemDetail;
+    try {
+        return (await response.json()) as ProblemDetail;
+    } catch {
+        return null;
+    }
 }
 
 // textContent never runs server text as html
