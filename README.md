@@ -100,6 +100,10 @@ Vite forwards `/api` to the backend. Add the dev URL to the frontend client's re
 
 Run `./gradlew :simulator:bootRun`. It listens on 127.0.0.1:8083 and is never deployed.
 
+The page at `http://localhost:8083/` creates a test flight and adds ULD bookings to it, one click each. It sends the same requests as the `.http` files, takes Brussels time and sends UTC. Flight and Cargo must be running.
+
+With the `.http` files:
+
 1. Send [simulator/http/ssm.http](simulator/http/ssm.http) and wait until the flight exists.
 2. Send [simulator/http/uld.http](simulator/http/uld.http). Use a departure date within two weeks, because a ULD message only carries the day of the month.
 
