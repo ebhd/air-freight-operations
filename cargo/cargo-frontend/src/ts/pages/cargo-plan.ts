@@ -2,6 +2,7 @@ import { clearError, getJson, postJson, showError } from '../shared/api.js';
 import { hasRole } from '../shared/auth.js';
 import { confirmDialog, type ConfirmDetail } from '../shared/confirm-dialog.js';
 import { cell, requiredElement } from '../shared/dom.js';
+import { renderFloorPlan } from '../cargo/floor-plan.js';
 import type { FlightOverview } from '../cargo/flight-overview.js';
 import { renderLoadCheck, type LoadCheckReport } from '../cargo/load-check.js';
 import { loadLoadingWindow, renderLoadingWindow } from '../cargo/loading-window.js';
@@ -52,6 +53,8 @@ const flightBlock = requiredElement('#flight', HTMLDListElement);
 const windowBlock = requiredElement('#loading-window', HTMLDListElement);
 const rows = requiredElement('#bookings', HTMLTableSectionElement);
 const tableStatus = requiredElement('#table-status', HTMLElement);
+const floorPlan = requiredElement('#floor-plan', HTMLElement);
+const floorPlanImage = requiredElement('#floor-plan-image', HTMLElement);
 const retryButton = requiredElement('#retry', HTMLButtonElement);
 const readOnlyNote = requiredElement('#read-only', HTMLElement);
 const loadCheckSection = requiredElement('#load-check', HTMLElement);
@@ -94,6 +97,7 @@ async function loadCargoPlan(): Promise<void> {
     flightBlock.hidden = true;
     windowBlock.hidden = true;
     readOnlyNote.hidden = true;
+    floorPlan.hidden = true;
     loadCheckSection.hidden = true;
     finalizedNote.hidden = true;
     movedToNote.hidden = true;
@@ -136,6 +140,8 @@ async function loadCargoPlan(): Promise<void> {
     const moved = cargoPlan.data.state === 'REPLANNED';
     const editablePath = loadPlanner && loadingWindow.data.loadingAllowed && !moved ? path : null;
     renderBookings(cargoPlan.data.bookings, positions.data, editablePath);
+    renderFloorPlan(floorPlanImage, takenPositions(cargoPlan.data.bookings));
+    floorPlan.hidden = false;
     // checks only run while loading is allowed so the report shows the current load
     if (loadingWindow.data.loadingAllowed && !moved) {
         checkButton.hidden = !loadPlanner;

@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 420" class="main-deck" role="img" aria-labelledby="deck-title deck-description">
+  <title id="deck-title">Boeing 747-400 freighter main deck</title>
+  <desc id="deck-description">Top view with the nose to the left and the right side at the top. Single positions A1, A2 and B1 sit in the nose and X in the tail. Rows C to U have a left and a right position. The cargo door is next to RL.</desc>
+  <defs>
+    <!-- the dot grid of the project banner -->
+    <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="8" cy="8" r="3.5" fill="#ffffff" opacity="0.035"/>
+    </pattern>
+  </defs>
+  <style>
+    .main-deck text { font-family: "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif; fill: #ffffff; }
+    .main-deck .heading { font-family: "Montserrat Variable", Montserrat, ui-sans-serif, system-ui, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: 1px; }
+    .main-deck .accent { fill: #ff6f00; }
+    .main-deck .note { font-size: 17px; fill: #cbd5e1; }
+    .main-deck .side { font-size: 17px; font-weight: 600; fill: #cbd5e1; text-anchor: middle; }
+    .main-deck .code { font-size: 19px; font-weight: 600; fill: #0b2a4a; text-anchor: middle; dominant-baseline: central; }
+    .main-deck .on-accent { font-weight: 700; }
+    .main-deck .paired { fill: #f1f5f9; }
+    .main-deck .single { fill: #ff6f00; }
+    /* the cargo plan page sets this on a position that holds a uld */
+    .main-deck .taken rect { fill: #4ade80; }
+  </style>
+
+  <rect width="1360" height="420" fill="#0b2a4a"/>
+  <rect width="1360" height="420" fill="url(#dots)"/>
+
+  <!-- header, like the page headers -->
+  <svg x="36" y="22" width="68" height="68" viewBox="181 130 640 640">
+    <path fill="#ffffff" d="M 689.2 348.6 C 751.4 348.6 813.5 390.5 813.5 409.5 C 813.5 423.0 800.0 428.4 781.1 428.4 L 577.0 428.4 L 393.2 582.4 Q 377.0 594.6 354.1 594.6 L 318.9 594.6 L 439.2 428.4 L 245.9 428.4 Q 227.0 428.4 220.3 409.5 L 186.5 310.8 L 217.6 310.8 Q 229.7 310.8 237.8 318.9 L 277.0 360.8 Q 287.8 374.3 305.4 373.0 L 439.2 362.2 L 348.6 186.5 L 386.5 186.5 Q 408.1 189.2 424.3 204.1 L 558.1 347.3 Z"/>
+    <path fill="#ff6f00" fill-rule="evenodd" d="M 360.8 623.0 L 391.9 609.5 L 506.8 677.0 L 506.8 536.5 L 635.1 454.1 L 677.0 454.1 L 677.0 623.0 L 518.9 716.2 Z M 532.4 551.4 L 532.4 679.7 L 650.0 609.5 L 650.0 481.1 Z"/>
+  </svg>
+  <text class="heading" x="120" y="54">BOEING 747-400 FREIGHTER <tspan class="accent">MAIN DECK</tspan></text>
+  <text class="note" x="120" y="81">Top view, nose to the left</text>
+  <rect y="106" width="1360" height="3" fill="#ff6f00"/>
+
+  <text class="side" x="724" y="147">Right side (R)</text>
+
+  <!-- fuselage -->
+  <path fill="#16406b" stroke="#24619e" stroke-width="2" d="M 36 226 C 62 178, 130 164, 232 164 L 1218 164 C 1282 164, 1334 216, 1334 242 C 1334 268, 1282 316, 1218 316 L 232 316 C 130 316, 62 306, 36 258 Q 30 242, 36 226 Z"/>
+
+  <g>
+    <!-- single positions in the nose, not part of a left and right pair -->
+    <g data-position="A1"><rect class="single" x="84" y="206" width="50" height="72" rx="4"/><text class="code on-accent" x="109" y="243">A1</text></g>
+    <g data-position="A2"><rect class="single" x="136" y="206" width="50" height="72" rx="4"/><text class="code on-accent" x="161" y="243">A2</text></g>
+    <g data-position="B1"><rect class="single" x="188" y="186" width="48" height="72" rx="4"/><text class="code on-accent" x="212" y="223">B1</text></g>
+    <!-- right side of the aircraft is at the top of the drawing -->
+    <g data-position="CR"><rect class="paired" x="240" y="186" width="60" height="54" rx="4"/><text class="code" x="270" y="214">CR</text></g>
+    <g data-position="DR"><rect class="paired" x="304" y="186" width="60" height="54" rx="4"/><text class="code" x="334" y="214">DR</text></g>
+    <g data-position="ER"><rect class="paired" x="368" y="186" width="60" height="54" rx="4"/><text class="code" x="398" y="214">ER</text></g>
+    <g data-position="FR"><rect class="paired" x="432" y="186" width="60" height="54" rx="4"/><text class="code" x="462" y="214">FR</text></g>
+    <g data-position="GR"><rect class="paired" x="496" y="186" width="60" height="54" rx="4"/><text class="code" x="526" y="214">GR</text></g>
+    <g data-position="HR"><rect class="paired" x="560" y="186" width="60" height="54" rx="4"/><text class="code" x="590" y="214">HR</text></g>
+    <g data-position="JR"><rect class="paired" x="624" y="186" width="60" height="54" rx="4"/><text class="code" x="654" y="214">JR</text></g>
+    <g data-position="KR"><rect class="paired" x="688" y="186" width="60" height="54" rx="4"/><text class="code" x="718" y="214">KR</text></g>
+    <g data-position="LR"><rect class="paired" x="752" y="186" width="60" height="54" rx="4"/><text class="code" x="782" y="214">LR</text></g>
+    <g data-position="MR"><rect class="paired" x="816" y="186" width="60" height="54" rx="4"/><text class="code" x="846" y="214">MR</text></g>
+    <g data-position="PR"><rect class="paired" x="880" y="186" width="60" height="54" rx="4"/><text class="code" x="910" y="214">PR</text></g>
+    <g data-position="RR"><rect class="paired" x="944" y="186" width="60" height="54" rx="4"/><text class="code" x="974" y="214">RR</text></g>
+    <g data-position="SR"><rect class="paired" x="1020" y="186" width="60" height="54" rx="4"/><text class="code" x="1050" y="214">SR</text></g>
+    <g data-position="TR"><rect class="paired" x="1084" y="186" width="60" height="54" rx="4"/><text class="code" x="1114" y="214">TR</text></g>
+    <g data-position="UR"><rect class="paired" x="1148" y="186" width="60" height="54" rx="4"/><text class="code" x="1178" y="214">UR</text></g>
+    <!-- left side of the aircraft is at the bottom of the drawing -->
+    <g data-position="CL"><rect class="paired" x="240" y="244" width="60" height="54" rx="4"/><text class="code" x="270" y="272">CL</text></g>
+    <g data-position="DL"><rect class="paired" x="304" y="244" width="60" height="54" rx="4"/><text class="code" x="334" y="272">DL</text></g>
+    <g data-position="EL"><rect class="paired" x="368" y="244" width="60" height="54" rx="4"/><text class="code" x="398" y="272">EL</text></g>
+    <g data-position="FL"><rect class="paired" x="432" y="244" width="60" height="54" rx="4"/><text class="code" x="462" y="272">FL</text></g>
+    <g data-position="GL"><rect class="paired" x="496" y="244" width="60" height="54" rx="4"/><text class="code" x="526" y="272">GL</text></g>
+    <g data-position="HL"><rect class="paired" x="560" y="244" width="60" height="54" rx="4"/><text class="code" x="590" y="272">HL</text></g>
+    <g data-position="JL"><rect class="paired" x="624" y="244" width="60" height="54" rx="4"/><text class="code" x="654" y="272">JL</text></g>
+    <g data-position="KL"><rect class="paired" x="688" y="244" width="60" height="54" rx="4"/><text class="code" x="718" y="272">KL</text></g>
+    <g data-position="LL"><rect class="paired" x="752" y="244" width="60" height="54" rx="4"/><text class="code" x="782" y="272">LL</text></g>
+    <g data-position="ML"><rect class="paired" x="816" y="244" width="60" height="54" rx="4"/><text class="code" x="846" y="272">ML</text></g>
+    <g data-position="PL"><rect class="paired" x="880" y="244" width="60" height="54" rx="4"/><text class="code" x="910" y="272">PL</text></g>
+    <g data-position="RL"><rect class="paired" x="944" y="244" width="60" height="54" rx="4"/><text class="code" x="974" y="272">RL</text></g>
+    <g data-position="SL"><rect class="paired" x="1020" y="244" width="60" height="54" rx="4"/><text class="code" x="1050" y="272">SL</text></g>
+    <g data-position="TL"><rect class="paired" x="1084" y="244" width="60" height="54" rx="4"/><text class="code" x="1114" y="272">TL</text></g>
+    <g data-position="UL"><rect class="paired" x="1148" y="244" width="60" height="54" rx="4"/><text class="code" x="1178" y="272">UL</text></g>
+    <!-- single position in the tail -->
+    <g data-position="X">
+      <rect class="single" x="1230" y="217" width="50" height="50" rx="4" transform="rotate(16 1255 242)"/>
+      <text class="code on-accent" x="1255" y="243">X</text>
+    </g>
+  </g>
+
+  <!-- cargo door next to RL -->
+  <rect x="944" y="312" width="60" height="8" rx="2" fill="#ffffff"/>
+  <text class="side" x="974" y="344" style="fill: #ffffff">Cargo door at RL</text>
+  <text class="side" x="592" y="344">Left side (L)</text>
+
+  <!-- legend -->
+  <rect class="single" x="36" y="376" width="20" height="20" rx="3"/>
+  <text class="note" x="66" y="392">A1, A2, B1 and X: not counted in the lateral balance</text>
+  <rect class="paired" x="640" y="376" width="20" height="20" rx="3"/>
+  <text class="note" x="670" y="392">L and R positions: weight added up per side</text>
+</svg>
