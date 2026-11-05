@@ -10,6 +10,10 @@ Stack: Java 22, Spring Boot 4.1.1, Gradle 9.7.1 (multi-project build), PostgreSQ
 | `message-formatter-service` | 8084 | none | Formats FLM, MVT and CPM |
 | `simulator` | 8083 | none | Test page and SSM and ULD messages, local only |
 
+## Main deck
+
+![Boeing 747-400 freighter main deck with its 34 loading positions](docs/screenshots/main-deck.png)
+
 ## Screenshots
 
 | Flights | Timeline |
