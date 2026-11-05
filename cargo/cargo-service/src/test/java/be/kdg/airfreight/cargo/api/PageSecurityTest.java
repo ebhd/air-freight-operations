@@ -84,7 +84,7 @@ class PageSecurityTest {
 
     // there is no favicon file so 404 shows that security let the request through
     @Test
-    void faviconLoadsWithoutToken() throws Exception {
+    void faviconNeedsNoToken() throws Exception {
         mvc.perform(get("/favicon.ico")).andExpect(status().isNotFound());
     }
 

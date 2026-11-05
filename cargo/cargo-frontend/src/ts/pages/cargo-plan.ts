@@ -1,7 +1,7 @@
 import { clearError, getJson, postJson, showError } from '../shared/api.js';
 import { hasRole } from '../shared/auth.js';
 import { confirmDialog, type ConfirmDetail } from '../shared/confirm-dialog.js';
-import { requiredElement } from '../shared/dom.js';
+import { cell, requiredElement } from '../shared/dom.js';
 import type { FlightOverview } from '../cargo/flight-overview.js';
 import { renderLoadCheck, type LoadCheckReport } from '../cargo/load-check.js';
 import { loadLoadingWindow, renderLoadingWindow } from '../cargo/loading-window.js';
@@ -150,7 +150,7 @@ function renderFinalized(finalizedAt: string | null): void {
     finalizedNote.textContent =
         finalizedAt === null
             ? ''
-            : `Load finalized at ${formatBrusselsDateTime(finalizedAt)}. Positions can no longer change.`;
+            : `Load finalized at ${formatBrusselsDateTime(finalizedAt)} (Brussels). Positions can no longer change.`;
 }
 
 function renderMovedTo(movedTo: MovedTo | null): void {
@@ -260,7 +260,7 @@ function renderBookings(
 
 function bookingRow(booking: UldBookingResponse, position: string | HTMLElement): HTMLTableRowElement {
     const row = document.createElement('tr');
-    row.className = '*:border-b *:border-slate-300 *:px-3 *:py-2';
+    row.className = 'data-row';
     row.append(
         cell(booking.uldCode),
         cell(weightFormat.format(booking.weight.value)),
@@ -295,13 +295,6 @@ async function savePosition(cargoPlanPath: string, uldCode: string, select: HTML
     if (!result.ok) {
         showError(positionNotChangedText(uldCode, result));
     }
-}
-
-// append adds text as plain text and never as html
-function cell(content: string | HTMLElement): HTMLTableCellElement {
-    const td = document.createElement('td');
-    td.append(content);
-    return td;
 }
 
 function renderError(status: number | null, message: string): void {

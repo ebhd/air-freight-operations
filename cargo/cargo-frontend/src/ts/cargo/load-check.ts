@@ -1,4 +1,6 @@
 // no api import so vitest can load this module without keycloak
+import { cell } from '../shared/dom.js';
+
 // one check of the report as sent by LoadCheckReportResponse
 export type LoadCheckResult = {
     name: string;
@@ -30,7 +32,7 @@ export function renderLoadCheck(rows: HTMLTableSectionElement, report: LoadCheck
     rows.replaceChildren(
         ...report.results.map((result) => {
             const row = document.createElement('tr');
-            row.className = '*:border-b *:border-slate-300 *:px-3 *:py-2';
+            row.className = 'data-row';
             if (!result.passed) {
                 row.classList.add(result.severity === 'HARD' ? 'bg-red-50' : 'bg-amber-50');
             }
@@ -43,11 +45,4 @@ export function renderLoadCheck(rows: HTMLTableSectionElement, report: LoadCheck
             return row;
         }),
     );
-}
-
-// append adds text as plain text and never as html
-function cell(text: string): HTMLTableCellElement {
-    const td = document.createElement('td');
-    td.append(text);
-    return td;
 }

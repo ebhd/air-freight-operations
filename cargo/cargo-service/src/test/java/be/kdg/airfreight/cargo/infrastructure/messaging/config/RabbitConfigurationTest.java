@@ -15,7 +15,7 @@ class RabbitConfigurationTest {
 
     // the names as flight publishes them, so a typo in a constant fails here
     @Test
-    void bindsEveryFlightQueueToFlightsExchange() {
+    void bindsTheSixFlightQueuesToFlightsExchange() {
         runner.run(
                 context ->
                         assertThat(context.getBeansOfType(Binding.class).values())
