@@ -26,7 +26,6 @@
 <main class="mx-auto max-w-6xl px-6 py-5">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-sm text-slate-600">
         <a id="back-to-flights" class="font-medium text-blue-800 underline hover:text-blue-600" href="../index.html"><i class="fa-solid fa-arrow-left mr-1" aria-hidden="true"></i>Back to flights</a>
-        <p>Date: scheduled departure date (UTC). Times: Brussels time (Europe/Brussels).</p>
     </div>
     <div id="error" class="error mb-4" role="alert" hidden></div>
     <p id="page-status" class="mb-4" role="status"></p>
@@ -48,19 +47,19 @@
             <h2 id="editor-title" class="mb-3 text-xl font-semibold">Add delay</h2>
             <form id="delay-form">
                 <fieldset id="delay-fields" class="flex flex-wrap items-end gap-4">
-                    <label class="flex flex-col gap-1">Delay category
+                    <label class="field-label">Delay category
                         <select id="delay-category" class="field" required>
                             <option value="departure">Departure</option>
                             <option value="arrival">Arrival</option>
                         </select>
                     </label>
-                    <label class="flex flex-col gap-1">Minutes
+                    <label class="field-label">Minutes
                         <input id="delay-minutes" class="field w-28" type="number" min="1" max="720" step="1" required>
                     </label>
-                    <label class="flex flex-col gap-1">IATA reason
+                    <label class="field-label">IATA reason
                         <select id="delay-reason" class="field max-w-full" required></select>
                     </label>
-                    <label class="flex grow flex-col gap-1">Description
+                    <label class="field-label grow">Description
                         <input id="delay-description" class="field" type="text" required>
                     </label>
                     <button id="save-delay" class="button" type="submit">Add delay</button>
