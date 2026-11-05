@@ -24,7 +24,7 @@
     <div id="error" class="error mb-4" role="alert" hidden></div>
 
     <section id="content" hidden>
-        <button id="retry" class="mb-4 cursor-pointer rounded bg-blue-900 px-3 py-2 font-medium text-white hover:bg-blue-800" type="button" hidden>Try again</button>
+        <button id="retry" class="button mb-4 bg-blue-900 hover:bg-blue-800" type="button" hidden>Try again</button>
         <dl id="flight" class="details-list" hidden>
             <dt class="font-semibold">Flight</dt>
             <dd id="flight-number"></dd>
@@ -56,7 +56,7 @@
         <p id="read-only" class="mb-2" hidden></p>
         <table class="w-full bg-white">
             <thead>
-            <tr class="bg-slate-200 *:border-b *:border-slate-300 *:px-3 *:py-2 *:text-left">
+            <tr class="table-head">
                 <th>ULD code</th>
                 <th>Weight</th>
                 <th>Unit</th>
@@ -71,13 +71,13 @@
         <section id="load-check" class="mt-6" hidden>
             <h2 class="mb-2 text-xl font-semibold"><i class="fa-solid fa-clipboard-check mr-2 text-accent" aria-hidden="true"></i>Load check</h2>
             <div class="mb-2 flex flex-wrap gap-2">
-                <button id="check-load" class="cursor-pointer rounded bg-blue-900 px-3 py-2 font-medium text-white hover:bg-blue-800 disabled:opacity-50" type="button" hidden><i class="fa-solid fa-clipboard-check mr-1" aria-hidden="true"></i>Check load</button>
-                <button id="finalize-load" class="cursor-pointer rounded bg-green-800 px-3 py-2 font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50" type="button" hidden disabled><i class="fa-solid fa-lock mr-1" aria-hidden="true"></i>Finalize load</button>
+                <button id="check-load" class="button bg-blue-900 hover:bg-blue-800" type="button" hidden><i class="fa-solid fa-clipboard-check mr-1" aria-hidden="true"></i>Check load</button>
+                <button id="finalize-load" class="button bg-green-800 hover:bg-green-700 disabled:cursor-not-allowed" type="button" hidden disabled><i class="fa-solid fa-lock mr-1" aria-hidden="true"></i>Finalize load</button>
             </div>
             <p id="load-check-status" class="mb-2" role="status"></p>
             <table class="w-full bg-white">
                 <thead>
-                <tr class="bg-slate-200 *:border-b *:border-slate-300 *:px-3 *:py-2 *:text-left">
+                <tr class="table-head">
                     <th>Check</th>
                     <th>Type</th>
                     <th>Result</th>

@@ -1,5 +1,5 @@
 import { clearError, getJson, showError } from '../shared/api.js';
-import { requiredElement } from '../shared/dom.js';
+import { cell, requiredElement } from '../shared/dom.js';
 import type { FlightOverview } from '../cargo/flight-overview.js';
 import { initializePage } from '../shared/page.js';
 import { formatBrusselsDateTime, utcToday } from '../shared/time.js';
@@ -50,7 +50,7 @@ function flightRow(flight: FlightOverview): HTMLTableRowElement {
     link.textContent = flight.flightNumber;
 
     const row = document.createElement('tr');
-    row.className = '*:border-b *:border-slate-300 *:px-3 *:py-2';
+    row.className = 'data-row';
     row.append(
         cell(link),
         cell(flight.scheduledDepartureDate),
@@ -69,13 +69,6 @@ function statusBadge(status: string): HTMLElement {
     badge.dataset.status = status;
     badge.textContent = status;
     return badge;
-}
-
-// append adds text as plain text and never as html
-function cell(content: string | HTMLElement): HTMLTableCellElement {
-    const td = document.createElement('td');
-    td.append(content);
-    return td;
 }
 
 // the key comes from the row itself and not from the date input

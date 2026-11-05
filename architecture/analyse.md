@@ -311,7 +311,7 @@ classDiagram
 | Policy | `LoadingWindowPolicy` (configurable offsets); lateral balance tolerance (configurable) |
 | Domain checks | `LoadChecks` runs the `LoadCheck` implementations `LateralBalanceCheck`, `OffloadingCheck` and `AllCargoLoadedCheck` (domain services) |
 | Domain event | `LoadFinalized` |
-| Repository | `CargoPlanRepository` |
+| Repository | `CargoPlanRepository`; `FlightRepository` and `FlightCopyRepository` for Cargo's copy of the flights |
 | Actors | Load planner |
 
 Invariants on `CargoPlan`:

@@ -2,7 +2,7 @@ package be.kdg.airfreight.cargo.infrastructure.persistence;
 
 import be.kdg.airfreight.cargo.infrastructure.persistence.jpa.JpaRejectedMessage;
 import be.kdg.airfreight.cargo.infrastructure.persistence.jpa.JpaRejectedMessageRepository;
-import java.time.Instant;
+import java.time.Clock;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,9 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class RejectedMessageStore {
     private final JpaRejectedMessageRepository rejectedMessages;
+    private final Clock clock;
 
-    RejectedMessageStore(JpaRejectedMessageRepository rejectedMessages) {
+    RejectedMessageStore(JpaRejectedMessageRepository rejectedMessages, Clock clock) {
         this.rejectedMessages = rejectedMessages;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -27,7 +29,7 @@ public class RejectedMessageStore {
             log.info("Rejected message {} was redelivered; already stored", messageId);
             return;
         }
-        rejectedMessages.save(new JpaRejectedMessage(messageId, payload, reason, Instant.now()));
+        rejectedMessages.save(new JpaRejectedMessage(messageId, payload, reason, clock.instant()));
         log.warn("Rejected message {}: {}", messageId, reason);
     }
 }

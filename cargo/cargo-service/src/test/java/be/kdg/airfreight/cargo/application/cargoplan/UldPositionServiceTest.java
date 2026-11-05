@@ -91,7 +91,7 @@ class UldPositionServiceTest {
     }
 
     @Test
-    void unbookedUldOrFlightWithoutPlanIsNotFound() {
+    void flightWithoutPlanHasNoBookedUld() {
         when(flights.findByFlightKey(KEY)).thenReturn(Optional.of(flight()));
         when(cargoPlans.findByFlightKey(KEY)).thenReturn(Optional.empty());
         UldPositionService service = service(DEFAULT_POLICY, INSIDE);

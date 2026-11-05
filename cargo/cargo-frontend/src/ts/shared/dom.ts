@@ -6,3 +6,10 @@ export function requiredElement<T extends Element>(selector: string, type: new (
     }
     return element;
 }
+
+// append adds text as plain text and never as html
+export function cell(content: string | HTMLElement): HTMLTableCellElement {
+    const td = document.createElement('td');
+    td.append(content);
+    return td;
+}

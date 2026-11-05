@@ -115,7 +115,7 @@ class LoadCheckControllerTest {
     }
 
     @Test
-    void flightWithoutBookingsGetsAnEmptyReport() throws Exception {
+    void flightWithoutBookingsGetsAllThreeChecks() throws Exception {
         givenFlight();
 
         mvcAt(INSIDE)

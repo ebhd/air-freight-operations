@@ -114,7 +114,7 @@ class FlightEventListenerTest {
     }
 
     @Test
-    void landedWithoutAnAirportIsRejectedWithTheReason() {
+    void landedWithoutAnAirportIsRejected() {
         String payload = landed("departureAirportCode", null);
 
         listener.receiveLanded(message(payload));

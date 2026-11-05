@@ -14,6 +14,7 @@ import be.kdg.airfreight.cargo.infrastructure.messaging.config.RabbitConfigurati
 import be.kdg.airfreight.cargo.infrastructure.persistence.MessageReceipts;
 import be.kdg.airfreight.cargo.infrastructure.persistence.RejectedMessageStore;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
@@ -35,16 +36,19 @@ class UldRabbitListener {
     private final RejectedMessageStore rejectedMessageStore;
     private final MessageReceipts messageReceipts;
     private final JsonMapper jsonMapper;
+    private final Clock clock;
 
     UldRabbitListener(
             BookUldService bookUldService,
             RejectedMessageStore rejectedMessageStore,
             MessageReceipts messageReceipts,
-            JsonMapper jsonMapper) {
+            JsonMapper jsonMapper,
+            Clock clock) {
         this.bookUldService = bookUldService;
         this.rejectedMessageStore = rejectedMessageStore;
         this.messageReceipts = messageReceipts;
         this.jsonMapper = jsonMapper;
+        this.clock = clock;
     }
 
     @RabbitListener(queues = RabbitConfiguration.ULD_QUEUE)
@@ -89,7 +93,7 @@ class UldRabbitListener {
     }
 
     private void book(String messageId, String payload, UldMessage uldMessage) {
-        Instant firstReceivedAt = messageReceipts.firstReceivedAt(messageId, Instant.now());
+        Instant firstReceivedAt = messageReceipts.firstReceivedAt(messageId, clock.instant());
         try {
             bookUldService.bookUld(toCommand(messageId, uldMessage, firstReceivedAt));
         } catch (FlightLookupUnavailableException

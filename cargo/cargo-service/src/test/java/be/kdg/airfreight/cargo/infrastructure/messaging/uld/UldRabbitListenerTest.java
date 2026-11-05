@@ -29,6 +29,7 @@ import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import be.kdg.airfreight.cargo.infrastructure.persistence.MessageReceipts;
 import be.kdg.airfreight.cargo.infrastructure.persistence.RejectedMessageStore;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
@@ -60,10 +61,15 @@ class UldRabbitListenerTest {
     private final MessageReceipts receipts = mock(MessageReceipts.class);
     private final UldRabbitListener listener =
             new UldRabbitListener(
-                    new BookUldService(flights, cargoPlans, mock(ProcessedMessageRepository.class)),
+                    new BookUldService(
+                            flights,
+                            cargoPlans,
+                            mock(ProcessedMessageRepository.class),
+                            Clock.systemUTC()),
                     rejectedMessages,
                     receipts,
-                    JSON);
+                    JSON,
+                    Clock.systemUTC());
 
     @BeforeEach
     void firstReceipt() {
@@ -264,7 +270,8 @@ class UldRabbitListenerTest {
                         bookUldService,
                         rejectedMessageStore,
                         messageReceipts,
-                        JsonMapper.builder().build());
+                        JsonMapper.builder().build(),
+                        Clock.systemUTC());
 
         @Test
         void booksAVersionOneMessage() {

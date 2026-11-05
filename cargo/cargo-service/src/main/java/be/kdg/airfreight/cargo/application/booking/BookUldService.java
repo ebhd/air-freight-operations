@@ -8,7 +8,7 @@ import be.kdg.airfreight.cargo.domain.flight.DayOfMonthDateRule;
 import be.kdg.airfreight.cargo.domain.flight.FlightInformation;
 import be.kdg.airfreight.cargo.domain.flight.FlightKey;
 import be.kdg.airfreight.cargo.domain.flight.FlightRepository;
-import java.time.Instant;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -21,14 +21,17 @@ public class BookUldService {
     private final FlightRepository flightRepository;
     private final CargoPlanRepository cargoPlanRepository;
     private final ProcessedMessageRepository processedMessageRepository;
+    private final Clock clock;
 
     public BookUldService(
             FlightRepository flightRepository,
             CargoPlanRepository cargoPlanRepository,
-            ProcessedMessageRepository processedMessageRepository) {
+            ProcessedMessageRepository processedMessageRepository,
+            Clock clock) {
         this.flightRepository = flightRepository;
         this.cargoPlanRepository = cargoPlanRepository;
         this.processedMessageRepository = processedMessageRepository;
+        this.clock = clock;
     }
 
     @Transactional
@@ -78,7 +81,11 @@ public class BookUldService {
 
         processedMessageRepository.save(
                 new ProcessedMessage(
-                        command.messageId(), Instant.now(), flightKey, command.uldCode(), outcome));
+                        command.messageId(),
+                        clock.instant(),
+                        flightKey,
+                        command.uldCode(),
+                        outcome));
         return new BookUldResult(flightKey, outcome);
     }
 

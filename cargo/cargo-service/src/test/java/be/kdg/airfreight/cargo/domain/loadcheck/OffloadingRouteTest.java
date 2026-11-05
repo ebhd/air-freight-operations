@@ -75,7 +75,7 @@ class OffloadingRouteTest {
             value = LoadingPosition.class,
             names = {"A1", "A2", "B1", "X"},
             mode = EnumSource.Mode.EXCLUDE)
-    void routesNeverSwitchSide(LoadingPosition position) {
+    void routesStayOnTheOwnSideUntilTheDoor(LoadingPosition position) {
         List<LoadingPosition> route = OffloadingCheck.routeToDoor(position);
 
         assertThat(route).doesNotContain(position);
