@@ -6,8 +6,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 
-import be.kdg.airfreight.flight.application.FlightReplanningService;
-import be.kdg.airfreight.flight.application.command.ReplanFlightCommand;
+import be.kdg.airfreight.flight.application.replanning.FlightReplanningService;
+import be.kdg.airfreight.flight.application.replanning.ReplanFlightCommand;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReason;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
 import be.kdg.airfreight.flight.domain.flight.Delay;

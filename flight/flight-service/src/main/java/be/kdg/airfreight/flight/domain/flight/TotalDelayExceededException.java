@@ -1,6 +1,7 @@
 package be.kdg.airfreight.flight.domain.flight;
 
 import be.kdg.airfreight.flight.domain.DomainRuleViolationException;
+import be.kdg.airfreight.flight.domain.flight.replanning.Replanning;
 
 // the change itself is valid but all delays together would pass 12 hours
 public class TotalDelayExceededException extends DomainRuleViolationException {

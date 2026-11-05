@@ -25,9 +25,11 @@ class FlightMessageRecoverer implements MessageRecoverer {
     private final MessageRecoverer requeueRecoverer = new ImmediateRequeueMessageRecoverer();
     private final MessageRecoverer deadLetterRecoverer = new RejectAndDontRequeueRecoverer();
     private final RejectedMessageStore rejectedMessages;
+    private final JsonMapper jsonMapper;
 
-    FlightMessageRecoverer(RejectedMessageStore rejectedMessages) {
+    FlightMessageRecoverer(RejectedMessageStore rejectedMessages, JsonMapper jsonMapper) {
         this.rejectedMessages = rejectedMessages;
+        this.jsonMapper = jsonMapper;
     }
 
     @Override
@@ -75,8 +77,7 @@ class FlightMessageRecoverer implements MessageRecoverer {
             return messageId;
         }
         try {
-            String bodyId =
-                    JsonMapper.shared().readTree(message.getBody()).path("messageId").asString("");
+            String bodyId = jsonMapper.readTree(message.getBody()).path("messageId").asString("");
             return bodyId.isBlank() ? null : bodyId;
         } catch (JacksonException unreadableBody) {
             return null; // the content and reason are still stored, only without an id

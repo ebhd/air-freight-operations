@@ -3,7 +3,8 @@ package be.kdg.airfreight.flight.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import be.kdg.airfreight.flight.application.command.ReplanFlightCommand;
+import be.kdg.airfreight.flight.application.replanning.FlightReplanningService;
+import be.kdg.airfreight.flight.application.replanning.ReplanFlightCommand;
 import be.kdg.airfreight.flight.domain.NotFoundException;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReason;
 import be.kdg.airfreight.flight.domain.delayreason.DelayReasonRepository;
@@ -14,8 +15,9 @@ import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.domain.flight.FlightStatus;
 import be.kdg.airfreight.flight.domain.flight.InvalidDelayException;
-import be.kdg.airfreight.flight.domain.flight.Replanning;
-import be.kdg.airfreight.flight.domain.flight.ReplanningRefusedException;
+import be.kdg.airfreight.flight.domain.flight.replanning.Replanning;
+import be.kdg.airfreight.flight.domain.flight.replanning.ReplanningRefusal;
+import be.kdg.airfreight.flight.domain.flight.replanning.ReplanningRefusedException;
 import be.kdg.airfreight.flight.support.InMemoryFlights;
 import java.time.Clock;
 import java.time.Instant;
@@ -99,8 +101,7 @@ class FlightReplanningServiceTest {
                         ReplanningRefusedException.class,
                         refused ->
                                 assertThat(refused.refusal())
-                                        .isEqualTo(
-                                                ReplanningRefusedException.NO_FREE_FLIGHT_NUMBER));
+                                        .isEqualTo(ReplanningRefusal.NO_FREE_FLIGHT_NUMBER));
         assertThat(flights.findById(KEY).orElseThrow().status()).isEqualTo(FlightStatus.PLANNED);
         assertThat(events).isEmpty();
     }

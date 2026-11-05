@@ -24,7 +24,7 @@ public record FlightResponse(
         List<DelayResponse> arrivalDelays,
         ReplanningResponse replanning,
         ReplacedFlightResponse replaces) {
-    static FlightResponse from(Flight flight) {
+    public static FlightResponse from(Flight flight) {
         return new FlightResponse(
                 flight.key().flightNumber(),
                 flight.key().scheduledDepartureDate(),

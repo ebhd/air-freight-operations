@@ -16,11 +16,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import be.kdg.airfreight.flight.api.delayreason.DelayReasonController;
 import be.kdg.airfreight.flight.api.flight.FlightController;
+import be.kdg.airfreight.flight.api.flight.actualtime.FlightActualTimeController;
+import be.kdg.airfreight.flight.api.flight.delay.FlightDelayController;
+import be.kdg.airfreight.flight.api.flight.replanning.FlightReplanningController;
 import be.kdg.airfreight.flight.application.DelayReasonQueryService;
-import be.kdg.airfreight.flight.application.FlightActualTimeService;
-import be.kdg.airfreight.flight.application.FlightDelayService;
-import be.kdg.airfreight.flight.application.FlightQueryService;
-import be.kdg.airfreight.flight.application.FlightReplanningService;
+import be.kdg.airfreight.flight.application.actualtime.FlightActualTimeService;
+import be.kdg.airfreight.flight.application.delay.FlightDelayService;
+import be.kdg.airfreight.flight.application.flight.FlightQueryService;
+import be.kdg.airfreight.flight.application.replanning.FlightReplanningService;
 import be.kdg.airfreight.flight.domain.flight.Flight;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import java.time.Instant;
@@ -248,7 +251,13 @@ class FlightSecurityTest {
     @EnableWebMvc
     @EnableWebSecurity
     @ComponentScan("be.kdg.airfreight.flight.infrastructure.security")
-    @Import({FlightController.class, DelayReasonController.class})
+    @Import({
+        FlightController.class,
+        FlightDelayController.class,
+        FlightActualTimeController.class,
+        FlightReplanningController.class,
+        DelayReasonController.class
+    })
     static class Config {
         @Bean
         JwtDecoder jwtDecoder() {

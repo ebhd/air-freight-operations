@@ -2,6 +2,7 @@ package be.kdg.airfreight.flight.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import be.kdg.airfreight.flight.application.flight.FlightSchedulingService;
 import be.kdg.airfreight.flight.domain.events.FlightCreated;
 import be.kdg.airfreight.flight.domain.events.FlightReplaced;
 import be.kdg.airfreight.flight.domain.flight.Delay;

@@ -2,7 +2,7 @@ package be.kdg.airfreight.flight.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import be.kdg.airfreight.flight.domain.flight.ActualTimePolicy;
+import be.kdg.airfreight.flight.domain.flight.actualtime.ActualTimePolicy;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;

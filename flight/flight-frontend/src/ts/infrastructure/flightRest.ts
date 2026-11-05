@@ -81,17 +81,13 @@ export async function recordArrival(key: FlightKey, actualArrival: string): Prom
 }
 
 // ends the flight and asks the planning system for the new one; answers the old flight
-export async function replanFlight(key: FlightKey, request: ReplanFlightRequest): Promise<Flight> {
-    const response = await requestJson(`${flightPath(key)}/replanning`, request);
-    return response.json();
-}
-
-async function requestJson(url: string, body: ReplanFlightRequest): Promise<Response> {
-    return request(url, {
+export async function replanFlight(key: FlightKey, body: ReplanFlightRequest): Promise<Flight> {
+    const response = await request(`${flightPath(key)}/replanning`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
+    return response.json();
 }
 
 export function flightDetailsPage(key: FlightKey): string {

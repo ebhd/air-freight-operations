@@ -6,7 +6,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
@@ -27,11 +26,11 @@ public record FlightSchedule(
         if (operatingDays == null || operatingDays.isEmpty()) {
             throw new InvalidScheduleException("at least one operating day is required");
         }
-        operatingDays = Set.copyOf(EnumSet.copyOf(operatingDays));
+        operatingDays = Set.copyOf(operatingDays);
         if (departureTime == null || arrivalTime == null) {
             throw new InvalidScheduleException("departure and arrival times are required");
         }
-        flightNumber = requireText(flightNumber, "flight number");
+        flightNumber = FlightKey.requireFlightNumber(flightNumber);
         departureAirportCode =
                 FlightKey.requireAirportCode(departureAirportCode, "departure airport code");
         arrivalAirportCode =

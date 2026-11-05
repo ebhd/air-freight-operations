@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import be.kdg.airfreight.flight.domain.DomainRuleViolationException;
+import be.kdg.airfreight.flight.domain.flight.replanning.Replanning;
+import be.kdg.airfreight.flight.domain.flight.replanning.ReplanningRefusal;
+import be.kdg.airfreight.flight.domain.flight.replanning.ReplanningRefusedException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -124,8 +127,7 @@ class FlightReplanningTest {
                         ReplanningRefusedException.class,
                         refused ->
                                 assertThat(refused.refusal())
-                                        .isEqualTo(
-                                                ReplanningRefusedException.REPLANNING_NOT_NEEDED));
+                                        .isEqualTo(ReplanningRefusal.REPLANNING_NOT_NEEDED));
         assertThat(flight.status()).isEqualTo(FlightStatus.PLANNED);
     }
 
@@ -144,7 +146,7 @@ class FlightReplanningTest {
                         ReplanningRefusedException.class,
                         refused ->
                                 assertThat(refused.refusal())
-                                        .isEqualTo(ReplanningRefusedException.NOT_PLANNED));
+                                        .isEqualTo(ReplanningRefusal.NOT_PLANNED));
     }
 
     @Test
@@ -196,9 +198,7 @@ class FlightReplanningTest {
                         ReplanningRefusedException.class,
                         refused ->
                                 assertThat(refused.refusal())
-                                        .isEqualTo(
-                                                ReplanningRefusedException
-                                                        .SCHEDULE_NOT_EXPRESSIBLE));
+                                        .isEqualTo(ReplanningRefusal.SCHEDULE_NOT_EXPRESSIBLE));
     }
 
     @Test

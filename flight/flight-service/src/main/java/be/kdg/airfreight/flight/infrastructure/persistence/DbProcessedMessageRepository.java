@@ -1,6 +1,6 @@
 package be.kdg.airfreight.flight.infrastructure.persistence;
 
-import be.kdg.airfreight.flight.application.ProcessedMessageRepository;
+import be.kdg.airfreight.flight.application.finalizedload.ProcessedMessageRepository;
 import be.kdg.airfreight.flight.domain.flight.FlightKey;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaProcessedMessage;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaProcessedMessageRepository;

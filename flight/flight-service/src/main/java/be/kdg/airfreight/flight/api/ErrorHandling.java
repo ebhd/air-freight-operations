@@ -2,14 +2,14 @@ package be.kdg.airfreight.flight.api;
 
 import be.kdg.airfreight.flight.domain.DomainRuleViolationException;
 import be.kdg.airfreight.flight.domain.NotFoundException;
-import be.kdg.airfreight.flight.domain.flight.ActualTimeRefusedException;
 import be.kdg.airfreight.flight.domain.flight.Flight;
-import be.kdg.airfreight.flight.domain.flight.InvalidActualTimeException;
 import be.kdg.airfreight.flight.domain.flight.InvalidDelayException;
 import be.kdg.airfreight.flight.domain.flight.InvalidScheduleException;
-import be.kdg.airfreight.flight.domain.flight.Replanning;
-import be.kdg.airfreight.flight.domain.flight.ReplanningRefusedException;
 import be.kdg.airfreight.flight.domain.flight.TotalDelayExceededException;
+import be.kdg.airfreight.flight.domain.flight.actualtime.ActualTimeRefusedException;
+import be.kdg.airfreight.flight.domain.flight.actualtime.InvalidActualTimeException;
+import be.kdg.airfreight.flight.domain.flight.replanning.Replanning;
+import be.kdg.airfreight.flight.domain.flight.replanning.ReplanningRefusedException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -91,7 +91,7 @@ class ErrorHandling {
     ProblemDetail replanningRefused(
             ReplanningRefusedException exception, HttpServletRequest request) {
         ProblemDetail problemDetail = refused(HttpStatus.CONFLICT, exception, request);
-        problemDetail.setProperty("refusal", exception.refusal());
+        problemDetail.setProperty("refusal", exception.refusal().name());
         return problemDetail;
     }
 
@@ -125,8 +125,6 @@ class ErrorHandling {
     }
 
     private static ProblemDetail problem(HttpStatusCode status, String detail) {
-        ProblemDetail problemDetail = ProblemDetail.forStatus(status);
-        problemDetail.setDetail(detail);
-        return problemDetail;
+        return ProblemDetail.forStatusAndDetail(status, detail);
     }
 }

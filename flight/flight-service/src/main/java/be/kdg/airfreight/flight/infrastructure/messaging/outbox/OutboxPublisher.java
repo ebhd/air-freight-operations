@@ -3,8 +3,8 @@ package be.kdg.airfreight.flight.infrastructure.messaging.outbox;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaOutboxMessage;
 import be.kdg.airfreight.flight.infrastructure.persistence.jpa.JpaOutboxMessageRepository;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
-import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -32,10 +32,13 @@ public class OutboxPublisher {
 
     private final JpaOutboxMessageRepository repository;
     private final RabbitTemplate rabbit;
+    private final Clock clock;
 
-    public OutboxPublisher(JpaOutboxMessageRepository repository, RabbitTemplate rabbit) {
+    public OutboxPublisher(
+            JpaOutboxMessageRepository repository, RabbitTemplate rabbit, Clock clock) {
         this.repository = repository;
         this.rabbit = rabbit;
+        this.clock = clock;
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -84,7 +87,7 @@ public class OutboxPublisher {
         }
         try {
             sendAndConfirm(message);
-            OutboxMessage published = message.publish(Instant.now());
+            OutboxMessage published = message.publish(Instant.now(clock));
             repository.save(JpaOutboxMessage.fromDomain(published));
             log.info(
                     "Outbox message {} ({}) delivered to RabbitMQ",
@@ -136,12 +139,13 @@ public class OutboxPublisher {
                             + ": "
                             + confirmation.reason());
         }
-        if (correlation.getReturned() != null) {
+        var returned = correlation.getReturned();
+        if (returned != null) {
             throw new IllegalStateException(
                     "RabbitMQ could not route outbox message "
                             + message.id()
                             + ": "
-                            + Objects.requireNonNull(correlation.getReturned()).getReplyText());
+                            + returned.getReplyText());
         }
     }
 }

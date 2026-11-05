@@ -21,5 +21,4 @@ public record OutboxMessage(
                 this.createdAt,
                 Objects.requireNonNull(publishedAt, "publishedAt cannot be null"));
     }
-    ;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tooLateText } from '../../ts/presenter/actualTimeText';
+import { tooLateText } from '../../ts/presenter/flight-details/actualTimeText';
 
 describe('tooLateText', () => {
     it('shows the limit in brussels time with the delay hint', () => {
