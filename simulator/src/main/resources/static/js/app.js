@@ -16,6 +16,9 @@ const results = document.querySelector('#results');
 // the flights created in this browser tab
 const flights = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? '[]');
 
+// the addresses of the flight and cargo pages come from the simulator's spring settings
+const pageUrls = await fetch('/api/simulator/page-urls').then(response => response.json());
+
 function randomBetween(lowest, highest) {
     return lowest + Math.floor(Math.random() * (highest - lowest + 1));
 }
@@ -109,8 +112,8 @@ function renderFlights() {
         row.querySelector('.flight-details').textContent =
             `Departs ${flight.departureInBrussels} Brussels time. ULDs sent: ${flight.uldsSent}`;
         row.querySelector('.flight-link').href =
-            `http://localhost:8080/html/flight-details.html?${query}`;
-        row.querySelector('.cargo-link').href = `http://localhost:8081/cargo-plan.html?${query}`;
+            `${pageUrls.flightUrl}/html/flight-details.html?${query}`;
+        row.querySelector('.cargo-link').href = `${pageUrls.cargoUrl}/cargo-plan.html?${query}`;
         row.querySelector('.add-ulds').addEventListener('click', event =>
             addUlds(flight, event.currentTarget),
         );

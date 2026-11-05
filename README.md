@@ -35,7 +35,14 @@ Each service uses the packages `domain`, `application`, `infrastructure` and `ap
 
 ## Run
 
-Requires Docker with Compose. Set up Keycloak first (see [Keycloak](#keycloak)), then:
+Requires Docker with Compose. The first time, create `.env` and start Keycloak, then follow [Keycloak](#keycloak) so Cargo gets its secret:
+
+```sh
+cp .env.example .env
+docker compose up -d --wait keycloak
+```
+
+Start and stop everything:
 
 ```sh
 docker compose up -d --build --wait
@@ -71,7 +78,29 @@ docker compose up -d --wait app-postgres app-rabbitmq keycloak
 
 These credentials are for development only.
 
-Settings are in each service's `application.properties` and can be overridden with environment variables. Compose reads `.env`; the IDE does not, so set `CARGO_SERVICE_CLIENT_SECRET` in Cargo's run configuration.
+### Connections
+
+Every connection is a Spring setting in the service's `application.properties`. Override it with the environment variable and restart the service; no source change is needed.
+
+| Connection | Services | Spring property | Environment variable | Local value |
+| --- | --- | --- | --- | --- |
+| Own port | all | `server.port` | `SERVER_PORT` | see the first table |
+| PostgreSQL | Flight, Cargo, Partner | `spring.datasource.url`, `.username`, `.password` | `SPRING_DATASOURCE_URL`, `_USERNAME`, `_PASSWORD` | `jdbc:postgresql://localhost:5443/<database>` |
+| RabbitMQ | all | `spring.rabbitmq.host`, `.port`, `.username`, `.password` | `SPRING_RABBITMQ_HOST`, `_PORT`, `_USERNAME`, `_PASSWORD` | `localhost`, `5672` |
+| Token check | Flight, Cargo | `spring.security.oauth2.resourceserver.jwt.issuer-uri`, `.jwk-set-uri` | `SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI`, `_JWK_SET_URI` | `http://localhost:8180/realms/air-freight`, with `/protocol/openid-connect/certs` |
+| Token for Flight | Cargo | `spring.security.oauth2.client.provider.flight.token-uri`, `spring.security.oauth2.client.registration.flight.client-secret` | `SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_FLIGHT_TOKENURI`, `CARGO_SERVICE_CLIENT_SECRET` | same realm with `/protocol/openid-connect/token`, the secret has no default |
+| Flight API | Cargo | `flight.api.url` | `FLIGHT_API_URL` | `http://localhost:8080` |
+| Page links | Simulator | `simulator.flight.url`, `simulator.cargo.url` | `SIMULATOR_FLIGHT_URL`, `SIMULATOR_CARGO_URL` | `http://localhost:8080`, `http://localhost:8081` |
+
+`docker-compose.yml` sets the same variables with the Compose service names (`app-postgres:5432`, `app-rabbitmq`, `flight-service:8080`, `keycloak:8080`). The issuer stays the address the browser uses, because it must match the `iss` in the token; keys and tokens go over the internal address. Compose reads `.env`; the IDE does not, so set `CARGO_SERVICE_CLIENT_SECRET` in Cargo's run configuration.
+
+One PostgreSQL instance holds the databases `flight`, `cargo` and `partner_communication`, created by [init.sql](infrastructure/postgresql/init.sql). Each service only gets the URL of its own database; Formatter and Simulator have none.
+
+To move Keycloak in Compose, set `VITE_KEYCLOAK_URL` and `VITE_KEYCLOAK_REALM` in `.env`, change the published port if it differs and rebuild: these two values feed the pages, `KC_HOSTNAME`, the issuer and the internal Keycloak URLs. When the address of a page changes, add it to the redirect URIs of its frontend client in Keycloak.
+
+Queue and exchange names are constants in each service's Rabbit configuration: they are the message contract between the services and the same in every environment (see [Messages](#messages)).
+
+### Policy settings
 
 The loading window opens 12h before STD and closes 20m before ETD. Change this with `CARGO_LOADINGWINDOW_OPENSBEFORESTD` and `CARGO_LOADINGWINDOW_CLOSESBEFOREETD` (for example `48h`, `30m`) and restart Cargo.
 
@@ -85,7 +114,7 @@ The pages are TypeScript with Tailwind CSS and `keycloak-js`, built with Vite in
 
 Times: APIs, databases and messages use UTC. Flight and Cargo display dates and times in `Europe/Brussels`; their day overviews filter on the UTC scheduled departure date. Actual departure and arrival are entered in Brussels time and converted to UTC before submission; nonexistent or ambiguous local times are rejected. Frontend formatting tests cover summer and winter time and dates across midnight, with Cargo also checking both clock changes.
 
-The Keycloak settings `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM` and `VITE_KEYCLOAK_CLIENT_ID` are fixed at build time. Rebuild after changing them.
+The Keycloak settings `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM` and `VITE_KEYCLOAK_CLIENT_ID` are environment variables read at build time, so they are not Spring settings. Rebuild after changing them. In `.env` the client IDs are `FLIGHT_FRONTEND_CLIENT_ID` and `CARGO_FRONTEND_CLIENT_ID`.
 
 For live reload, keep the backend running and start one of:
 
@@ -94,7 +123,7 @@ For live reload, keep the backend running and start one of:
 ./gradlew :cargo:cargo-frontend:npm_run_dev     # http://localhost:5174
 ```
 
-Vite forwards `/api` to the backend. Add the dev URL to the frontend client's redirect URIs in Keycloak first (for Cargo also to its web origins).
+Vite forwards `/api` to the backend at `FLIGHT_API_URL` or `CARGO_API_URL` (default the local port). Add the dev URL to the frontend client's redirect URIs in Keycloak first (for Cargo also to its web origins).
 
 ### Simulator
 
