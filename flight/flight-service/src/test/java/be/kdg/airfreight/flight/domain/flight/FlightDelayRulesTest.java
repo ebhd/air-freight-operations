@@ -142,6 +142,112 @@ class FlightDelayRulesTest {
                 .isEqualTo("Fog cleared later than expected");
     }
 
+    // the coach rule: departure and arrival delays together are at most 720 minutes
+    @Test
+    void delaysAddingUpToExactlyTwelveHoursAreAccepted() {
+        Flight flight = planned();
+
+        flight.addDepartureDelay(400, "71", "Fog at departure");
+        flight.addArrivalDelay(320, "71", "Holding at arrival");
+
+        assertThat(flight.totalDelayMinutes()).isEqualTo(720);
+    }
+
+    @Test
+    void oneMinuteOverTwelveHoursTogetherIsRefusedForBothDelayKinds() {
+        Flight flight = planned();
+        flight.addDepartureDelay(400, "71", "Fog at departure");
+        flight.addArrivalDelay(320, "71", "Holding at arrival");
+
+        assertThatThrownBy(() -> flight.addDepartureDelay(1, "71", "One more minute"))
+                .isInstanceOf(TotalDelayExceededException.class)
+                .hasMessage(
+                        "All delays together would be 721 minutes (12 h 1 min). At most 720"
+                                + " minutes (12 h) is allowed. You can replan this flight"
+                                + " instead.");
+        assertThatThrownBy(() -> flight.addArrivalDelay(1, "71", "One more minute"))
+                .isInstanceOf(TotalDelayExceededException.class)
+                .satisfies(
+                        exception -> {
+                            var refused = (TotalDelayExceededException) exception;
+                            assertThat(refused.totalMinutes()).isEqualTo(721);
+                            assertThat(refused.replanningPossible()).isTrue();
+                        });
+        assertThat(flight.totalDelayMinutes()).isEqualTo(720);
+        assertThat(flight.departureDelays()).hasSize(1);
+        assertThat(flight.arrivalDelays()).hasSize(1);
+    }
+
+    @Test
+    void editThatPushesTheTotalOverTwelveHoursIsRefusedAndTheDelayKeepsItsMinutes() {
+        Delay departure = delay(400, "Fog at departure");
+        Delay arrival = delay(320, "Holding");
+        Flight flight = withStatus(FlightStatus.PLANNED, List.of(departure), List.of(arrival));
+
+        assertThatThrownBy(() -> flight.updateDepartureDelay(departure.id(), 401, "Longer fog"))
+                .isInstanceOf(TotalDelayExceededException.class);
+        assertThatThrownBy(() -> flight.updateArrivalDelay(arrival.id(), 321, "Longer holding"))
+                .isInstanceOf(TotalDelayExceededException.class);
+
+        assertThat(departure.minutes()).isEqualTo(400);
+        assertThat(departure.description()).isEqualTo("Fog at departure");
+        assertThat(arrival.minutes()).isEqualTo(320);
+        assertThat(flight.totalDelayMinutes()).isEqualTo(720);
+    }
+
+    @Test
+    void editThatKeepsTheTotalAtTwelveHoursIsAccepted() {
+        Delay departure = delay(400, "Fog at departure");
+        Delay arrival = delay(320, "Holding");
+        Flight flight = withStatus(FlightStatus.PLANNED, List.of(departure), List.of(arrival));
+
+        flight.updateDepartureDelay(departure.id(), 400, "Still fog");
+        flight.updateArrivalDelay(arrival.id(), 320, "Still holding");
+
+        assertThat(flight.totalDelayMinutes()).isEqualTo(720);
+        assertThat(departure.description()).isEqualTo("Still fog");
+    }
+
+    // 721 for one delay is invalid input, not the total rule
+    @Test
+    void editWithMoreThanTwelveHoursIsStillInvalidInput() {
+        Delay departure = delay(20, "Fog at departure");
+        Flight flight = withStatus(FlightStatus.PLANNED, List.of(departure), List.of());
+
+        assertThatThrownBy(() -> flight.updateDepartureDelay(departure.id(), 721, "Longer fog"))
+                .isInstanceOf(InvalidDelayException.class)
+                .isNotInstanceOf(TotalDelayExceededException.class);
+        assertThat(departure.minutes()).isEqualTo(20);
+    }
+
+    @Test
+    void departedFlightOverTheTotalCannotBeReplanned() {
+        Delay departure = delay(700, "Technical");
+        Flight flight = withStatus(FlightStatus.DEPARTED, List.of(departure), List.of());
+
+        assertThatThrownBy(() -> flight.addArrivalDelay(21, "71", "Holding"))
+                .isInstanceOf(TotalDelayExceededException.class)
+                .hasMessageEndingWith("A departed flight cannot be replanned.")
+                .satisfies(
+                        exception ->
+                                assertThat(
+                                                ((TotalDelayExceededException) exception)
+                                                        .replanningPossible())
+                                        .isFalse());
+        assertThat(flight.arrivalDelays()).isEmpty();
+    }
+
+    // the review scenario: 720 + 720 was accepted before the total rule
+    @Test
+    void secondTwelveHourDelayIsRefused() {
+        Flight flight = planned();
+        flight.addDepartureDelay(720, "71", "Fog at departure");
+
+        assertThatThrownBy(() -> flight.addDepartureDelay(720, "71", "More fog"))
+                .isInstanceOf(TotalDelayExceededException.class);
+        assertThat(flight.departureDelayMinutes()).isEqualTo(720);
+    }
+
     private static Flight planned() {
         return Flight.create(KEY, "AMS", "SXBAA", STD, STA);
     }

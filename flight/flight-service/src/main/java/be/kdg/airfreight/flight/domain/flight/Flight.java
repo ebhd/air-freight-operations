@@ -11,6 +11,9 @@ import java.util.Objects;
 import java.util.UUID;
 
 public final class Flight {
+    // all delays of a flight together are at most 12 hours (coach), same number as one delay
+    public static final int MAX_TOTAL_DELAY_MINUTES = Delay.MAX_MINUTES;
+
     private final FlightKey key;
     private final String arrivalAirportCode;
     private final String aircraftRegistration;
@@ -361,13 +364,19 @@ public final class Flight {
 
     public void addDepartureDelay(int minutes, String reasonCode, String description) {
         requireDepartureDelayChangesAllowed();
-        departureDelays.add(new Delay(minutes, reasonCode, description));
+        // the delay validates its own minutes first so 721 stays a bad request
+        Delay delay = new Delay(minutes, reasonCode, description);
+        requireTotalWithinLimit(totalDelayMinutes() + delay.minutes());
+        departureDelays.add(delay);
     }
 
     public void updateDepartureDelay(UUID delayId, int minutes, String description) {
         Delay delay = requireDelay(departureDelays, delayId);
         requireDepartureDelayChangesAllowed();
-        delay.update(minutes, description);
+        // check before update because update changes the delay in place
+        int validatedMinutes = Delay.requireMinutes(minutes);
+        requireTotalWithinLimit(totalDelayMinutes() - delay.minutes() + validatedMinutes);
+        delay.update(validatedMinutes, description);
     }
 
     public void removeDepartureDelay(UUID delayId) {
@@ -378,13 +387,17 @@ public final class Flight {
 
     public void addArrivalDelay(int minutes, String reasonCode, String description) {
         requireArrivalDelayChangesAllowed();
-        arrivalDelays.add(new Delay(minutes, reasonCode, description));
+        Delay delay = new Delay(minutes, reasonCode, description);
+        requireTotalWithinLimit(totalDelayMinutes() + delay.minutes());
+        arrivalDelays.add(delay);
     }
 
     public void updateArrivalDelay(UUID delayId, int minutes, String description) {
         Delay delay = requireDelay(arrivalDelays, delayId);
         requireArrivalDelayChangesAllowed();
-        delay.update(minutes, description);
+        int validatedMinutes = Delay.requireMinutes(minutes);
+        requireTotalWithinLimit(totalDelayMinutes() - delay.minutes() + validatedMinutes);
+        delay.update(validatedMinutes, description);
     }
 
     public void removeArrivalDelay(UUID delayId) {
@@ -410,6 +423,14 @@ public final class Flight {
         }
     }
 
+    // removing a delay always lowers the total so only add and edit check it
+    // only a planned flight can be replanned instead
+    private void requireTotalWithinLimit(int totalAfterChange) {
+        if (totalAfterChange > MAX_TOTAL_DELAY_MINUTES) {
+            throw new TotalDelayExceededException(totalAfterChange, status == FlightStatus.PLANNED);
+        }
+    }
+
     private void requireArrivalDelayChangesAllowed() {
         if (status == FlightStatus.LANDED) {
             throw new DomainRuleViolationException(
@@ -425,6 +446,10 @@ public final class Flight {
         int totalDelayMinutes = departureDelayMinutes() + arrivalDelayMinutes();
 
         return scheduledArrival.plus(Duration.ofMinutes(totalDelayMinutes));
+    }
+
+    public int totalDelayMinutes() {
+        return departureDelayMinutes() + arrivalDelayMinutes();
     }
 
     public int departureDelayMinutes() {
