@@ -2,6 +2,7 @@ package be.kdg.airfreight.cargo.infrastructure.messaging;
 
 import be.kdg.airfreight.cargo.application.cargoplan.MoveCargoPlanService;
 import be.kdg.airfreight.cargo.application.flight.FlightCopyService;
+import be.kdg.airfreight.cargo.application.flight.FlightRemovalService;
 import be.kdg.airfreight.cargo.domain.InvalidCargoValueException;
 import be.kdg.airfreight.cargo.domain.cargoplan.BookingRejectedException;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
@@ -11,8 +12,10 @@ import be.kdg.airfreight.cargo.domain.flight.FlightLookupRejectedException;
 import be.kdg.airfreight.cargo.domain.flight.FlightLookupUnavailableException;
 import be.kdg.airfreight.cargo.domain.flight.FlightStatus;
 import be.kdg.airfreight.cargo.infrastructure.persistence.RejectedMessageStore;
+import be.kdg.airfreight.cargo.infrastructure.persistence.jpa.JpaOutboxMessageRepository;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -33,16 +36,22 @@ class FlightEventListener {
 
     private final FlightCopyService flightCopyService;
     private final MoveCargoPlanService moveCargoPlanService;
+    private final FlightRemovalService flightRemovalService;
+    private final JpaOutboxMessageRepository outboxRepository;
     private final RejectedMessageStore rejectedMessageStore;
     private final JsonMapper jsonMapper;
 
     FlightEventListener(
             FlightCopyService flightCopyService,
             MoveCargoPlanService moveCargoPlanService,
+            FlightRemovalService flightRemovalService,
+            JpaOutboxMessageRepository outboxRepository,
             RejectedMessageStore rejectedMessageStore,
             JsonMapper jsonMapper) {
         this.flightCopyService = flightCopyService;
         this.moveCargoPlanService = moveCargoPlanService;
+        this.flightRemovalService = flightRemovalService;
+        this.outboxRepository = outboxRepository;
         this.rejectedMessageStore = rejectedMessageStore;
         this.jsonMapper = jsonMapper;
     }
@@ -133,6 +142,30 @@ class FlightEventListener {
                                         replaced.newFlightNumber(),
                                         replaced.newScheduledDepartureDate(),
                                         replaced.newDepartureAirportCode())));
+    }
+
+    @RabbitListener(queues = FlightRemovedConfiguration.FLIGHT_REMOVED_QUEUE)
+    void receiveRemoved(Message message) {
+        process(
+                message,
+                FlightRemovedMessage.class,
+                FlightRemovedMessage::version,
+                removed -> {
+                    FlightKey flightKey =
+                            flightKey(
+                                    removed.flightNumber(),
+                                    removed.scheduledDepartureDate(),
+                                    removed.departureAirportCode());
+                    flightRemovalService.remove(flightKey);
+                    // a published message expires like a flight of the day it was published, so
+                    // cargo needs no retention setting of its own; a pending one always stays
+                    outboxRepository.deletePublishedBefore(
+                            flightKey
+                                    .scheduledDepartureDate()
+                                    .plusDays(1)
+                                    .atStartOfDay(ZoneOffset.UTC)
+                                    .toInstant());
+                });
     }
 
     // one path for every event: parse, check the version, apply, then reject or retry

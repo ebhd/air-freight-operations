@@ -16,7 +16,13 @@ public interface FlightRepository {
 
     List<Flight> findScheduledBefore(Instant end);
 
+    // the keys of the flights with this utc departure date or an earlier one, in any status
+    List<FlightKey> findKeysUpTo(LocalDate lastDate);
+
     Flight save(Flight flight);
+
+    // the flight with its delays
+    void delete(FlightKey key);
 
     // the replanned flight that expects a new flight with this key and std and has none yet
     Optional<Flight> findReplacedBy(FlightKey newKey, Instant newScheduledDeparture);

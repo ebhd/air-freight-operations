@@ -28,6 +28,9 @@ services:
       SPRING_RABBITMQ_PASSWORD: password
       # actual time tolerance from the shell when set otherwise from application.properties
       FLIGHT_ACTUALTIMES_TOLERANCE:
+      # retention and cleanup interval from the shell when set otherwise from application.properties
+      FLIGHT_RETENTION_PERIOD:
+      FLIGHT_RETENTION_CLEANUPINTERVAL:
     depends_on:
       keycloak:
         condition: service_healthy

@@ -97,4 +97,15 @@ class DbCargoPlanRepository implements CargoPlanRepository {
         bookings.flush();
         bookings.saveAll(kept);
     }
+
+    // the delete of the plan row checks the version, so a change that overlaps it is retried
+    @Override
+    public void deleteByFlightKey(FlightKey flightKey) {
+        bookings.deleteAll(
+                bookings.findByIdFlightNumberAndIdScheduledDepartureDateAndIdDepartureAirportCode(
+                        flightKey.flightNumber(),
+                        flightKey.scheduledDepartureDate(),
+                        flightKey.departureAirportCode().value()));
+        plans.deleteById(JpaCargoPlanId.of(flightKey));
+    }
 }

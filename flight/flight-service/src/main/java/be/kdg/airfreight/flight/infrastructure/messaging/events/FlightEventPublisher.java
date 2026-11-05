@@ -4,6 +4,7 @@ import be.kdg.airfreight.flight.domain.events.FlightCreated;
 import be.kdg.airfreight.flight.domain.events.FlightDeparted;
 import be.kdg.airfreight.flight.domain.events.FlightEstimatesChanged;
 import be.kdg.airfreight.flight.domain.events.FlightLanded;
+import be.kdg.airfreight.flight.domain.events.FlightRemoved;
 import be.kdg.airfreight.flight.domain.events.FlightReplaced;
 import be.kdg.airfreight.flight.domain.events.FlightReplanned;
 import be.kdg.airfreight.flight.infrastructure.messaging.RabbitConfiguration;
@@ -233,6 +234,34 @@ public class FlightEventPublisher {
         events.publishEvent(outboxMessage);
         log.debug(
                 "Recorded FlightReplaced message {} in outbox for flight {}",
+                message.messageId(),
+                event.flightKey());
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void on(FlightRemoved event) {
+        var message =
+                new FlightRemovedMessage(
+                        UUID.randomUUID(),
+                        FlightRemovedMessage.VERSION,
+                        event.occurredOn(),
+                        event.flightKey().flightNumber(),
+                        event.flightKey().scheduledDepartureDate(),
+                        event.flightKey().departureAirportCode());
+
+        var outboxMessage =
+                new OutboxMessage(
+                        message.messageId(),
+                        RabbitConfiguration.FLIGHT_EVENTS,
+                        RabbitConfiguration.FLIGHT_REMOVED,
+                        jsonMapper.writeValueAsString(message),
+                        Instant.now(clock),
+                        null);
+
+        outboxRepository.save(JpaOutboxMessage.fromDomain(outboxMessage));
+        events.publishEvent(outboxMessage);
+        log.debug(
+                "Recorded FlightRemoved message {} in outbox for flight {}",
                 message.messageId(),
                 event.flightKey());
     }

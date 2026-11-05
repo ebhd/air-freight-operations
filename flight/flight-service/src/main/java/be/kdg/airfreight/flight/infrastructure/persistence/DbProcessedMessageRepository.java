@@ -25,4 +25,12 @@ class DbProcessedMessageRepository implements ProcessedMessageRepository {
     public void save(UUID messageId, FlightKey flightKey, Instant processedAt) {
         messages.save(new JpaProcessedMessage(messageId, flightKey, processedAt));
     }
+
+    @Override
+    public void deleteByFlight(FlightKey flightKey) {
+        messages.deleteByFlightNumberAndScheduledDepartureDateAndDepartureAirportCode(
+                flightKey.flightNumber(),
+                flightKey.scheduledDepartureDate(),
+                flightKey.departureAirportCode());
+    }
 }

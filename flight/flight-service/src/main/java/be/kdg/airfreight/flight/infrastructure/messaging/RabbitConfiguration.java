@@ -23,6 +23,7 @@ public class RabbitConfiguration {
     public static final String FLIGHT_LANDED = "flight.landed";
     public static final String FLIGHT_REPLANNED = "flight.replanned";
     public static final String FLIGHT_REPLACED = "flight.replaced";
+    public static final String FLIGHT_REMOVED = "flight.removed";
     // the planning systems inbox, in our project read by the simulator
     public static final String PLANNING_REPLANNED_QUEUE = "planning.flight-replanned";
 

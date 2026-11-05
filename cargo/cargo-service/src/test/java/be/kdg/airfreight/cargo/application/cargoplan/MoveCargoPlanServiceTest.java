@@ -95,6 +95,9 @@ class MoveCargoPlanServiceTest {
             plans.put(cargoPlan.getFlightKey(), cargoPlan);
         }
 
+        @Override
+        public void deleteByFlightKey(FlightKey flightKey) {}
+
         CargoPlan find(FlightKey key) {
             return plans.get(key);
         }
