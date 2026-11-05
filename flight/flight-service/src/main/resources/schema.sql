@@ -52,6 +52,14 @@ CREATE TABLE IF NOT EXISTS delay_reasons (
     label VARCHAR(255) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS rejected_messages (
+    id BIGSERIAL PRIMARY KEY,
+    message_id TEXT,
+    payload TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    rejected_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS departure_delays (
     id UUID PRIMARY KEY,
     flight_number VARCHAR(32) NOT NULL,
