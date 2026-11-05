@@ -1,6 +1,7 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
 import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -65,7 +66,7 @@ class CargoPlanCheckLoadTest {
     // a check is a loading action so a finalized plan refuses it
     @Test
     void finalizedPlanRefusesTheCheck() {
-        CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of());
+        CargoPlan finalized = restoredPlan(KEY, CargoPlanState.FINALIZED, List.of());
 
         assertThatThrownBy(
                         () ->
@@ -90,7 +91,8 @@ class CargoPlanCheckLoadTest {
                         FlightStatus.PLANNED,
                         STD,
                         STD.plus(Duration.ofHours(2)),
-                        STD);
+                        STD,
+                        STD.plus(Duration.ofHours(2)));
         return new LoadingContext(flight, POLICY.windowFor(STD, STD), now);
     }
 }

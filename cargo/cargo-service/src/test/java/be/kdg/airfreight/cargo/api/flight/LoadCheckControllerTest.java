@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.api.flight;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
@@ -10,7 +11,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanRepository;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanState;
 import be.kdg.airfreight.cargo.domain.cargoplan.LoadingPosition;
@@ -182,12 +182,13 @@ class LoadCheckControllerTest {
                                         FlightStatus.PLANNED,
                                         Instant.parse("2026-10-19T08:00:00Z"),
                                         Instant.parse("2026-10-19T10:00:00Z"),
-                                        Instant.parse("2026-10-19T08:00:00Z"))));
+                                        Instant.parse("2026-10-19T08:00:00Z"),
+                                        Instant.parse("2026-10-19T10:00:00Z"))));
     }
 
     private void givenPlan(CargoPlanState state, UldBooking... bookings) {
         givenFlight();
-        data.save(CargoPlan.restore(KEY, state, List.of(bookings)));
+        data.save(restoredPlan(KEY, state, List.of(bookings)));
         clearInvocations(cargoPlans);
     }
 

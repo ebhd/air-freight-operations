@@ -72,7 +72,8 @@ class CargoPlanVersionIT {
                     FlightStatus.PLANNED,
                     STD,
                     STD.plus(Duration.ofHours(2)),
-                    STD);
+                    STD,
+                    STD.plus(Duration.ofHours(2)));
     // inside the window 2026-10-18T20:00Z to 2026-10-19T07:40Z
     private static final LoadingWindowPolicy POLICY =
             new LoadingWindowPolicy(Duration.ofHours(12), Duration.ofMinutes(20));
@@ -192,7 +193,7 @@ class CargoPlanVersionIT {
         assertThat(version()).isEqualTo(3);
     }
 
-    // the service gets the transaction template of spring so this also proves the wiring
+    // the service runs through the spring proxy so this also proves @Transactional
     @Test
     void positionServiceCommitsEachChangeInItsOwnTransaction() {
         bookAkeAndPmc();

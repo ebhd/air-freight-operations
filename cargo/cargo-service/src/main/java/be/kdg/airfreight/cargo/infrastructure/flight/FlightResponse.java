@@ -24,16 +24,13 @@ record FlightResponse(
                         flightNumber,
                         scheduledDepartureDate,
                         new AirportCode(departureAirportCode));
-        // without estimates in the answer the schedule stands
-        Instant etd = estimatedDeparture != null ? estimatedDeparture : scheduledDeparture;
-        Instant eta = estimatedArrival != null ? estimatedArrival : scheduledArrival;
         return new FlightInformation(
                 key,
                 new AirportCode(arrivalAirportCode),
                 FlightStatus.valueOf(status),
                 scheduledDeparture,
                 scheduledArrival,
-                etd,
-                eta);
+                estimatedDeparture,
+                estimatedArrival);
     }
 }

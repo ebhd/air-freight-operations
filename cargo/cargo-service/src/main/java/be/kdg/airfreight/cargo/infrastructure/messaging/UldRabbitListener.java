@@ -49,20 +49,16 @@ class UldRabbitListener {
     @RabbitListener(queues = RabbitConfiguration.ULD_QUEUE)
     void receive(Message message) {
         String payload = new String(message.getBody(), StandardCharsets.UTF_8);
-        String messageId = message.getMessageProperties().getMessageId();
-        log.debug("Received ULD message {}: {}", messageId, payload);
+        String amqpMessageId = message.getMessageProperties().getMessageId();
+        log.debug("Received ULD message {}: {}", amqpMessageId, payload);
 
         UldMessage uldMessage = parse(payload);
         if (uldMessage == null) {
-            rejectedMessageStore.store(messageId, payload, "Unreadable JSON or empty message");
+            rejectedMessageStore.store(amqpMessageId, payload, "Unreadable JSON or empty message");
             return;
         }
-        if (messageId == null) {
-            messageId = uldMessage.messageId();
-        }
-        if (messageId == null
-                || messageId.isBlank()
-                || messageId.length() > MAX_MESSAGE_ID_LENGTH) {
+        String messageId = amqpMessageId != null ? amqpMessageId : uldMessage.messageId();
+        if (!isValidMessageId(messageId)) {
             rejectedMessageStore.store(
                     messageId, payload, "Message ID must be 1 to 255 characters");
             return;
@@ -82,8 +78,17 @@ class UldRabbitListener {
                             + uldMessage.version());
             return;
         }
-        Instant firstReceivedAt = messageReceipts.firstReceivedAt(messageId, Instant.now());
+        book(messageId, payload, uldMessage);
+    }
 
+    private static boolean isValidMessageId(String messageId) {
+        return messageId != null
+                && !messageId.isBlank()
+                && messageId.length() <= MAX_MESSAGE_ID_LENGTH;
+    }
+
+    private void book(String messageId, String payload, UldMessage uldMessage) {
+        Instant firstReceivedAt = messageReceipts.firstReceivedAt(messageId, Instant.now());
         try {
             bookUldService.bookUld(toCommand(messageId, uldMessage, firstReceivedAt));
         } catch (FlightLookupUnavailableException

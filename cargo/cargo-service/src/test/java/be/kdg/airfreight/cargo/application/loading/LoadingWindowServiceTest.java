@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.application.loading;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
@@ -7,7 +8,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import be.kdg.airfreight.cargo.application.flight.UnknownFlightException;
-import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanRepository;
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlanState;
 import be.kdg.airfreight.cargo.domain.flight.AirportCode;
@@ -94,8 +94,7 @@ class LoadingWindowServiceTest {
         when(flights.findByFlightKey(KEY))
                 .thenReturn(Optional.of(flight(FlightStatus.PLANNED, STA, STD)));
         when(cargoPlans.findByFlightKey(KEY))
-                .thenReturn(
-                        Optional.of(CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of())));
+                .thenReturn(Optional.of(restoredPlan(KEY, CargoPlanState.FINALIZED, List.of())));
 
         LoadingStatus status = service.statusFor(KEY);
 
@@ -135,6 +134,6 @@ class LoadingWindowServiceTest {
     }
 
     private static FlightInformation flight(FlightStatus status, Instant sta, Instant etd) {
-        return new FlightInformation(KEY, new AirportCode("AMS"), status, STD, sta, etd);
+        return new FlightInformation(KEY, new AirportCode("AMS"), status, STD, sta, etd, sta);
     }
 }

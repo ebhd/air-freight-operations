@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -160,7 +161,7 @@ class CargoPlanFinalizeTest {
     }
 
     private static CargoPlan plan(UldBooking... bookings) {
-        return CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of(bookings));
+        return restoredPlan(KEY, CargoPlanState.DRAFT, List.of(bookings));
     }
 
     private static UldBooking booking(
@@ -180,7 +181,8 @@ class CargoPlanFinalizeTest {
                         FlightStatus.PLANNED,
                         STD,
                         STD.plus(Duration.ofHours(2)),
-                        STD);
+                        STD,
+                        STD.plus(Duration.ofHours(2)));
         return new LoadingContext(flight, POLICY.windowFor(STD, STD), now);
     }
 }

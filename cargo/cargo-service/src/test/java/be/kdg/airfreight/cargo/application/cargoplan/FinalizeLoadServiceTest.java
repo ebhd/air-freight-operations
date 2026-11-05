@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.application.cargoplan;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -37,13 +38,9 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.transaction.support.SimpleTransactionStatus;
-import org.springframework.transaction.support.TransactionCallback;
-import org.springframework.transaction.support.TransactionOperations;
 
 class FinalizeLoadServiceTest {
     private static final FlightKey KEY =
@@ -54,17 +51,6 @@ class FinalizeLoadServiceTest {
     private final FlightRepository flights = mock(FlightRepository.class);
     private final CargoPlanRepository cargoPlans = mock(CargoPlanRepository.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
-    private final TransactionOperations transaction = mock(TransactionOperations.class);
-
-    @BeforeEach
-    void runTransactionWork() {
-        when(transaction.execute(any()))
-                .thenAnswer(
-                        call -> {
-                            TransactionCallback<?> action = call.getArgument(0);
-                            return action.doInTransaction(new SimpleTransactionStatus());
-                        });
-    }
 
     private final FinalizeLoadService service =
             new FinalizeLoadService(
@@ -75,8 +61,7 @@ class FinalizeLoadServiceTest {
                             new LoadingWindowPolicy(Duration.ofHours(12), Duration.ofMinutes(20)),
                             Clock.fixed(INSIDE, ZoneOffset.UTC)),
                     new LoadChecks(new LateralBalanceCheck(new BigDecimal("0.10"))),
-                    events,
-                    transaction);
+                    events);
 
     @Test
     void savesThePlanAndPublishesItsEvent() {
@@ -120,14 +105,14 @@ class FinalizeLoadServiceTest {
     }
 
     @Test
-    void flightOperationsDownStartsNoTransaction() {
+    void flightOperationsDownPublishesNoEvent() {
         when(flights.findByFlightKey(KEY))
                 .thenThrow(new FlightLookupUnavailableException(KEY, null));
 
         assertThatThrownBy(() -> service.finalizeLoad(KEY))
                 .isInstanceOf(FlightLookupUnavailableException.class);
 
-        verifyNoInteractions(transaction, events);
+        verifyNoInteractions(events);
     }
 
     private void givenFlight() {
@@ -140,12 +125,13 @@ class FinalizeLoadServiceTest {
                                         FlightStatus.PLANNED,
                                         STD,
                                         STD.plus(Duration.ofHours(2)),
-                                        STD)));
+                                        STD,
+                                        STD.plus(Duration.ofHours(2)))));
     }
 
     private CargoPlan givenPlan(UldBooking... bookings) {
         givenFlight();
-        CargoPlan cargoPlan = CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of(bookings));
+        CargoPlan cargoPlan = restoredPlan(KEY, CargoPlanState.DRAFT, List.of(bookings));
         when(cargoPlans.findByFlightKey(KEY)).thenReturn(Optional.of(cargoPlan));
         return cargoPlan;
     }

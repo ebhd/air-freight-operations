@@ -162,7 +162,8 @@ class LoadingWindowControllerTest {
                                         status,
                                         STD,
                                         Instant.parse("2026-10-22T10:00:00Z"),
-                                        STD)));
+                                        STD,
+                                        Instant.parse("2026-10-22T10:00:00Z"))));
     }
 
     private MockMvc mvcAt(Instant now) {

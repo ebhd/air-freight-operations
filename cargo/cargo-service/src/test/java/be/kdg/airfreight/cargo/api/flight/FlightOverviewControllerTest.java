@@ -126,6 +126,7 @@ class FlightOverviewControllerTest {
                 status,
                 Instant.parse("2026-10-19T08:00:00Z"),
                 Instant.parse("2026-10-19T10:00:00Z"),
-                Instant.parse("2026-10-19T08:00:00Z"));
+                Instant.parse("2026-10-19T08:00:00Z"),
+                Instant.parse("2026-10-19T10:00:00Z"));
     }
 }

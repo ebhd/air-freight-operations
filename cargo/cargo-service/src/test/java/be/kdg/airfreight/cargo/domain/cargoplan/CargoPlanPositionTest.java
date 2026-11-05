@@ -1,6 +1,7 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
 import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -148,7 +149,7 @@ class CargoPlanPositionTest {
     void refusesChangesWhenLoadingIsNotAllowed(
             CargoPlanState state, LoadingContext context, LoadingRefusal refusal) {
         CargoPlan cargoPlan =
-                CargoPlan.restore(
+                restoredPlan(
                         KEY, state, List.of(booking(AKE, LoadingPosition.CL), booking(PMC, null)));
 
         assertThatThrownBy(() -> cargoPlan.assignPosition(PMC, LoadingPosition.CR, context))
@@ -184,7 +185,7 @@ class CargoPlanPositionTest {
     }
 
     private static CargoPlan planWith(UldBooking... bookings) {
-        return CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of(bookings));
+        return restoredPlan(KEY, CargoPlanState.DRAFT, List.of(bookings));
     }
 
     private static UldBooking booking(UldCode code, LoadingPosition position) {
@@ -203,7 +204,13 @@ class CargoPlanPositionTest {
     private static LoadingContext context(FlightStatus status, Instant now) {
         FlightInformation flight =
                 new FlightInformation(
-                        KEY, new AirportCode("AMS"), status, STD, STD.plusSeconds(7200), STD);
+                        KEY,
+                        new AirportCode("AMS"),
+                        status,
+                        STD,
+                        STD.plusSeconds(7200),
+                        STD,
+                        STD.plusSeconds(7200));
         return new LoadingContext(flight, POLICY.windowFor(STD, STD), now);
     }
 }

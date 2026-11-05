@@ -52,7 +52,8 @@ class LoadingWindowSecurityTest {
                                         FlightStatus.PLANNED,
                                         STD,
                                         Instant.parse("2026-10-22T10:00:00Z"),
-                                        STD)));
+                                        STD,
+                                        Instant.parse("2026-10-22T10:00:00Z"))));
     }
 
     @Test

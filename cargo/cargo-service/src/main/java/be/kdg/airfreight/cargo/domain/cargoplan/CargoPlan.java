@@ -40,19 +40,6 @@ public final class CargoPlan {
     }
 
     public static CargoPlan restore(
-            FlightKey flightKey, CargoPlanState state, List<UldBooking> bookings) {
-        return restore(flightKey, state, null, null, bookings);
-    }
-
-    public static CargoPlan restore(
-            FlightKey flightKey,
-            CargoPlanState state,
-            Instant finalizedAt,
-            List<UldBooking> bookings) {
-        return restore(flightKey, state, finalizedAt, null, bookings);
-    }
-
-    public static CargoPlan restore(
             FlightKey flightKey,
             CargoPlanState state,
             Instant finalizedAt,

@@ -88,42 +88,27 @@ class FlightEventListener {
     void receiveDeparted(Message message) {
         process(
                 message,
-                FlightDepartedMessage.class,
-                FlightDepartedMessage::version,
-                departed ->
-                        flightCopyService.recordDeparted(
-                                flightKey(
-                                        departed.flightNumber(),
-                                        departed.scheduledDepartureDate(),
-                                        departed.departureAirportCode())));
+                FlightKeyMessage.class,
+                FlightKeyMessage::version,
+                departed -> flightCopyService.recordDeparted(flightKey(departed)));
     }
 
     @RabbitListener(queues = RabbitConfiguration.FLIGHT_LANDED_QUEUE)
     void receiveLanded(Message message) {
         process(
                 message,
-                FlightLandedMessage.class,
-                FlightLandedMessage::version,
-                landed ->
-                        flightCopyService.recordLanded(
-                                flightKey(
-                                        landed.flightNumber(),
-                                        landed.scheduledDepartureDate(),
-                                        landed.departureAirportCode())));
+                FlightKeyMessage.class,
+                FlightKeyMessage::version,
+                landed -> flightCopyService.recordLanded(flightKey(landed)));
     }
 
     @RabbitListener(queues = RabbitConfiguration.FLIGHT_REPLANNED_QUEUE)
     void receiveReplanned(Message message) {
         process(
                 message,
-                FlightReplannedMessage.class,
-                FlightReplannedMessage::version,
-                replanned ->
-                        flightCopyService.recordReplanned(
-                                flightKey(
-                                        replanned.flightNumber(),
-                                        replanned.scheduledDepartureDate(),
-                                        replanned.departureAirportCode())));
+                FlightKeyMessage.class,
+                FlightKeyMessage::version,
+                replanned -> flightCopyService.recordReplanned(flightKey(replanned)));
     }
 
     @RabbitListener(queues = RabbitConfiguration.FLIGHT_REPLACED_QUEUE)
@@ -148,14 +133,10 @@ class FlightEventListener {
     void receiveRemoved(Message message) {
         process(
                 message,
-                FlightRemovedMessage.class,
-                FlightRemovedMessage::version,
+                FlightKeyMessage.class,
+                FlightKeyMessage::version,
                 removed -> {
-                    FlightKey flightKey =
-                            flightKey(
-                                    removed.flightNumber(),
-                                    removed.scheduledDepartureDate(),
-                                    removed.departureAirportCode());
+                    FlightKey flightKey = flightKey(removed);
                     flightRemovalService.remove(flightKey);
                     // a published message expires like a flight of the day it was published, so
                     // cargo needs no retention setting of its own; a pending one always stays
@@ -237,6 +218,13 @@ class FlightEventListener {
                 required(created.scheduledArrival(), "Scheduled arrival"),
                 created.scheduledDeparture(),
                 created.scheduledArrival());
+    }
+
+    private static FlightKey flightKey(FlightKeyMessage message) {
+        return flightKey(
+                message.flightNumber(),
+                message.scheduledDepartureDate(),
+                message.departureAirportCode());
     }
 
     // the value objects reject missing or invalid parts themselves

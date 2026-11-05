@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.api.flight;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.hasSize;
@@ -432,8 +433,9 @@ class CargoPlanControllerTest {
                                         status,
                                         Instant.parse("2026-10-19T08:00:00Z"),
                                         Instant.parse("2026-10-19T10:00:00Z"),
-                                        Instant.parse("2026-10-19T08:00:00Z"))));
-        CargoPlan cargoPlan = CargoPlan.restore(KEY, CargoPlanState.DRAFT, List.of(bookings));
+                                        Instant.parse("2026-10-19T08:00:00Z"),
+                                        Instant.parse("2026-10-19T10:00:00Z"))));
+        CargoPlan cargoPlan = restoredPlan(KEY, CargoPlanState.DRAFT, List.of(bookings));
         data.save(cargoPlan);
         clearInvocations(cargoPlans);
     }

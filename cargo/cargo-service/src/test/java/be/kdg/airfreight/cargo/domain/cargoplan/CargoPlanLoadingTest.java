@@ -1,6 +1,7 @@
 package be.kdg.airfreight.cargo.domain.cargoplan;
 
 import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -94,7 +95,7 @@ class CargoPlanLoadingTest {
             Instant now,
             LoadingRefusal expected,
             String reason) {
-        CargoPlan cargoPlan = CargoPlan.restore(KEY, state, List.of());
+        CargoPlan cargoPlan = restoredPlan(KEY, state, List.of());
         LoadingContext context = context(KEY, status, STD, now);
 
         assertThat(cargoPlan.loadingRefusal(context)).contains(expected);
@@ -117,7 +118,7 @@ class CargoPlanLoadingTest {
         LoadingContext afterDelay =
                 context(KEY, FlightStatus.PLANNED, STD.plus(Duration.ofMinutes(60)), now);
         CargoPlan draft = new CargoPlan(KEY);
-        CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of());
+        CargoPlan finalized = restoredPlan(KEY, CargoPlanState.FINALIZED, List.of());
 
         assertThat(draft.loadingRefusal(beforeDelay)).contains(LoadingRefusal.WINDOW_CLOSED);
         assertThat(draft.loadingRefusal(afterDelay)).isEmpty();
@@ -128,7 +129,7 @@ class CargoPlanLoadingTest {
 
     @Test
     void finalizedWinsOverOtherReasons() {
-        CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of());
+        CargoPlan finalized = restoredPlan(KEY, CargoPlanState.FINALIZED, List.of());
         LoadingContext departedAndClosed =
                 context(KEY, FlightStatus.DEPARTED, STD, WINDOW.closesAt().plusSeconds(1));
 
@@ -171,7 +172,7 @@ class CargoPlanLoadingTest {
     // a finalized load takes no new uld
     @Test
     void finalizedPlanRejectsANewBooking() {
-        CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of());
+        CargoPlan finalized = restoredPlan(KEY, CargoPlanState.FINALIZED, List.of());
 
         assertThatThrownBy(
                         () ->
@@ -192,7 +193,7 @@ class CargoPlanLoadingTest {
     void finalizedPlanStillIgnoresARepeatedBooking() {
         UldBooking existing =
                 new UldBooking(new UldCode("AKE12345KL"), weight(), new AirportCode("AMS"));
-        CargoPlan finalized = CargoPlan.restore(KEY, CargoPlanState.FINALIZED, List.of(existing));
+        CargoPlan finalized = restoredPlan(KEY, CargoPlanState.FINALIZED, List.of(existing));
 
         assertThat(
                         finalized.bookUld(
@@ -216,7 +217,8 @@ class CargoPlanLoadingTest {
                         status,
                         STD,
                         STD.plus(Duration.ofHours(2)),
-                        etd);
+                        etd,
+                        STD.plus(Duration.ofHours(2)));
         return new LoadingContext(flight, POLICY.windowFor(STD, etd), now);
     }
 }

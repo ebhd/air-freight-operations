@@ -56,16 +56,6 @@ class DbFlightCopyRepositoryIT {
         assertThat(repository.findCopy(KEY)).contains(flight);
     }
 
-    // flight can leave the estimates empty so null must come back as null
-    @Test
-    void storesAndReadsBackMissingEstimates() {
-        FlightInformation flight = flight(KEY, FlightStatus.PLANNED, null, null);
-
-        assertThat(repository.saveIfNewer(flight, CREATED)).isTrue();
-
-        assertThat(repository.findCopy(KEY)).contains(flight);
-    }
-
     @Test
     void unknownFlightHasNoCopy() {
         assertThat(repository.findCopy(KEY)).isEmpty();
@@ -102,7 +92,14 @@ class DbFlightCopyRepositoryIT {
     // a status from another event must stay when only the estimates change
     @Test
     void newerEstimatesChangeOnlyTheEstimates() {
-        repository.saveIfNewer(flight(KEY, FlightStatus.DEPARTED, null, null), CREATED);
+        FlightInformation schedule = flight(KEY, "08:00");
+        repository.saveIfNewer(
+                flight(
+                        KEY,
+                        FlightStatus.DEPARTED,
+                        schedule.scheduledDeparture(),
+                        schedule.scheduledArrival()),
+                CREATED);
 
         assertThat(repository.saveEstimatesIfNewer(KEY, ETD, ETA, DELAYED)).isTrue();
 

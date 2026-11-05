@@ -1,6 +1,7 @@
 package be.kdg.airfreight.cargo.infrastructure.persistence;
 
 import static be.kdg.airfreight.cargo.support.TestHelper.plannedFlight;
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -62,7 +63,7 @@ class MoveCargoPlanIT {
         inTransaction(
                 () ->
                         repository.save(
-                                CargoPlan.restore(
+                                restoredPlan(
                                         OLD,
                                         CargoPlanState.FINALIZED,
                                         finalizedAt,
@@ -97,7 +98,7 @@ class MoveCargoPlanIT {
         inTransaction(
                 () ->
                         repository.save(
-                                CargoPlan.restore(
+                                restoredPlan(
                                         OLD, CargoPlanState.DRAFT, List.of(booking(AKE, null)))));
         moveService.move(OLD, NEW);
         long oldVersion = version(OLD);
@@ -116,7 +117,7 @@ class MoveCargoPlanIT {
         inTransaction(
                 () ->
                         repository.save(
-                                CargoPlan.restore(
+                                restoredPlan(
                                         OLD, CargoPlanState.DRAFT, List.of(booking(AKE, null)))));
         TransactionTemplate own = new TransactionTemplate(transactionManager);
         own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);

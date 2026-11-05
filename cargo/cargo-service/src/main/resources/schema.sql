@@ -84,8 +84,8 @@ CREATE TABLE IF NOT EXISTS flights (
     status VARCHAR(16) NOT NULL,
     scheduled_departure TIMESTAMP WITH TIME ZONE NOT NULL,
     scheduled_arrival TIMESTAMP WITH TIME ZONE NOT NULL,
-    estimated_departure TIMESTAMP WITH TIME ZONE,
-    estimated_arrival TIMESTAMP WITH TIME ZONE,
+    estimated_departure TIMESTAMP WITH TIME ZONE NOT NULL,
+    estimated_arrival TIMESTAMP WITH TIME ZONE NOT NULL,
     last_change_at TIMESTAMP WITH TIME ZONE NOT NULL,
     PRIMARY KEY (flight_number, scheduled_departure_date, departure_airport_code)
 );

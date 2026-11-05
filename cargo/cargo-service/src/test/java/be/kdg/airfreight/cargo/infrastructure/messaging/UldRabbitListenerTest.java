@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.infrastructure.messaging;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -152,7 +153,8 @@ class UldRabbitListenerTest {
                                         FlightStatus.PLANNED,
                                         std,
                                         std.plusSeconds(7200),
-                                        std)));
+                                        std,
+                                        std.plusSeconds(7200))));
         when(cargoPlans.findByFlightKey(flightKey)).thenReturn(Optional.empty());
         doThrow(conflict).when(cargoPlans).save(any(CargoPlan.class));
         String payload = validMessageWith("uldCode", "AKE12345KL");
@@ -177,11 +179,12 @@ class UldRabbitListenerTest {
                                         FlightStatus.PLANNED,
                                         std,
                                         std.plusSeconds(7200),
-                                        std)));
+                                        std,
+                                        std.plusSeconds(7200))));
         when(cargoPlans.findByFlightKey(flightKey))
                 .thenReturn(
                         Optional.of(
-                                CargoPlan.restore(
+                                restoredPlan(
                                         flightKey,
                                         CargoPlanState.FINALIZED,
                                         Instant.parse("2026-10-19T06:00:00Z"),
@@ -214,7 +217,8 @@ class UldRabbitListenerTest {
                                         FlightStatus.REPLANNED,
                                         std,
                                         std.plusSeconds(7200),
-                                        std)));
+                                        std,
+                                        std.plusSeconds(7200))));
         String payload = validMessageWith("uldCode", "AKE12345KL");
 
         assertThatCode(() -> listener.receive(message(payload))).doesNotThrowAnyException();

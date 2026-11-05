@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.application.cargoplan;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import be.kdg.airfreight.cargo.domain.cargoplan.CargoPlan;
@@ -30,7 +31,7 @@ class MoveCargoPlanServiceTest {
 
     @Test
     void movesTheBookingsAndSavesBothPlans() {
-        plans.save(CargoPlan.restore(A, CargoPlanState.DRAFT, List.of(booking("AKE00001HJ"))));
+        plans.save(restoredPlan(A, CargoPlanState.DRAFT, List.of(booking("AKE00001HJ"))));
 
         service.move(A, B);
 
@@ -51,7 +52,7 @@ class MoveCargoPlanServiceTest {
 
     @Test
     void secondEventChangesNothing() {
-        plans.save(CargoPlan.restore(A, CargoPlanState.DRAFT, List.of(booking("AKE00001HJ"))));
+        plans.save(restoredPlan(A, CargoPlanState.DRAFT, List.of(booking("AKE00001HJ"))));
         service.move(A, B);
         plans.saves = 0;
 
@@ -63,7 +64,7 @@ class MoveCargoPlanServiceTest {
     // b was replanned to c before a's move arrived, so a's cargo ends up on c
     @Test
     void followsAChainWhenTheNewFlightWasReplannedToo() {
-        plans.save(CargoPlan.restore(A, CargoPlanState.DRAFT, List.of(booking("AKE00001HJ"))));
+        plans.save(restoredPlan(A, CargoPlanState.DRAFT, List.of(booking("AKE00001HJ"))));
         plans.save(CargoPlan.restore(B, CargoPlanState.REPLANNED, null, C, List.of()));
 
         service.move(A, B);

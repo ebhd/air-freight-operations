@@ -1,5 +1,6 @@
 package be.kdg.airfreight.cargo.api.flight;
 
+import static be.kdg.airfreight.cargo.support.TestHelper.restoredPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
@@ -208,8 +209,9 @@ class FinalizationControllerTest {
                                         FlightStatus.PLANNED,
                                         Instant.parse("2026-10-19T08:00:00Z"),
                                         Instant.parse("2026-10-19T10:00:00Z"),
-                                        Instant.parse("2026-10-19T08:00:00Z"))));
-        CargoPlan cargoPlan = CargoPlan.restore(KEY, state, List.of(bookings));
+                                        Instant.parse("2026-10-19T08:00:00Z"),
+                                        Instant.parse("2026-10-19T10:00:00Z"))));
+        CargoPlan cargoPlan = restoredPlan(KEY, state, List.of(bookings));
         data.save(cargoPlan);
         clearInvocations(cargoPlans);
     }

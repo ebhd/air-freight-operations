@@ -80,7 +80,8 @@ class FinalizeLoadIT {
                     FlightStatus.PLANNED,
                     STD,
                     STD.plus(Duration.ofHours(2)),
-                    STD);
+                    STD,
+                    STD.plus(Duration.ofHours(2)));
     private static final LoadingWindowPolicy POLICY =
             new LoadingWindowPolicy(Duration.ofHours(12), Duration.ofMinutes(20));
     private static final Instant INSIDE = Instant.parse("2026-10-19T06:00:00Z");

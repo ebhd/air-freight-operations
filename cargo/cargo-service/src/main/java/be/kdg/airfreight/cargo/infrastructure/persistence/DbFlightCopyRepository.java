@@ -86,11 +86,11 @@ class DbFlightCopyRepository implements FlightCopyRepository {
                         .param("departure", flight.flightKey().departureAirportCode().value())
                         .param("arrival", flight.arrivalAirportCode().value())
                         .param("status", flight.status().name())
-                        .param("std", timestamp(flight.scheduledDeparture()))
-                        .param("sta", timestamp(flight.scheduledArrival()))
-                        .param("etd", timestamp(flight.estimatedDeparture()))
-                        .param("eta", timestamp(flight.estimatedArrival()))
-                        .param("changedAt", timestamp(changedAt))
+                        .param("std", Timestamp.from(flight.scheduledDeparture()))
+                        .param("sta", Timestamp.from(flight.scheduledArrival()))
+                        .param("etd", Timestamp.from(flight.estimatedDeparture()))
+                        .param("eta", Timestamp.from(flight.estimatedArrival()))
+                        .param("changedAt", Timestamp.from(changedAt))
                         .update();
         return changed == 1;
     }
@@ -111,9 +111,9 @@ class DbFlightCopyRepository implements FlightCopyRepository {
                                         + " AND scheduled_departure_date = :date"
                                         + " AND departure_airport_code = :departure"
                                         + " AND last_change_at < :changedAt")
-                        .param("etd", timestamp(estimatedDeparture))
-                        .param("eta", timestamp(estimatedArrival))
-                        .param("changedAt", timestamp(changedAt))
+                        .param("etd", Timestamp.from(estimatedDeparture))
+                        .param("eta", Timestamp.from(estimatedArrival))
+                        .param("changedAt", Timestamp.from(changedAt))
                         .param("flightNumber", flightKey.flightNumber())
                         .param("date", flightKey.scheduledDepartureDate())
                         .param("departure", flightKey.departureAirportCode().value())
@@ -169,18 +169,9 @@ class DbFlightCopyRepository implements FlightCopyRepository {
                 key,
                 new AirportCode(row.getString("arrival_airport_code")),
                 FlightStatus.valueOf(row.getString("status")),
-                instant(row.getTimestamp("scheduled_departure")),
-                instant(row.getTimestamp("scheduled_arrival")),
-                instant(row.getTimestamp("estimated_departure")),
-                instant(row.getTimestamp("estimated_arrival")));
-    }
-
-    // estimates may be missing so both directions keep null
-    private static Timestamp timestamp(Instant instant) {
-        return instant == null ? null : Timestamp.from(instant);
-    }
-
-    private static Instant instant(Timestamp timestamp) {
-        return timestamp == null ? null : timestamp.toInstant();
+                row.getTimestamp("scheduled_departure").toInstant(),
+                row.getTimestamp("scheduled_arrival").toInstant(),
+                row.getTimestamp("estimated_departure").toInstant(),
+                row.getTimestamp("estimated_arrival").toInstant());
     }
 }
