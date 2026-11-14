@@ -2,7 +2,7 @@
 
 ![Air Freight Operations banner](docs/screenshots/banner.png)
 
-Stack: Java 22, Spring Boot 4.1.1, Gradle 9.7.1 (multi-project build), PostgreSQL, RabbitMQ, Keycloak. The design is in [architecture/analyse.md](architecture/analyse.md).
+Stack: Java 22, Spring Boot 4.1.1, Gradle 9.7.1 (multi-project build), PostgreSQL, RabbitMQ, Keycloak.
 
 | Project | Port | Database | Purpose |
 | --- | --- | --- | --- |
